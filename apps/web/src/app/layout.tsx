@@ -1,6 +1,9 @@
 import type { Metadata } from "next";
 import "./globals.css";
 
+const siteUrl = process.env.NEXT_PUBLIC_APP_URL || "https://sfic.wb.gov.in";
+const ogImageUrl = `${siteUrl}/images/og-image.jpg`;
+
 export const metadata: Metadata = {
     title: "Sewa First Innovation Challenge, Under Sewa Sankalp Abhiyan",
     description:
@@ -23,23 +26,23 @@ export const metadata: Metadata = {
     },
     manifest: "/manifest.json",
     alternates: {
-        canonical: "https://sfic.aranax.dev",
+        canonical: siteUrl,
         languages: {
-            en: "https://sfic.aranax.dev/en",
-            hi: "https://sfic.aranax.dev/hi",
-            bn: "https://sfic.aranax.dev/bn",
+            en: `${siteUrl}/en`,
+            hi: `${siteUrl}/hi`,
+            bn: `${siteUrl}/bn`,
         },
     },
     openGraph: {
         type: "website",
-        url: "https://sfic.aranax.dev",
+        url: siteUrl,
         title: "Sewa First Innovation Challenge 2026",
         description:
             "Join the Sewa First Innovation Challenge 2026. Submit innovative solutions to real-world problems. Challenge period: 17 September - 17 October 2026.",
         siteName: "Sewa First Innovation Challenge",
         images: [
             {
-                url: "/images/og-image.jpg",
+                url: ogImageUrl,
                 width: 1200,
                 height: 630,
                 alt: "Sewa First Innovation Challenge 2026 - Eastern Region",
@@ -51,7 +54,7 @@ export const metadata: Metadata = {
         title: "Sewa First Innovation Challenge 2026",
         description:
             "Join the innovation challenge. Challenge period: 17 Sep - 17 Oct 2026. Open to Eastern & North-Eastern India.",
-        images: ["/images/og-image.jpg"],
+        images: [ogImageUrl],
         creator: "@WBGovt",
     },
     formatDetection: {

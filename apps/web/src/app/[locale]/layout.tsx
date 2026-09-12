@@ -12,89 +12,100 @@ import { locales } from "@/i18n/locales";
 import { getSiteContent } from "@/content";
 
 const tiroBangla = Tiro_Bangla({
-  display: "swap",
-  preload: false,
-  subsets: ["bengali"],
-  variable: "--font-tiro-bangla",
-  weight: "400",
+    display: "swap",
+    preload: false,
+    subsets: ["bengali"],
+    variable: "--font-tiro-bangla",
+    weight: "400",
 });
 
 const notoSerifDevanagari = Noto_Serif_Devanagari({
-  display: "swap",
-  preload: false,
-  subsets: ["devanagari"],
-  variable: "--font-noto-serif-devanagari",
+    display: "swap",
+    preload: false,
+    subsets: ["devanagari"],
+    variable: "--font-noto-serif-devanagari",
 });
 
 export function generateStaticParams() {
-  return locales.map((locale) => ({ locale }));
+    return locales.map((locale) => ({ locale }));
 }
 export async function generateMetadata({
-  params,
+    params,
 }: {
-  params: Promise<{ locale: string }>;
+    params: Promise<{ locale: string }>;
 }): Promise<Metadata> {
-  const { locale } = await params;
-  const content = getSiteContent(locale);
-  const seoData = content.seo;
+    const { locale } = await params;
+    const content = getSiteContent(locale);
+    const seoData = content.seo;
+    const siteUrl = process.env.NEXT_PUBLIC_APP_URL || "https://sfic.wb.gov.in";
+    const ogImageUrl = `${siteUrl}${seoData.ogImage}`;
 
-  return {
-    title: seoData.title,
-    description: seoData.description,
-    keywords: seoData.keywords,
-    alternates: {
-      languages: { en: "/en", bn: "/bn", hi: "/hi", "x-default": "/en" },
-    },
-    openGraph: {
-      type: "website",
-      locale,
-      title: seoData.title,
-      description: seoData.description,
-      images: [
-        {
-          url: seoData.ogImage,
-          width: 1200,
-          height: 630,
-          alt: seoData.ogImageAlt,
+    return {
+        title: seoData.title,
+        description: seoData.description,
+        keywords: seoData.keywords,
+        alternates: {
+            languages: {
+                en: `${siteUrl}/en`,
+                bn: `${siteUrl}/bn`,
+                hi: `${siteUrl}/hi`,
+                "x-default": `${siteUrl}/en`,
+            },
         },
-      ],
-    },
-    twitter: {
-      card: "summary_large_image",
-      title: seoData.title,
-      description: seoData.description,
-      images: [seoData.ogImage],
-    },
-  };
+        openGraph: {
+            type: "website",
+            locale,
+            title: seoData.title,
+            description: seoData.description,
+            url: `${siteUrl}/${locale}`,
+            images: [
+                {
+                    url: ogImageUrl,
+                    width: 1200,
+                    height: 630,
+                    alt: seoData.ogImageAlt,
+                },
+            ],
+        },
+        twitter: {
+            card: "summary_large_image",
+            title: seoData.title,
+            description: seoData.description,
+            images: [ogImageUrl],
+        },
+    };
 }
 export default async function LocaleLayout({
-  children,
-  params,
+    children,
+    params,
 }: Readonly<{
-  children: React.ReactNode;
-  params: Promise<{ locale: string }>;
+    children: React.ReactNode;
+    params: Promise<{ locale: string }>;
 }>) {
-  const { locale } = await params;
-  if (!locales.includes(locale as (typeof locales)[number])) notFound();
-  const messages = (await import(`../../messages/${locale}.json`)).default;
-  const localeFontClass =
-    locale === "bn"
-      ? tiroBangla.variable
-      : locale === "hi"
-        ? notoSerifDevanagari.variable
-        : "";
-  return (
-    <NextIntlClientProvider locale={locale} messages={messages}>
-      <Providers>
-        <LocaleDigitLocalizer className={localeFontClass} locale={locale}>
-          <ScrollAnimations>
-            <UtilityBar />
-            <MainHeader />
-            <main id="main-content">{children}</main>
-            <Footer locale={locale} />
-          </ScrollAnimations>
-        </LocaleDigitLocalizer>
-      </Providers>
-    </NextIntlClientProvider>
-  );
+    const { locale } = await params;
+    if (!locales.includes(locale as (typeof locales)[number])) notFound();
+    const messages = (await import(`../../messages/${locale}.json`)).default;
+    const localeFontClass =
+        locale === "bn"
+            ? tiroBangla.variable
+            : locale === "hi"
+              ? notoSerifDevanagari.variable
+              : "";
+    return (
+        <NextIntlClientProvider locale={locale} messages={messages}>
+            <Providers>
+                <LocaleDigitLocalizer
+                    className={localeFontClass}
+                    locale={locale}
+                >
+                    <ScrollAnimations>
+                        <UtilityBar />
+                        <MainHeader />
+                        <main id="main-content">{children}</main>
+                        <Footer locale={locale} />
+                    </ScrollAnimations>
+                </LocaleDigitLocalizer>
+            </Providers>
+        </NextIntlClientProvider>
+    );
 }
