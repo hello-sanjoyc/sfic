@@ -1,0 +1,15 @@
+{
+    "name": "SewaFirstInnovationChallenge",
+    "private": true,
+    "version": "0.1.0",
+    "packageManager": "pnpm@10.20.0",
+    "scripts": {
+        "dev:web": "pnpm --filter @SewaFirstInnovationChallenge/web dev",
+        "dev:api": "pnpm --filter @SewaFirstInnovationChallenge/api dev",
+        "dev": "pnpm -r --parallel --filter @SewaFirstInnovationChallenge/web --filter @SewaFirstInnovationChallenge/api dev",
+        "build": "pnpm -r --if-present build"
+    },
+    "engines": {
+        "node": ">=20.9.0"
+    }
+}

@@ -1,0 +1,4 @@
+"use client";
+import { ChevronDown } from "lucide-react";
+import { useState } from "react";
+export function FAQAccordion({ items }: { items: string[][] }) { const [open, setOpen] = useState(0); return <div data-motion="card" className="divide-y divide-slate-200 rounded-xl border border-slate-200 bg-white">{items.map(([question, answer], index) => <div key={question}><button className="flex w-full items-center justify-between gap-5 p-5 text-left font-semibold text-[#0b1f3a]" aria-expanded={open === index} onClick={() => setOpen(open === index ? -1 : index)}>{question}<ChevronDown className={open === index ? "rotate-180 transition-transform" : "transition-transform"} /></button>{open === index && <p className="px-5 pb-5 leading-7 text-slate-600">{answer}</p>}</div>)}</div>; }

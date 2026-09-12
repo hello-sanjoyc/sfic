@@ -1,0 +1,120 @@
+"use client";
+
+import { ArrowRight, X } from "lucide-react";
+import { usePathname, useSearchParams } from "next/navigation";
+import { useEffect, useRef, useState, type ReactNode } from "react";
+import { getSiteContent } from "@/content";
+import { RegistrationProcessForm } from "./registration-process-form";
+
+const registrationVisibilityKey =
+    "sewa-first-innovation-challenge-registration-form-visible";
+
+export function RegisterPageBody({
+  children,
+  id,
+}: {
+  children: ReactNode;
+  id?: string;
+}) {
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const locale = pathname.split("/")[1] || "en";
+  const content = getSiteContent(locale).register;
+  const [hasRestoredVisibility, setHasRestoredVisibility] = useState(false);
+  const [showForm, setShowForm] = useState(false);
+  const [showInfo, setShowInfo] = useState(false);
+  const sectionRef = useRef<HTMLElement>(null);
+
+  useEffect(() => {
+    setShowForm(localStorage.getItem(registrationVisibilityKey) === "true");
+    setHasRestoredVisibility(true);
+  }, []);
+
+  useEffect(() => {
+    if (searchParams.has("emailVerified")) {
+      setShowForm(true);
+    }
+  }, [searchParams]);
+
+  useEffect(() => {
+    if (!hasRestoredVisibility) return;
+
+    localStorage.setItem(registrationVisibilityKey, String(showForm));
+  }, [hasRestoredVisibility, showForm]);
+
+  const startRegistration = () => {
+    setShowForm(true);
+    setTimeout(() => {
+      sectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }, 0);
+  };
+
+  return (
+    <section
+      className="mx-auto max-w-5xl px-4 py-16 sm:px-6"
+      id={id}
+      ref={sectionRef}
+      tabIndex={id ? -1 : undefined}
+    >
+      {!showForm ? (
+        <>
+          <div className="grid gap-6">{children}</div>
+          <button
+            className="mt-8 inline-flex items-center rounded-md bg-[#ff9933] px-5 py-3 font-bold text-[#071426] transition hover:bg-[#f08a24]"
+            onClick={startRegistration}
+            type="button"
+          >
+            {content.startRegistration} <ArrowRight className="ml-2" size={18} />
+          </button>
+        </>
+      ) : (
+        <>
+          <div className="mb-5 flex justify-end">
+            <button
+              className="text-sm font-bold text-[#000080] underline underline-offset-4 hover:text-[#0b1f3a]"
+              onClick={() => setShowInfo(true)}
+              type="button"
+            >
+              {content.showInfo}
+            </button>
+          </div>
+          <RegistrationProcessForm showStartButton={false} startOpen />
+        </>
+      )}
+
+      {showInfo && (
+        <div
+          aria-labelledby="registration-info-title"
+          aria-modal="true"
+          className="fixed inset-0 z-50 overflow-y-auto bg-slate-950/70 px-4 py-8"
+          role="dialog"
+        >
+          <div className="mx-auto max-w-5xl rounded-xl bg-white p-5 shadow-2xl sm:p-6">
+            <div className="flex items-start justify-between gap-4 border-b border-slate-200 pb-4">
+              <div>
+                <p className="text-xs font-bold uppercase tracking-wider text-[#138808]">
+                  {content.details}
+                </p>
+                <h2
+                  className="mt-2 text-2xl font-bold text-[#0b1f3a]"
+                  id="registration-info-title"
+                >
+                  {content.title}
+                </h2>
+              </div>
+              <button
+                aria-label={content.closeInfo}
+                className="grid size-10 place-items-center rounded-md border border-slate-300 text-[#0b1f3a] hover:border-[#0b1f3a]"
+                onClick={() => setShowInfo(false)}
+                type="button"
+              >
+                <X size={18} />
+              </button>
+            </div>
+            <div className="mt-6 grid gap-6">{children}</div>
+          </div>
+        </div>
+      )}
+    </section>
+  );
+}
