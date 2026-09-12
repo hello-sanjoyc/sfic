@@ -23,15 +23,42 @@ body {
   margin: 0;
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, "Noto Sans Bengali", "Noto Sans Devanagari", sans-serif;
+  font-family: var(--font-ubuntu, Ubuntu), Arial, sans-serif;
 }
 
+/* English headings */
+html:lang(en) h1,
+html:lang(en) h2,
+html:lang(en) h3 {
+  font-family: var(--font-archivo-black, "Archivo Black"), sans-serif;
+}
+
+/* Bengali content */
 .locale-bn {
-  font-family: var(--font-tiro-bangla), "Tiro Bangla", serif;
+  font-family: var(--font-tiro-bangla, "Tiro Bangla"), serif;
 }
 
+.locale-bn h1,
+.locale-bn h2,
+.locale-bn h3,
+.locale-bn h4,
+.locale-bn h5,
+.locale-bn h6 {
+  font-family: var(--font-anek-bangla, "Anek Bangla"), sans-serif !important;
+}
+
+/* Hindi content */
 .locale-hi {
-  font-family: var(--font-noto-serif-devanagari), "Noto Serif Devanagari", serif;
+  font-family: var(--font-google-sans, "Google Sans"), sans-serif;
+}
+
+.locale-hi h1,
+.locale-hi h2,
+.locale-hi h3,
+.locale-hi h4,
+.locale-hi h5,
+.locale-hi h6 {
+  font-family: var(--font-rozha-one, "Rozha One"), serif !important;
 }
 
 .locale-bn .font-mono,
@@ -79,6 +106,20 @@ html[data-big-cursor="true"], html[data-big-cursor="true"] * { cursor: url("data
 .chakra-mark::before, .chakra-mark::after { content: ""; position: absolute; background: currentColor; opacity: .8; }
 .chakra-mark::before { width: 1px; height: 78%; }
 .chakra-mark::after { width: 78%; height: 1px; }
+.focus-stat-frame {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  transform: translateY(10px);
+  animation: focus-stat-cycle 9s ease-in-out infinite;
+}
+.focus-stat-frame:nth-child(2) { animation-delay: 3s; }
+.focus-stat-frame:nth-child(3) { animation-delay: 6s; }
+@keyframes focus-stat-cycle {
+  0%, 7% { opacity: 0; transform: translateY(10px); }
+  12%, 30% { opacity: 1; transform: translateY(0); }
+  36%, 100% { opacity: 0; transform: translateY(-8px); }
+}
 .footer-surface {
   position: relative;
   isolation: isolate;
@@ -116,6 +157,8 @@ html[data-big-cursor="true"], html[data-big-cursor="true"] * { cursor: url("data
 }
 @media (prefers-reduced-motion: reduce) {
   .footer-surface > .footer-globe { animation: none; }
+  .focus-stat-frame { animation: none; opacity: 0; transform: none; }
+  .focus-stat-frame:first-child { opacity: 1; }
   html.motion-ready [data-motion] { opacity: 1; transform: none; animation: none; }
 }
 @media (min-width: 640px) {

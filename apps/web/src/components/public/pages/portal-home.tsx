@@ -1,17 +1,27 @@
 import {
+    ArrowDown,
     ArrowRight,
-    CheckCircle2,
+    ArrowUp,
     ClipboardList,
-    Medal,
+    CloudRain,
+    Diamond,
+    Fish,
+    Grid3X3,
+    Leaf,
+    Mountain,
     Scale,
+    Target,
+    TrendingUp,
+    UsersRound,
     UserRoundSearch,
+    Waves,
 } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import {
-    awards,
     benefits,
     evaluationCriteria,
+    flowNodes,
     heroSlides,
     stages,
     themes,
@@ -24,6 +34,81 @@ import { SectionHeading } from "../common/section-heading";
 import { StickyApply } from "../common/sticky-apply";
 
 const accent = ["bg-[#ff9933]", "bg-[#000080]", "bg-[#138808]", "bg-[#0b1f3a]"];
+const categoryBackground = ["bg-[#fff8f0]", "bg-[#e9f0fb]"];
+const chipBackground = ["bg-[#ffe9cc]", "bg-[#d6e4f7]"];
+const principleIcons = [Target, Diamond, TrendingUp];
+const principleIconColor = [
+    "text-[#ff9933]",
+    "text-[#000080]",
+    "text-[#138808]",
+];
+const focusCards = [
+    {
+        icon: CloudRain,
+        tone: "bg-[#ff7a1a]",
+    },
+    {
+        icon: Mountain,
+        tone: "bg-[#334196]",
+    },
+    {
+        icon: Leaf,
+        tone: "bg-[#258834]",
+    },
+    {
+        icon: Fish,
+        tone: "bg-[#2f72d7]",
+    },
+    {
+        icon: UsersRound,
+        tone: "bg-[#ff7a1a]",
+    },
+    {
+        icon: Grid3X3,
+        tone: "bg-[#0a348f]",
+    },
+    {
+        icon: Waves,
+        tone: "bg-[#258834]",
+    },
+];
+
+function FlowNodeCard({
+    node,
+    tone = false,
+}: {
+    node: (typeof flowNodes)[number] & { title: string; note: string };
+    tone?: boolean;
+}) {
+    const Icon = node.icon;
+    return (
+        <div
+            data-motion="card"
+            className={`flex items-center gap-3 rounded-full border py-2.5 pl-2.5 pr-5 shadow-md transition duration-300 ease-out hover:-translate-y-1 hover:shadow-xl ${
+                tone ? "sm:min-w-[19rem] sm:flex-1" : "w-full max-w-xs"
+            }`}
+            style={{
+                backgroundColor: `color-mix(in srgb, ${node.color} 12%, white)`,
+                borderColor: `color-mix(in srgb, ${node.color} 30%, white)`,
+            }}
+        >
+            <span
+                className="flex size-11 shrink-0 items-center justify-center rounded-full text-white"
+                style={{ backgroundColor: node.color }}
+            >
+                <Icon size={20} aria-hidden="true" />
+            </span>
+            <span className="text-left">
+                <span className="block whitespace-nowrap text-base font-bold text-[#0b1f3a]">
+                    {node.title}
+                </span>
+                <span className="block whitespace-nowrap text-sm text-slate-500">
+                    {node.note}
+                </span>
+            </span>
+        </div>
+    );
+}
 const eventJsonLd = {
     "@context": "https://schema.org",
     "@type": "Event",
@@ -97,17 +182,16 @@ export function PortalHome({ locale }: { locale: string }) {
         description: home.stages.items[index]?.[3] ?? stage.description,
         outcome: home.stages.items[index]?.[4] ?? stage.outcome,
     }));
-    const localizedAwards = awards.map((award, index) => ({
-        ...award,
-        title: home.recognition.awards[index]?.[0] ?? award.title,
-        value: home.recognition.awards[index]?.[1] ?? award.value,
-        note: home.recognition.awards[index]?.[2] ?? award.note,
-    }));
     const localizedBenefits = benefits.map((benefit, index) => ({
         ...benefit,
         title: home.recognition.benefits[index]?.[0] ?? benefit.title,
         description:
             home.recognition.benefits[index]?.[1] ?? benefit.description,
+    }));
+    const localizedFlow = flowNodes.map((node, index) => ({
+        ...node,
+        title: home.recognition.flow[index]?.title ?? node.title,
+        note: home.recognition.flow[index]?.note ?? node.note,
     }));
     const localizedCriteria = evaluationCriteria.map((criterion, index) => ({
         ...criterion,
@@ -186,16 +270,27 @@ export function PortalHome({ locale }: { locale: string }) {
                         title={home.about.title}
                         description={home.about.description}
                     />
-                    <ul className="mt-7 grid gap-3 text-slate-700">
-                        {home.about.bullets.map((item) => (
-                            <li className="flex gap-3" key={item}>
-                                <CheckCircle2
-                                    className="mt-0.5 shrink-0 text-[#138808]"
-                                    size={19}
-                                />
-                                {item}
-                            </li>
-                        ))}
+                    <ul className="mt-7 grid gap-4 text-slate-700">
+                        {home.about.bullets.map((item, index) => {
+                            const Icon = principleIcons[index % principleIcons.length];
+                            const heading = home.about.principles[index]?.label;
+                            return (
+                                <li className="flex gap-3" key={item}>
+                                    <Icon
+                                        className={`mt-0.5 shrink-0 ${principleIconColor[index % principleIconColor.length]}`}
+                                        size={19}
+                                    />
+                                    <p>
+                                        {heading && (
+                                            <span className="font-extrabold text-[#0b1f3a]">
+                                                {heading}:{" "}
+                                            </span>
+                                        )}
+                                        {item}
+                                    </p>
+                                </li>
+                            );
+                        })}
                     </ul>
                     <div className="mt-8 flex flex-wrap items-center gap-5">
                         <Link
@@ -209,19 +304,19 @@ export function PortalHome({ locale }: { locale: string }) {
                 <div data-motion="image" className="relative aspect-[1.554/1] w-full">
                     <div
                         aria-hidden="true"
-                        className="absolute left-0 top-0 h-[92.5%] w-[95.2%] bg-[#ffd280]"
+                        className="absolute left-0 top-0 h-[92.5%] w-[95.2%] rounded-3xl bg-[#ffd280]"
                     />
                     <div
                         aria-hidden="true"
-                        className="absolute bottom-0 right-0 h-[92.5%] w-[95.2%] bg-[#cdffb9]"
+                        className="absolute bottom-0 right-0 h-[92.5%] w-[95.2%] rounded-3xl bg-[#cdffb9]"
                     />
-                    <div className="absolute left-[2.4%] top-[3.75%] h-[92.5%] w-[95.2%] overflow-hidden">
+                    <div className="absolute left-[2.4%] top-[3.75%] h-[92.5%] w-[95.2%] overflow-hidden rounded-3xl">
                         <Image
                             src="/images/about.webp"
                             alt="Researchers collaborating around a prototype"
                             fill
                             sizes="(min-width: 1024px) 50vw, 100vw"
-                            className="object-cover"
+                            className="rounded-3xl object-cover"
                         />
                     </div>
                 </div>
@@ -243,7 +338,7 @@ export function PortalHome({ locale }: { locale: string }) {
                         {home.participation.categories.map((category, index) => (
                             <article
                                 data-motion="card"
-                                className="contrast-surface border border-slate-200 bg-white p-6"
+                                className={`contrast-surface rounded-2xl border border-slate-200 p-6 ${categoryBackground[index % categoryBackground.length]}`}
                                 key={category.title}
                             >
                                 <span
@@ -255,7 +350,7 @@ export function PortalHome({ locale }: { locale: string }) {
                                 <div className="mt-5 flex flex-wrap gap-2">
                                     {category.people.map((person) => (
                                         <span
-                                            className="rounded-sm bg-slate-100 px-3 py-1.5 text-sm font-semibold text-slate-700"
+                                            className={`rounded-full px-3 py-1.5 text-sm font-semibold text-slate-700 ${chipBackground[index % chipBackground.length]}`}
                                             key={person}
                                         >
                                             {person}
@@ -290,7 +385,7 @@ export function PortalHome({ locale }: { locale: string }) {
                                 <Link
                                     href={link("#themes")}
                                     data-motion="card"
-                                    className="contrast-surface group relative border border-slate-200 bg-white p-5 transition hover:-translate-y-0.5 hover:border-[#000080] hover:shadow-md"
+                                    className="contrast-surface group relative overflow-hidden rounded-2xl border border-slate-200 bg-white p-5 transition hover:-translate-y-0.5 hover:border-[#000080] hover:shadow-md"
                                     key={theme.slug}
                                 >
                                     <span
@@ -306,9 +401,6 @@ export function PortalHome({ locale }: { locale: string }) {
                                     <p className="mt-2 text-sm leading-6 text-slate-600">
                                         {theme.description}
                                     </p>
-                                    <p className="mt-4 font-mono text-xs font-semibold text-slate-500">
-                                        {theme.count} {home.themes.possibleAreas}
-                                    </p>
                                 </Link>
                             );
                         })}
@@ -317,30 +409,102 @@ export function PortalHome({ locale }: { locale: string }) {
             </section>
 
             {/* Eastern focus */}
-            <section className="mx-auto max-w-7xl px-4 py-20 sm:px-6">
-                <SectionHeading
-                    eyebrow={home.focus.eyebrow}
-                    title={home.focus.title}
-                    description={home.focus.description}
-                />
-                <div className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                    {home.focus.items.map(([title, description], index) => (
-                        <article
-                            data-motion="card"
-                            className="contrast-surface border border-slate-200 bg-white p-5"
-                            key={title}
+            <section
+                className="relative overflow-hidden bg-[#f8fbfb] py-16 lg:py-20"
+                style={{
+                    backgroundImage: "url('/images/eastern-region.webp')",
+                    backgroundPosition: "center bottom",
+                    backgroundRepeat: "no-repeat",
+                    backgroundSize: "cover",
+                }}
+            >
+                <div className="absolute inset-0 bg-white/45" aria-hidden="true" />
+                <div className="relative mx-auto max-w-7xl px-4 sm:px-6">
+                    <div className="max-w-4xl">
+                        <p className="text-xs font-black uppercase tracking-[0.22em] text-[#0b1f3a]">
+                            {home.focus.eyebrow}
+                        </p>
+                        <div className="mt-4 flex gap-6" aria-hidden="true">
+                            <span className="h-1 w-9 bg-[#ff9933]" />
+                            <span className="h-1 w-9 bg-[#138808]" />
+                        </div>
+                        <h2 className="mt-5 max-w-3xl text-3xl font-bold leading-tight tracking-tight text-[#0b1f3a] md:text-4xl">
+                            {home.focus.title}
+                        </h2>
+                        <p className="mt-8 max-w-3xl text-lg leading-8 text-slate-600">
+                            {home.focus.description}
+                        </p>
+                        <p className="mt-8 max-w-2xl text-2xl font-semibold italic leading-snug text-[#0b1f3a]">
+                            {home.focus.tagline[0]}
+                            <br />
+                            {home.focus.tagline[1]}
+                        </p>
+                        <div className="mt-4 flex gap-6" aria-hidden="true">
+                            <span className="h-1 w-9 bg-[#ff9933]" />
+                            <span className="h-1 w-9 bg-[#138808]" />
+                        </div>
+                    </div>
+
+                    <div className="mt-14 grid gap-5 md:grid-cols-2 lg:grid-cols-4">
+                        <div
+                            data-motion="text"
+                            className="relative grid min-h-[12rem] place-items-center overflow-hidden px-4 py-3 text-center"
                         >
-                            <span
-                                className={`block h-1 w-16 ${accent[index % accent.length]}`}
-                            />
-                            <h3 className="mt-5 font-bold text-[#0b1f3a]">
-                                {title}
-                            </h3>
-                            <p className="mt-2 text-sm leading-6 text-slate-600">
-                                {description}
-                            </p>
-                        </article>
-                    ))}
+                            <div className="focus-stat-rotator relative min-h-[7.75rem] w-full">
+                                {home.focus.stats.map(([value, label], index) => {
+                                    const statIcons = [UsersRound, Leaf, Mountain];
+                                    const statTones = [
+                                        "text-[#ff9933]",
+                                        "text-[#138808]",
+                                        "text-[#000080]",
+                                    ];
+                                    const Icon = statIcons[index % statIcons.length];
+                                    const tone = statTones[index % statTones.length];
+
+                                    return (
+                                    <div className="focus-stat-frame" key={label}>
+                                        <div className="flex items-end justify-center gap-3">
+                                            <Icon className={`${tone} mb-1 shrink-0`} size={34} aria-hidden="true" />
+                                            <p className="text-5xl font-black leading-none tracking-tight text-[#0b1f3a]">
+                                                {value}
+                                            </p>
+                                        </div>
+                                        <p className="mt-2 text-lg font-extrabold leading-tight text-slate-700">
+                                            {label}
+                                        </p>
+                                    </div>
+                                    );
+                                })}
+                            </div>
+                        </div>
+                        {home.focus.items.map(([title, description], index) => {
+                            const card = focusCards[index % focusCards.length];
+                            const Icon = card.icon;
+                            return (
+                                <article
+                                    data-motion="card"
+                                    className="rounded-2xl border border-white/60 bg-white/60 p-5 shadow-[0_12px_32px_rgba(15,23,42,.12)] backdrop-blur-md transition duration-300 ease-out hover:-translate-y-1 hover:scale-[1.015] hover:border-white/85 hover:bg-white/72 hover:shadow-[0_18px_42px_rgba(15,23,42,.18)]"
+                                    key={title}
+                                >
+                                    <div className="flex gap-4">
+                                        <span
+                                            className={`grid size-14 shrink-0 place-items-center rounded-full text-white shadow-lg ${card.tone}`}
+                                        >
+                                            <Icon size={26} aria-hidden="true" />
+                                        </span>
+                                        <div>
+                                            <h3 className="text-lg font-black leading-snug text-[#0b1f3a]">
+                                                {title}
+                                            </h3>
+                                            <p className="mt-2 text-sm leading-6 text-slate-600">
+                                                {description}
+                                            </p>
+                                        </div>
+                                    </div>
+                                </article>
+                            );
+                        })}
+                    </div>
                 </div>
             </section>
 
@@ -358,7 +522,7 @@ export function PortalHome({ locale }: { locale: string }) {
                         {localizedStages.map((stage) => (
                             <li
                                 data-motion="card"
-                                className="contrast-surface group relative flex flex-col border border-slate-200 bg-white p-6 transition duration-300 ease-out hover:-translate-y-1 hover:border-[#ff9933] hover:shadow-[0_16px_36px_-22px_rgba(255,153,51,.9)]"
+                                className="contrast-surface group relative flex flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white p-6 transition duration-300 ease-out hover:-translate-y-1 hover:border-[#ff9933] hover:shadow-[0_16px_36px_-22px_rgba(255,153,51,.9)]"
                                 id={stage.slug}
                                 key={stage.slug}
                             >
@@ -399,93 +563,110 @@ export function PortalHome({ locale }: { locale: string }) {
             {/* Recognition */}
             <section
                 id="awards"
-                className="border-y border-slate-200 bg-[#f4f7fa] py-20"
+                className="relative overflow-hidden border-y border-slate-200 bg-[#f4f7fa] py-20"
             >
-                <div className="mx-auto grid max-w-7xl gap-10 px-4 sm:px-6 lg:grid-cols-[1.1fr_.9fr] lg:items-start">
-                    <div>
-                        <SectionHeading
-                            eyebrow={home.recognition.eyebrow}
-                            title={home.recognition.title}
-                            description={home.recognition.description}
+                <div
+                    aria-hidden="true"
+                    className="pointer-events-none absolute left-0 top-[100px] hidden aspect-[492/608] w-1/3 lg:block"
+                >
+                    <Image
+                        src="/images/recognition-left.webp"
+                        alt=""
+                        fill
+                        sizes="33vw"
+                        className="object-contain object-top"
+                    />
+                </div>
+                <div
+                    aria-hidden="true"
+                    className="pointer-events-none absolute right-0 top-0 hidden aspect-[492/608] w-1/3 lg:block"
+                >
+                    <Image
+                        src="/images/recognition-right.webp"
+                        alt=""
+                        fill
+                        sizes="33vw"
+                        className="object-contain object-right-top"
+                    />
+                </div>
+                <div className="relative z-10 mx-auto max-w-5xl px-4 text-center sm:px-6">
+                    <p className="flex items-center justify-center gap-3 text-xs font-bold uppercase tracking-[.25em] text-[#ff9933]">
+                        <span className="h-px w-8 bg-[#ff9933]" />
+                        {home.recognition.eyebrow}
+                        <span className="h-px w-8 bg-[#ff9933]" />
+                    </p>
+                    <h2 className="mt-4 text-3xl font-bold text-[#0b1f3a] sm:text-4xl md:text-5xl">
+                        {home.recognition.headlineLine1}
+                        <br />
+                        {home.recognition.headlineLine2}{" "}
+                        <span className="text-[#ff9933]">
+                            {home.recognition.headlineHighlight}
+                        </span>
+                    </h2>
+                    <p className="mx-auto mt-5 max-w-2xl text-base leading-7 text-slate-600">
+                        {home.recognition.flowNote}
+                    </p>
+                </div>
+
+                {/* Flow diagram */}
+                <div className="relative z-10 mx-auto mt-12 max-w-4xl px-4 sm:px-6">
+                    <div className="flex flex-col items-center">
+                        <FlowNodeCard node={localizedFlow[0]} />
+                        <ArrowDown
+                            aria-hidden="true"
+                            className="my-2 shrink-0 text-slate-400"
+                            size={22}
                         />
-                        <div className="mt-8 border border-slate-200 bg-white">
-                            <div className="flex flex-wrap items-baseline justify-between gap-2 border-b border-slate-200 bg-[#f4f7fa] px-5 py-4">
-                                <p className="text-xs font-bold uppercase tracking-wider text-slate-500">
-                                    {home.recognition.selected}
-                                </p>
-                                <p className="font-mono text-xs font-semibold text-slate-500">
-                                    {home.recognition.subject}
-                                </p>
-                            </div>
-                            <div className="px-5 py-6">
-                                <p className="text-4xl font-black tracking-tight text-[#0b1f3a] md:text-5xl">
-                                    {home.recognition.main}
-                                </p>
-                                <div className="mt-6 grid gap-3 sm:grid-cols-3">
-                                    {localizedAwards.map((award, index) => (
-                                        <article
-                                            data-motion="card"
-                                            className="contrast-surface border border-slate-200 p-4"
-                                            key={award.title}
-                                        >
-                                            <Medal
-                                                className={
-                                                    index === 0
-                                                        ? "text-[#ff9933]"
-                                                        : index === 1
-                                                          ? "text-[#000080]"
-                                                          : "text-[#138808]"
-                                                }
-                                            />
-                                            <p className="mt-4 text-sm font-semibold text-slate-600">
-                                                {award.title}
-                                            </p>
-                                            <p className="mt-1 text-xl font-bold text-[#0b1f3a]">
-                                                {award.value}
-                                            </p>
-                                            <p className="mt-1 text-xs text-slate-500">
-                                                {award.note}
-                                            </p>
-                                        </article>
-                                    ))}
-                                </div>
-                                <p className="mt-5 text-sm text-slate-600">
-                                    {home.recognition.body}
-                                </p>
-                            </div>
+                        <div className="flex w-full flex-col items-stretch gap-3 sm:flex-row sm:items-center sm:justify-center">
+                            <FlowNodeCard node={localizedFlow[1]} tone />
+                            <ArrowRight
+                                aria-hidden="true"
+                                className="mx-auto hidden shrink-0 text-slate-400 sm:block"
+                                size={22}
+                            />
+                            <FlowNodeCard node={localizedFlow[2]} tone />
+                            <ArrowRight
+                                aria-hidden="true"
+                                className="mx-auto hidden shrink-0 text-slate-400 sm:block"
+                                size={22}
+                            />
+                            <FlowNodeCard node={localizedFlow[3]} tone />
                         </div>
+                        <ArrowUp
+                            aria-hidden="true"
+                            className="my-2 shrink-0 text-slate-400"
+                            size={22}
+                        />
+                        <FlowNodeCard node={localizedFlow[4]} />
                     </div>
-                    <div data-motion="card" className="rounded-xl bg-[#0b1f3a] p-7 text-white">
-                        <p className="font-mono text-[10px] font-extrabold uppercase tracking-[.18em] text-[#ffd29f]">
-                            {home.recognition.beyond}
-                        </p>
-                        <h3 className="mt-3 text-2xl font-bold">
-                            {home.recognition.finalist}
-                        </h3>
-                        <div className="mt-7 grid gap-5 sm:grid-cols-2">
-                            {localizedBenefits.map((benefit, index) => {
-                                const Icon = benefit.icon;
-                                return (
-                                    <div
-                                        className={`border-l-2 pl-4 ${index % 2 ? "border-[#138808]" : "border-[#ff9933]"}`}
-                                        key={benefit.title}
-                                    >
-                                        <Icon
-                                            size={18}
-                                            className="text-slate-300"
-                                            aria-hidden="true"
-                                        />
-                                        <p className="mt-2 font-bold">
-                                            {benefit.title}
-                                        </p>
-                                        <p className="mt-1 text-sm leading-6 text-slate-300">
-                                            {benefit.description}
-                                        </p>
-                                    </div>
-                                );
-                            })}
-                        </div>
-                    </div>
+                </div>
+
+                {/* Support grid */}
+                <div className="relative z-10 mx-auto mt-14 grid max-w-7xl gap-4 px-4 sm:grid-cols-2 sm:px-6 lg:grid-cols-3 xl:grid-cols-6">
+                    {localizedBenefits.map((benefit, index) => {
+                        const Icon = benefit.icon;
+                        return (
+                            <article
+                                data-motion="card"
+                                className="contrast-surface rounded-2xl border border-slate-200 bg-white p-5"
+                                key={benefit.title}
+                            >
+                                <Icon
+                                    className={
+                                        index % 2 ? "text-[#138808]" : "text-[#ff9933]"
+                                    }
+                                    size={22}
+                                    aria-hidden="true"
+                                />
+                                <p className="mt-3 font-bold text-[#0b1f3a]">
+                                    {benefit.title}
+                                </p>
+                                <p className="mt-1.5 text-sm leading-6 text-slate-600">
+                                    {benefit.description}
+                                </p>
+                            </article>
+                        );
+                    })}
                 </div>
             </section>
 
@@ -526,7 +707,7 @@ export function PortalHome({ locale }: { locale: string }) {
                                 </p>
                             </div>
                         </div>
-                        <ol className="contrast-surface divide-y divide-slate-200 border border-slate-200 bg-white">
+                        <ol className="contrast-surface divide-y divide-slate-200 overflow-hidden rounded-2xl border border-slate-200 bg-white">
                             {home.submission.items.map(([title, description], index) => (
                                 <li
                                     data-motion="card"
@@ -603,27 +784,41 @@ export function PortalHome({ locale }: { locale: string }) {
 
             {/* Final CTA */}
             <section id="apply" className="mx-auto max-w-7xl px-4 sm:px-6">
-                <div data-motion="text" className="science-grid rounded-xl bg-[#071426] px-6 py-14 text-white md:px-12 lg:flex lg:items-center lg:justify-between lg:gap-10">
-                    <div>
+                <div data-motion="text" className="relative min-h-[28rem] overflow-hidden rounded-2xl border border-blue-100 bg-[#f5fbff] px-6 py-10 shadow-sm sm:px-10 md:min-h-[23rem] md:py-12 lg:min-h-[22rem] lg:px-14">
+                    <Image
+                        src="/images/cta-bg.webp"
+                        alt=""
+                        fill
+                        sizes="(min-width: 1280px) 1200px, 100vw"
+                        className="pointer-events-none object-contain object-bottom opacity-45 sm:opacity-55 md:object-right-bottom md:opacity-90"
+                    />
+                    <div className="pointer-events-none absolute inset-y-0 left-0 w-full bg-gradient-to-r from-[#f5fbff] via-[#f5fbff]/92 to-[#f5fbff]/10 md:w-[62%]" />
+                    <div className="relative z-10 max-w-2xl">
                         <div className="tri-accent">
                             <span />
                             <span />
                             <span />
                         </div>
-                        <h2 className="mt-6 max-w-2xl text-3xl font-bold md:text-4xl">
-                        {home.heroSlides[0].title}
-                        </h2>
-                        <p className="mt-4 max-w-xl leading-7 text-slate-300">
-                        {home.heroSlides[2].description}
+                        <p className="mt-5 text-xs font-black uppercase tracking-[0.22em] text-slate-700">
+                            {home.cta.eyebrow}
                         </p>
-                    </div>
-                    <div className="mt-8 flex shrink-0 lg:mt-0">
+                        <h2 className="mt-5 text-4xl font-black leading-tight tracking-tight text-[#0b1f3a] md:text-5xl">
+                            {home.cta.titleLine1}
+                            <br />
+                            {home.cta.titleLine2}
+                        </h2>
+                        <p className="mt-5 max-w-xl text-base font-medium leading-7 text-slate-700 md:text-lg">
+                            {home.cta.description}
+                        </p>
                         <Link
-                            className="rounded-md bg-[#ff9933] px-9 py-5 text-lg font-bold text-[#071426] transition hover:bg-[#f08a24]"
+                            className="mt-8 inline-flex items-center gap-3 rounded-full bg-[#ff6b1a] px-8 py-4 text-lg font-bold text-white shadow-[0_14px_30px_rgba(255,107,26,.25)] transition hover:-translate-y-0.5 hover:bg-[#f08a24]"
                             href={link("/register")}
                         >
-                            {content.common.applyNow}
+                            {content.common.applyNow} <ArrowRight size={20} />
                         </Link>
+                        <p className="mt-7 text-xs font-black uppercase tracking-[0.22em] text-[#5f8fce]">
+                            {home.cta.footer}
+                        </p>
                     </div>
                 </div>
             </section>

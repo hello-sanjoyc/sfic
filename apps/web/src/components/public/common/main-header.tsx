@@ -63,7 +63,7 @@ export function MainHeader() {
           <nav className="hidden items-center gap-4 text-[15px] font-semibold text-slate-700 xl:flex">
             {nav.map(([label, part]) => <Link className="border-b-2 border-transparent py-2 transition hover:border-[#ff9933] hover:text-[#000080]" href={href(part)} key={label} onClick={handleNavClick(part)}>{label}</Link>)}
           </nav>
-          <div className="hidden items-center gap-3 md:flex"><Link className="text-base font-bold text-[#0b1f3a]" href={actionHref("/login")}>{content.common.login}</Link><Link className="rounded-sm bg-[#ff9933] px-4 py-2.5 text-base font-extrabold text-[#071426] transition hover:bg-[#f08a24]" href={actionHref("/register")}>{content.common.applyNow}</Link></div>
+          <div className="hidden items-center gap-3 md:flex"><Link className="text-base font-bold text-[#0b1f3a]" href={actionHref("/login")}>{content.common.login}</Link><Link className="rounded-full bg-[#ff9933] px-4 py-2.5 text-base font-extrabold text-[#071426] transition hover:bg-[#f08a24]" href={actionHref("/register")}>{content.common.applyNow}</Link></div>
           <button className="rounded-full p-2 text-[#071426] xl:hidden" aria-label="Open navigation" onClick={() => setOpen(true)}><Menu size={26} /></button>
         </div>
       </header>
@@ -91,7 +91,7 @@ export function MainHeader() {
             ))}
           </nav>
           <div className="border-t border-slate-200 bg-white px-4 py-4">
-            <Link className="block rounded-sm bg-[#ff9933] px-4 py-3 text-center text-base font-extrabold text-[#071426] transition hover:bg-[#f08a24]" href={actionHref("/register")} onClick={() => setOpen(false)}>{content.common.applyNow}</Link>
+            <Link className="block rounded-full bg-[#ff9933] px-4 py-3 text-center text-base font-extrabold text-[#071426] transition hover:bg-[#f08a24]" href={actionHref("/register")} onClick={() => setOpen(false)}>{content.common.applyNow}</Link>
             <Link className="mt-3 block px-4 py-3 text-center text-base font-semibold text-[#0b1f3a] transition hover:text-[#ff9933]" href={actionHref("/login")} onClick={() => setOpen(false)}>{content.common.login}</Link>
           </div>
         </div>

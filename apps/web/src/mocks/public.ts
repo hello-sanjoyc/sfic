@@ -3,6 +3,7 @@ import {
     Atom,
     BadgeIndianRupee,
     Baby,
+    BarChart3,
     Bot,
     Briefcase,
     Building2,
@@ -12,12 +13,17 @@ import {
     GraduationCap,
     Landmark,
     Leaf,
+    Lightbulb,
     MapPin,
     Microscope,
+    Settings,
     ShieldCheck,
     SunMedium,
+    Sprout,
     Stethoscope,
     Telescope,
+    Trophy,
+    Users2,
     Van,
     Wheat,
     Wind,
@@ -446,6 +452,14 @@ export const awards = [
         note: "With potential implementation partners",
     },
 ];
+export type FlowNode = { title: string; note: string; icon: LucideIcon; color: string };
+export const flowNodes: FlowNode[] = [
+    { title: "Mentorship", note: "Guidance from experts", icon: Users2, color: "#138808" },
+    { title: "Prototype Support", note: "Turn ideas into working solutions", icon: Lightbulb, color: "#ff9933" },
+    { title: "Pilot", note: "Test and validate in real settings", icon: Settings, color: "#000080" },
+    { title: "Adoption Opportunities", note: "Pathways to real-world impact", icon: BarChart3, color: "#138808" },
+    { title: "Incubation", note: "Resources to help you grow", icon: Sprout, color: "#ff9933" },
+];
 export type Benefit = { title: string; description: string; icon: LucideIcon };
 export const benefits: Benefit[] = [
     {
@@ -482,7 +496,7 @@ export const benefits: Benefit[] = [
         title: "National recognition",
         description:
             "Strong local solutions can earn visibility through the Sewa First Innovation Challenge platform.",
-        icon: Building2,
+        icon: Trophy,
     },
 ];
 export type Criterion = { title: string; question: string; note: string };

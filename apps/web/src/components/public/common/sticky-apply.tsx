@@ -23,7 +23,7 @@ export function StickyApply({ href, label, hint, statusText, hideWhenVisible }: 
           <p className="flex items-center gap-1.5 text-[10px] font-extrabold uppercase tracking-[.14em] text-[#138808]"><span className="size-1.5 rounded-full bg-[#138808]" /> {statusText}</p>
           <p className="truncate text-xs font-semibold text-slate-600">{hint}</p>
         </div>
-        <Link className="inline-flex shrink-0 items-center gap-1.5 rounded-sm bg-[#ff9933] px-4 py-2.5 text-sm font-extrabold text-[#071426]" href={href}>{label} <ArrowRight size={15} /></Link>
+        <Link className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-[#ff9933] px-4 py-2.5 text-sm font-extrabold text-[#071426]" href={href}>{label} <ArrowRight size={15} /></Link>
       </div>
     </div>
   );

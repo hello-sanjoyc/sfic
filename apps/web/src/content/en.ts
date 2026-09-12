@@ -541,6 +541,14 @@ export const enContent = {
                 secondaryCTA: "View Timeline",
             },
         ],
+        cta: {
+            eyebrow: "Ideas today. Stronger tomorrow.",
+            titleLine1: "Innovate Locally.",
+            titleLine2: "Impact Nationally.",
+            description:
+                "Identify a local problem, build a practical solution, show how it can work, explain the impact and take it further.",
+            footer: "People · Innovation · Sustainability · Tomorrow",
+        },
         quick: [
             ["Challenge period", "17 September - 17 October 2026"],
             ["Regional hub", "Kolkata"],
@@ -559,6 +567,20 @@ export const enContent = {
                 "Show what the problem is, who it affects and why it matters.",
                 "Explain how the solution can be implemented, what it may cost and how long it may take.",
                 "Create a path towards prototypes, pilots, incubation and wider adoption.",
+            ],
+            principles: [
+                {
+                    label: "Understand",
+                    description: "Define the real problem",
+                },
+                {
+                    label: "Build",
+                    description: "Create a practical solution",
+                },
+                {
+                    label: "Implement",
+                    description: "Plan the route to adoption",
+                },
             ],
             link: "Who can participate",
         },
@@ -620,6 +642,12 @@ export const enContent = {
             title: "Why the Eastern Region matters",
             description:
                 "Eastern and North-Eastern India has a wide range of challenges and opportunities, from floods, river systems and climate risks to agriculture, fisheries, hill connectivity, healthcare, education, livelihoods and growing urban centres.",
+            stats: [
+                ["200+", "Million People"],
+                ["11", "States"],
+                ["Vast", "Opportunities"],
+            ],
+            tagline: ["Resilient People. Thriving Regions.", "A Stronger India."],
             items: [
                 ["Climate & Flood Resilience", "Flood forecasting, river monitoring, embankment monitoring, cyclone preparedness and community response."],
                 ["Himalayan & Hill Solutions", "Landslide monitoring, mountain connectivity, water management, remote healthcare and sustainable tourism."],
@@ -648,10 +676,22 @@ export const enContent = {
             ],
         },
         recognition: {
-            eyebrow: "RECOGNITION",
+            eyebrow: "RECOGNITION & SUPPORT",
             title: "Mentoring, pilot and adoption pathways",
             description:
                 "The Challenge proposes financial recognition along with mentorship, prototype or pilot support, incubation and adoption opportunities. The final prize structure will be announced separately.",
+            headlineLine1: "Your idea shouldn't end",
+            headlineLine2: "with a",
+            headlineHighlight: "certificate.",
+            flowNote:
+                "We help promising ideas move beyond the award — with mentorship, prototype support, pilot opportunities and a pathway to real-world impact.",
+            flow: [
+                { title: "Mentorship", note: "Guidance from experts" },
+                { title: "Prototype Support", note: "Turn ideas into working solutions" },
+                { title: "Pilot", note: "Test and validate in real settings" },
+                { title: "Adoption Opportunities", note: "Pathways to real-world impact" },
+                { title: "Incubation", note: "Resources to help you grow" },
+            ],
             selected: "Selected innovations",
             subject: "Subject to final Challenge guidelines",
             main: "Recognition + Support",

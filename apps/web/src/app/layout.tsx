@@ -1,5 +1,46 @@
 import type { Metadata, Viewport } from "next";
+import { Archivo_Black, Ubuntu, Anek_Bangla, Rozha_One, Google_Sans } from "next/font/google";
 import "./globals.css";
+
+const archivoBlack = Archivo_Black({
+    display: "swap",
+    preload: true,
+    subsets: ["latin"],
+    variable: "--font-archivo-black",
+    weight: "400",
+});
+
+const ubuntu = Ubuntu({
+    display: "swap",
+    preload: true,
+    subsets: ["latin"],
+    variable: "--font-ubuntu",
+    weight: ["300", "400", "500", "700"],
+});
+
+const anekBangla = Anek_Bangla({
+    display: "swap",
+    preload: true,
+    subsets: ["bengali"],
+    variable: "--font-anek-bangla",
+    weight: ["400", "500", "600", "700"],
+});
+
+const rozhaOne = Rozha_One({
+    display: "swap",
+    preload: true,
+    subsets: ["devanagari"],
+    variable: "--font-rozha-one",
+    weight: "400",
+});
+
+const googleSans = Google_Sans({
+    display: "swap",
+    preload: true,
+    subsets: ["devanagari"],
+    variable: "--font-google-sans",
+    weight: ["400", "500", "700"],
+});
 
 const siteUrl = process.env.NEXT_PUBLIC_APP_URL || "https://sfic.wb.gov.in";
 const ogImageUrl = `${siteUrl}/images/og-image.jpg`;
@@ -79,7 +120,7 @@ export default function RootLayout({
     children,
 }: Readonly<{ children: React.ReactNode }>) {
     return (
-        <html lang="en">
+        <html lang="en" className={`${archivoBlack.variable} ${ubuntu.variable} ${anekBangla.variable} ${rozhaOne.variable} ${googleSans.variable}`}>
             <head>
                 <meta name="theme-color" content="#0b1f3a" />
                 <meta name="msapplication-TileColor" content="#ff9933" />

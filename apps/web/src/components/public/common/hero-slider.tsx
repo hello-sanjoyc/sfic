@@ -41,8 +41,8 @@ export function HeroSlider({ slides }: { slides: HeroSlide[] }) {
                     <h1 className="mt-6 text-4xl font-extrabold tracking-tight sm:text-5xl md:text-[3.45rem] md:leading-[1.05]">{slide.title}</h1>
                     <p className="mt-5 max-w-lg text-base leading-7 text-[#071426]/85 md:text-lg">{slide.description}</p>
                     <div className="mt-8 flex flex-wrap gap-3">
-                      <Link href={slide.primaryCTA.href} className="rounded-sm bg-[#ff9933] px-5 py-3 font-extrabold text-[#071426] transition hover:bg-[#f08a24]">{slide.primaryCTA.label}</Link>
-                      <Link href={slide.secondaryCTA.href} className="rounded-sm border border-[#071426]/60 px-5 py-3 font-bold text-[#071426] transition hover:bg-[#071426]/10">{slide.secondaryCTA.label}</Link>
+                      <Link href={slide.primaryCTA.href} className="rounded-full bg-[#ff9933] px-5 py-3 font-extrabold text-[#071426] transition hover:bg-[#f08a24]">{slide.primaryCTA.label}</Link>
+                      <Link href={slide.secondaryCTA.href} className="rounded-full border border-[#071426]/60 px-5 py-3 font-bold text-[#071426] transition hover:bg-[#071426]/10">{slide.secondaryCTA.label}</Link>
                     </div>
                   </div>
                 </div>
