@@ -1,8 +1,14 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import "./globals.css";
 
 const siteUrl = process.env.NEXT_PUBLIC_APP_URL || "https://sfic.wb.gov.in";
 const ogImageUrl = `${siteUrl}/images/og-image.jpg`;
+
+export const viewport: Viewport = {
+    width: "device-width",
+    initialScale: 1,
+    maximumScale: 5,
+};
 
 export const metadata: Metadata = {
     title: "Sewa First Innovation Challenge, Under Sewa Sankalp Abhiyan",
@@ -15,7 +21,6 @@ export const metadata: Metadata = {
         "Department of Science & Technology and Biotechnology, Government of West Bengal",
     publisher: "Government of West Bengal",
     robots: "index, follow",
-    viewport: "width=device-width, initial-scale=1, maximum-scale=5",
     icons: {
         icon: [
             { url: "/favicon.svg", type: "image/svg+xml" },
