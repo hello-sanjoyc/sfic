@@ -1,6 +1,6 @@
 import { bnContent } from "./bn.js";
 import { enContent } from "./en.js";
-import { hnContent } from "./hn.js";
+import { hiContent } from "./hi.js";
 
 export type ApiContent = {
     api: {
@@ -111,15 +111,12 @@ export type ApiContent = {
 const contentByLanguage = {
     bn: bnContent,
     en: enContent,
-    hi: hnContent,
-    hn: hnContent,
+    hi: hiContent,
+    hn: hiContent,
 } satisfies Record<string, ApiContent>;
 
 export type ApiLanguage = keyof typeof contentByLanguage;
 
 export function getApiContent(language = "en"): ApiContent {
-    return (
-        contentByLanguage[language as ApiLanguage] ??
-        contentByLanguage.en
-    );
+    return contentByLanguage[language as ApiLanguage] ?? contentByLanguage.en;
 }

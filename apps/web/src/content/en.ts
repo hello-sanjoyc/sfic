@@ -2,9 +2,26 @@ export const enContent = {
     common: {
         login: "Login",
         applyNow: "Apply Now",
+        applicationsOpen: "Applications open",
         registerNow: "Register Now",
         exploreThemes: "Explore Themes",
         contactHelpdesk: "Contact the helpdesk",
+        months: {
+            short: {
+                jan: "Jan",
+                feb: "Feb",
+                mar: "Mar",
+                apr: "Apr",
+                may: "May",
+                jun: "Jun",
+                jul: "Jul",
+                aug: "Aug",
+                sep: "Sep",
+                oct: "Oct",
+                nov: "Nov",
+                dec: "Dec",
+            },
+        },
         accessibility: {
             skipToMain: "Skip to main content",
             options: "Accessibility options",
@@ -27,6 +44,13 @@ export const enContent = {
             screenReader: "Screen Reader",
             screenReaderEnabled: "Screen-reader guidance is enabled.",
         },
+    },
+    seo: {
+        title: "Sewa First Innovation Challenge 2026 | Eastern Region",
+        description: "Join the Sewa First Innovation Challenge 2026. Submit innovative solutions to real-world problems. Challenge period: 17 September - 17 October 2026. Open to participants from Eastern & North-Eastern India.",
+        keywords: "innovation challenge, hackathon, startup, innovation competition, West Bengal, Eastern India",
+        ogImage: "/images/og-image.jpg",
+        ogImageAlt: "Sewa First Innovation Challenge 2026 - Eastern Region",
     },
     header: {
         brand: "Sewa First Innovation Challenge",

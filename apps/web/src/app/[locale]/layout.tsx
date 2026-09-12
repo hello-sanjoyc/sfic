@@ -9,6 +9,7 @@ import { ScrollAnimations } from "@/components/public/common/scroll-animations";
 import { UtilityBar } from "@/components/public/common/utility-bar";
 import { Providers } from "@/components/providers";
 import { locales } from "@/i18n/locales";
+import { getSiteContent } from "@/content";
 
 const tiroBangla = Tiro_Bangla({
   display: "swap",
@@ -34,14 +35,36 @@ export async function generateMetadata({
   params: Promise<{ locale: string }>;
 }): Promise<Metadata> {
   const { locale } = await params;
+  const content = getSiteContent(locale);
+  const seoData = content.seo;
+
   return {
-    title: "Sewa First Innovation Challenge, Under Sewa Sankalp Abhiyan",
-    description:
-      "A public innovation challenge for science and technology solutions with real-world impact.",
+    title: seoData.title,
+    description: seoData.description,
+    keywords: seoData.keywords,
     alternates: {
       languages: { en: "/en", bn: "/bn", hi: "/hi", "x-default": "/en" },
     },
-    openGraph: { type: "website", locale },
+    openGraph: {
+      type: "website",
+      locale,
+      title: seoData.title,
+      description: seoData.description,
+      images: [
+        {
+          url: seoData.ogImage,
+          width: 1200,
+          height: 630,
+          alt: seoData.ogImageAlt,
+        },
+      ],
+    },
+    twitter: {
+      card: "summary_large_image",
+      title: seoData.title,
+      description: seoData.description,
+      images: [seoData.ogImage],
+    },
   };
 }
 export default async function LocaleLayout({

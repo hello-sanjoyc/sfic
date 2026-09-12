@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 180 180">
+  <!-- Background with rounded corners -->
+  <defs>
+    <style>
+      .background { fill: #0b1f3a; }
+      .accent-orange { stroke: #ff9933; stroke-width: 8; fill: none; }
+      .accent-green { stroke: #138808; stroke-width: 4; fill: none; }
+      .accent-blue { stroke: #000080; stroke-width: 4; fill: none; }
+      .center { fill: #ff9933; }
+      .text { fill: #ffffff; font-size: 80px; font-weight: bold; }
+    </style>
+  </defs>
+
+  <rect class="background" width="180" height="180" rx="40" ry="40"/>
+
+  <!-- Decorative circles -->
+  <circle class="accent-orange" cx="90" cy="90" r="75"/>
+  <circle class="accent-green" cx="90" cy="90" r="60"/>
+  <rect class="accent-blue" x="35" y="35" width="110" height="110"/>
+
+  <!-- Center badge -->
+  <circle class="center" cx="90" cy="90" r="25"/>
+  <text class="text" x="90" y="115" text-anchor="middle" font-family="Arial">S</text>
+</svg>

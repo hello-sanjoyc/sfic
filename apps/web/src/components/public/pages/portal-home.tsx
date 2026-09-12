@@ -137,11 +137,11 @@ export function PortalHome({ locale }: { locale: string }) {
                     {home.quick.map(([label, value], index) => (
                         <div
                             data-motion="card"
-                            className="relative flex min-h-[124px] flex-col justify-center py-5 md:px-6"
+                            className="relative flex min-h-[90px] flex-col justify-center py-3 md:px-6"
                             key={label}
                         >
                             {index === 0 && (
-                                <span className="mb-2 inline-flex items-center gap-1.5 text-[10px] font-extrabold uppercase tracking-[.14em] text-[#138808]">
+                                <span className="mb-1 inline-flex items-center gap-1.5 text-[10px] font-extrabold uppercase tracking-[.14em] text-[#138808]">
                                     <span className="size-1.5 rounded-full bg-[#138808]" />{" "}
                                     {home.liveNow}
                                 </span>
@@ -151,13 +151,13 @@ export function PortalHome({ locale }: { locale: string }) {
                             </p>
                             {index === 3 ? (
                                 <Link
-                                    className="mt-1 inline-flex items-center gap-1 text-sm font-bold text-[#000080] hover:underline"
+                                    className="mt-0.5 inline-flex items-center gap-1 text-sm font-bold text-[#000080] hover:underline"
                                     href={link("#contact")}
                                 >
                                     {value} <ArrowRight size={14} />
                                 </Link>
                             ) : (
-                                <p className="mt-1 text-sm font-bold text-[#0b1f3a]">
+                                <p className="mt-0.5 text-sm font-bold text-[#0b1f3a]">
                                     {value}
                                 </p>
                             )}
@@ -632,7 +632,8 @@ export function PortalHome({ locale }: { locale: string }) {
             <StickyApply
                 href={link("/register")}
                 label={content.common.applyNow}
-                hint="17 Sep - 17 Oct 2026"
+                statusText={content.common.applicationsOpen}
+                hint={`17 ${content.common.months.short.sep} - 17 ${content.common.months.short.oct} 2026`}
                 hideWhenVisible="apply"
             />
         </>

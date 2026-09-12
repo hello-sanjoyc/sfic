@@ -57,3 +57,7 @@ Thumbs.db
 *.pem
 *.key
 *.crt
+
+# Agent and local development files
+apps/web/AGENTS.md
+apps/web/CLAUDE.md

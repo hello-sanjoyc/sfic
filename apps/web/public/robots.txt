@@ -1,0 +1,26 @@
+# Robots.txt for Sewa First Innovation Challenge
+User-agent: *
+Allow: /
+Disallow: /admin
+Disallow: /api/internal
+Disallow: /*.json$
+Disallow: /*?*sort=
+Disallow: /search
+Disallow: /register/success
+
+# Specific rules for search engines
+User-agent: Googlebot
+Allow: /
+
+User-agent: Bingbot
+Allow: /
+
+# Crawl delay
+User-agent: *
+Crawl-delay: 1
+
+# Sitemaps
+Sitemap: https://sewa-innovation-challenge.wb.gov.in/sitemap.xml
+Sitemap: https://sewa-innovation-challenge.wb.gov.in/en/sitemap.xml
+Sitemap: https://sewa-innovation-challenge.wb.gov.in/hi/sitemap.xml
+Sitemap: https://sewa-innovation-challenge.wb.gov.in/bn/sitemap.xml
