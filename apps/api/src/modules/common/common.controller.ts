@@ -1,4 +1,5 @@
 import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
+import { sendError, sendSuccess, type MessageKey } from "./api-response.js";
 import { commonService, type DatabaseClient } from "./common.service.js";
 
 type FastifyWithDatabase = FastifyInstance & {
@@ -20,11 +21,9 @@ function requireDatabase(request: FastifyRequest, reply: FastifyReply) {
   const app = request.server;
   if (app.hasDecorator("pg")) return (app as FastifyWithDatabase).pg;
 
-  reply.code(503).send({
-    error: {
-      message: "Database is not configured.",
-    },
-    status: "error",
+  sendError(request, reply, {
+    messageKey: "databaseNotConfigured",
+    statusCode: 503,
   });
 
   return null;
@@ -33,16 +32,14 @@ function requireDatabase(request: FastifyRequest, reply: FastifyReply) {
 function handleFetchError(
   request: FastifyRequest,
   reply: FastifyReply,
-  message: string,
+  messageKey: MessageKey,
   error: unknown,
 ) {
   request.server.log.error(error);
 
-  return reply.code(500).send({
-    error: {
-      message,
-    },
-    status: "error",
+  return sendError(request, reply, {
+    messageKey,
+    statusCode: 500,
   });
 }
 
@@ -51,9 +48,12 @@ async function getStates(request: FastifyRequest, reply: FastifyReply) {
   if (!pg) return reply;
 
   try {
-    return { data: await commonService.getStates(pg) };
+    return sendSuccess(request, reply, {
+      data: await commonService.getStates(pg),
+      messageKey: "statesFetched",
+    });
   } catch (error) {
-    return handleFetchError(request, reply, "Unable to fetch states.", error);
+    return handleFetchError(request, reply, "unableFetchStates", error);
   }
 }
 
@@ -69,36 +69,33 @@ async function getDistricts(
     stateName?: string;
   };
   if (deprecatedQuery.state || deprecatedQuery.stateName) {
-    return reply.code(400).send({
-      error: {
-        message: "Use stateId to filter districts.",
-      },
-      status: "error",
+    return sendError(request, reply, {
+      messageKey: "useStateIdForDistricts",
+      statusCode: 400,
     });
   }
 
   const stateId = request.query.stateId?.trim();
 
   if (stateId && !/^\d+$/.test(stateId)) {
-    return reply.code(400).send({
-      error: {
-        message: "stateId must be a numeric value.",
-      },
-      status: "error",
+    return sendError(request, reply, {
+      messageKey: "stateIdNumeric",
+      statusCode: 400,
     });
   }
 
   try {
-    return {
+    return sendSuccess(request, reply, {
       data: await commonService.getDistricts(pg, {
         stateId: stateId ? Number(stateId) : undefined,
       }),
-    };
+      messageKey: "districtsFetched",
+    });
   } catch (error) {
     return handleFetchError(
       request,
       reply,
-      "Unable to fetch districts.",
+      "unableFetchDistricts",
       error,
     );
   }
@@ -112,12 +109,15 @@ async function getParticipantCategories(
   if (!pg) return reply;
 
   try {
-    return { data: await commonService.getParticipantCategories(pg) };
+    return sendSuccess(request, reply, {
+      data: await commonService.getParticipantCategories(pg),
+      messageKey: "participantCategoriesFetched",
+    });
   } catch (error) {
     return handleFetchError(
       request,
       reply,
-      "Unable to fetch participant categories.",
+      "unableFetchParticipantCategories",
       error,
     );
   }
@@ -139,15 +139,18 @@ async function getInstituteTypes(
   ).trim();
 
   try {
-    return await commonService.getInstituteTypesByParticipantCategory(
-      pg,
-      participantCategory,
-    );
+    return sendSuccess(request, reply, {
+      data: await commonService.getInstituteTypesByParticipantCategory(
+        pg,
+        participantCategory,
+      ),
+      messageKey: "instituteTypesFetched",
+    });
   } catch (error) {
     return handleFetchError(
       request,
       reply,
-      "Unable to fetch institute types.",
+      "unableFetchInstituteTypes",
       error,
     );
   }
@@ -161,14 +164,15 @@ async function getParticipantCategoryInstituteTypes(
   if (!pg) return reply;
 
   try {
-    return {
+    return sendSuccess(request, reply, {
       data: await commonService.getParticipantCategoryInstituteTypes(pg),
-    };
+      messageKey: "participantCategoryInstituteTypesFetched",
+    });
   } catch (error) {
     return handleFetchError(
       request,
       reply,
-      "Unable to fetch participant category institute type mappings.",
+      "unableFetchParticipantCategoryInstituteTypes",
       error,
     );
   }
@@ -182,12 +186,15 @@ async function getChallengeCategories(
   if (!pg) return reply;
 
   try {
-    return { data: await commonService.getChallengeCategories(pg) };
+    return sendSuccess(request, reply, {
+      data: await commonService.getChallengeCategories(pg),
+      messageKey: "challengeCategoriesFetched",
+    });
   } catch (error) {
     return handleFetchError(
       request,
       reply,
-      "Unable to fetch challenge categories.",
+      "unableFetchChallengeCategories",
       error,
     );
   }
@@ -198,12 +205,15 @@ async function getLookups(request: FastifyRequest, reply: FastifyReply) {
   if (!pg) return reply;
 
   try {
-    return { data: await commonService.getLookups(pg) };
+    return sendSuccess(request, reply, {
+      data: await commonService.getLookups(pg),
+      messageKey: "lookupsFetched",
+    });
   } catch (error) {
     return handleFetchError(
       request,
       reply,
-      "Unable to fetch common lookups.",
+      "unableFetchCommonLookups",
       error,
     );
   }

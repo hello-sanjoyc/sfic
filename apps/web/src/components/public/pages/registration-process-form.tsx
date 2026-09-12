@@ -92,6 +92,13 @@ type CreateRegistrationResponse = {
     };
     verificationUrl?: string;
 };
+type SubmitProposalResponse = {
+    application: RegistrationApplicationResponse;
+    emailDelivery: {
+        delivered: boolean;
+        reason?: string;
+    };
+};
 type RegistrationDetailsResponse = {
     application: RegistrationApplicationResponse;
     participant: {
@@ -212,6 +219,26 @@ function getParticipantCode(participantCategory: string) {
 
 function getParticipantCategoryFromCode(code: string) {
     return code.toUpperCase() === "JUNIOR" ? "Junior" : "Open";
+}
+
+function normalizeLocalizedDigits(value: string) {
+    return value.replace(/[০-৯०-९]/g, (digit) => {
+        const codePoint = digit.codePointAt(0) ?? 0;
+
+        if (codePoint >= 0x09e6 && codePoint <= 0x09ef) {
+            return String(codePoint - 0x09e6);
+        }
+
+        if (codePoint >= 0x0966 && codePoint <= 0x096f) {
+            return String(codePoint - 0x0966);
+        }
+
+        return digit;
+    });
+}
+
+function numericFieldValue(value: string, maxLength: number) {
+    return normalizeLocalizedDigits(value).replace(/\D/g, "").slice(0, maxLength);
 }
 
 function getOptionById<T extends LookupOption>(options: T[], id: string) {
@@ -550,10 +577,6 @@ function messageTemplate(
     );
 }
 
-function makeApplicationNumber() {
-    return `RIC-2026-${Math.random().toString(36).slice(2, 8).toUpperCase()}`;
-}
-
 function validateField(
     field: FieldName,
     values: FormValues,
@@ -834,8 +857,10 @@ export function RegistrationProcessForm({
     const [isEmailVerified, setIsEmailVerified] = useState(false);
     const [isSubmittingRegistration, setIsSubmittingRegistration] =
         useState(false);
+    const [isSubmittingProposal, setIsSubmittingProposal] = useState(false);
     const [registrationSubmitError, setRegistrationSubmitError] =
         useState("");
+    const [proposalSubmitError, setProposalSubmitError] = useState("");
     const [verificationMessage, setVerificationMessage] = useState("");
     const [stateOptions, setStateOptions] = useState<LookupOption[]>([]);
     const [districtOptions, setDistrictOptions] = useState<DistrictOption[]>([]);
@@ -903,11 +928,13 @@ export function RegistrationProcessForm({
     const hasTeamMemberErrors = teamMemberErrors.some(
         (errors) => Object.keys(errors).length > 0,
     );
+    const hasSubmittedRegistrationStep = Boolean(applicationId || participantId);
     const canContinue =
         Object.keys(currentErrors).length === 0 &&
         (step !== 1 || isEmailVerified) &&
         (step !== 2 || !hasTeamMemberErrors) &&
-        !isSubmittingRegistration;
+        !isSubmittingRegistration &&
+        !isSubmittingProposal;
     const hasReachedSupportingDocumentLimit =
         selectedSupportingDocuments.length >= maxSupportingDocuments;
 
@@ -1181,7 +1208,9 @@ export function RegistrationProcessForm({
                 field === "fullName"
                     ? rawValue.replace(nonMultilingualNameCharacters, "")
                     : field === "mobile"
-                      ? rawValue.replace(/\D/g, "").slice(0, 10)
+                      ? numericFieldValue(rawValue, 10)
+                      : field === "pinCode"
+                        ? numericFieldValue(rawValue, 10)
                       : isProposalElementField(field)
                         ? rawValue.slice(0, 1000)
                         : rawValue;
@@ -1258,7 +1287,7 @@ export function RegistrationProcessForm({
                 field === "fullName"
                     ? rawValue.replace(nonMultilingualNameCharacters, "")
                     : field === "mobile"
-                      ? rawValue.replace(/\D/g, "").slice(0, 10)
+                      ? numericFieldValue(rawValue, 10)
                       : rawValue;
 
             setTeamMembers((current) =>
@@ -1277,6 +1306,11 @@ export function RegistrationProcessForm({
     };
 
     const submitRegistrationStep = async () => {
+        if (hasSubmittedRegistrationStep) {
+            setRegistrationSubmitError(validationMessages.duplicateRegistration);
+            return;
+        }
+
         setIsSubmittingRegistration(true);
         setRegistrationSubmitError("");
         setVerificationMessage("");
@@ -1311,6 +1345,67 @@ export function RegistrationProcessForm({
         }
     };
 
+    const submitProposalStep = async () => {
+        if (!applicationId) {
+            setProposalSubmitError(
+                "Registration was not found. Please complete Step 1 again.",
+            );
+            return;
+        }
+
+        setIsSubmittingProposal(true);
+        setProposalSubmitError("");
+
+        try {
+            const payload = {
+                address: values.address,
+                beneficiaries: values.beneficiaries,
+                city: values.city,
+                costFunding: values.costFunding,
+                districtId: Number(values.districtId),
+                expectedImpact: values.expectedImpact,
+                implementationRoute: values.implementationRoute,
+                instituteName: values.organisationName,
+                instituteType: values.organisationType,
+                language: lookupLocale,
+                otherInstituteType: values.otherOrganisationType,
+                participationMode: values.participationMode,
+                pinCode: values.pinCode,
+                problemLocation: values.problemLocation,
+                projectTimeline: values.projectTimeline,
+                proposedSolution: values.proposedSolution,
+                prototypePilot: values.prototypePilot,
+                scalability: values.scalability,
+                stateId: Number(values.stateId),
+                teamMembers:
+                    values.participationMode === "Team" ? teamMembers : [],
+                technologyMethod: values.technologyMethod,
+                theme: values.theme,
+            };
+            const body = new FormData();
+            body.append("payload", JSON.stringify(payload));
+            selectedSupportingDocuments.forEach((file) => {
+                body.append("supportingDocuments", file, file.name);
+            });
+
+            const result = await apiClient.post<SubmitProposalResponse>(
+                endpoints.registrations.submitProposal(String(applicationId)),
+                body,
+            );
+
+            setApplicationNumber(result.application.applicationNumber);
+            setStep(4);
+        } catch (error) {
+            setProposalSubmitError(
+                error instanceof Error
+                    ? error.message
+                    : "Unable to submit proposal. Please try again.",
+            );
+        } finally {
+            setIsSubmittingProposal(false);
+        }
+    };
+
     const continueToNextStep = async (
         event: React.FormEvent<HTMLFormElement>,
     ) => {
@@ -1318,15 +1413,21 @@ export function RegistrationProcessForm({
         if (!canContinue) return;
 
         if (step === 0) {
+            if (isEmailVerified) {
+                setRegistrationSubmitError("");
+                setStep(2);
+                return;
+            }
+
             await submitRegistrationStep();
             return;
         }
 
-        if (step === steps.length - 2) {
-            setApplicationNumber(
-                (current) => current || makeApplicationNumber(),
-            );
+        if (step === 3) {
+            await submitProposalStep();
+            return;
         }
+
         setStep((current) => Math.min(current + 1, steps.length - 1));
     };
 
@@ -1498,7 +1599,8 @@ export function RegistrationProcessForm({
                                                     isSelected
                                                         ? "border-[#ff9933] bg-orange-50 ring-2 ring-[#ff9933]/20"
                                                         : "border-slate-200 bg-slate-50"
-                                                }`}
+                                                } disabled:cursor-not-allowed disabled:opacity-75`}
+                                                disabled={isEmailVerified}
                                                 key={category.value}
                                                 onClick={() =>
                                                     selectParticipantCategory(
@@ -1533,6 +1635,7 @@ export function RegistrationProcessForm({
                                             currentErrors.fullName,
                                         )}
                                         className={inputClass}
+                                        disabled={isEmailVerified}
                                         onChange={updateValue("fullName")}
                                         placeholder={content.placeholders.fullName}
                                         type="text"
@@ -1549,6 +1652,7 @@ export function RegistrationProcessForm({
                                             currentErrors.email,
                                         )}
                                         className={inputClass}
+                                        disabled={isEmailVerified}
                                         onChange={updateValue("email")}
                                         placeholder={content.placeholders.email}
                                         type="email"
@@ -1563,6 +1667,7 @@ export function RegistrationProcessForm({
                                             currentErrors.mobile,
                                         )}
                                         className={inputClass}
+                                        disabled={isEmailVerified}
                                         inputMode="numeric"
                                         maxLength={10}
                                         onChange={updateValue("mobile")}
@@ -1581,7 +1686,11 @@ export function RegistrationProcessForm({
                                 backLabel={content.back}
                                 canContinue={canContinue}
                                 isBusy={isSubmittingRegistration}
-                                nextLabel={content.continue}
+                                nextLabel={
+                                    isEmailVerified
+                                        ? content.continueAfterVerification
+                                        : content.continue
+                                }
                                 step={step}
                                 setStep={setStep}
                             />
@@ -2261,9 +2370,11 @@ export function RegistrationProcessForm({
                                     )}
                                 </label>
                             </div>
+                            <FieldError message={proposalSubmitError} />
                             <StepActions
                                 backLabel={content.back}
                                 canContinue={canContinue}
+                                isBusy={isSubmittingProposal}
                                 nextLabel={content.submitProposal}
                                 setStep={setStep}
                                 step={step}
@@ -2302,6 +2413,7 @@ export function RegistrationProcessForm({
                                     setApplicationNumber("");
                                     setIsEmailVerified(false);
                                     setParticipantId(undefined);
+                                    setProposalSubmitError("");
                                     setRegistrationSubmitError("");
                                     setVerificationMessage("");
                                     localStorage.removeItem(

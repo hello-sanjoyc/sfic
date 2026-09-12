@@ -831,6 +831,8 @@ export const enContent = {
             teamEmailUnique: "Team member email IDs must be unique.",
             teamLeadPhoneMatch: "Team member phone cannot match the Team Lead phone.",
             teamPhoneUnique: "Team member phone numbers must be unique.",
+            duplicateRegistration:
+                "This email ID or mobile number has already been used for an application. Please continue with the verification email already sent, or contact support if you need help.",
         },
         submitProposal: "Submit Proposal",
         applicationSubmitted: "Application submitted",

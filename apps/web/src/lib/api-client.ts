@@ -7,7 +7,12 @@ import axios, {
 
 type QueryValue = string | number | boolean | null | undefined;
 type QueryParams = Record<string, QueryValue | QueryValue[]>;
-type ApiEnvelope<T> = { data?: T };
+type ApiEnvelope<T> = {
+  data?: T;
+  error?: boolean;
+  message?: string;
+  statusCode?: number;
+};
 type ApiError = {
   error?: { message?: string };
   message?: string;
