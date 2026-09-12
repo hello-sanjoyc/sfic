@@ -35,13 +35,19 @@ function getMailFrom() {
     return email ? `"${name}" <${email}>` : "";
 }
 
-function getPortalUrl(language = "en") {
-    const baseUrl =
+function getPortalUrl() {
+    // Read portal URL from environment - must be configured in .env
+    const portalUrl =
         process.env.APP_URL ??
-        process.env.NEXT_PUBLIC_APP_URL ??
-        "http://localhost:3000";
+        process.env.NEXT_PUBLIC_APP_URL;
 
-    return `${baseUrl.replace(/\/$/, "")}/${language}/register`;
+    if (!portalUrl) {
+        throw new Error(
+            "Portal URL must be configured. Set either APP_URL or NEXT_PUBLIC_APP_URL in .env file"
+        );
+    }
+
+    return portalUrl.replace(/\/$/, "");
 }
 
 function getTransporter() {
@@ -154,7 +160,7 @@ async function sendTeamMemberAddedEmail(input: {
     teamLeadName: string;
 }) {
     const emailText = getApiContent(input.language).emails.teamMemberAdded;
-    const portalUrl = getPortalUrl(input.language);
+    const portalUrl = getPortalUrl();
     const html = renderTeamMemberAddedEmail({
         applicationNumber: input.applicationNumber,
         participantName: input.participantName,

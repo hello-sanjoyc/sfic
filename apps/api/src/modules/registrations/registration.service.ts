@@ -131,19 +131,31 @@ function getStateCode(stateName: string) {
 }
 
 function getApiBaseUrl() {
-  return (
+  const apiUrl =
     process.env.API_BASE_URL ??
-    process.env.NEXT_PUBLIC_API_URL ??
-    `http://localhost:${process.env.PORT ?? 4000}`
-  ).replace(/\/+$/, "");
+    process.env.NEXT_PUBLIC_API_URL;
+
+  if (!apiUrl) {
+    throw new Error(
+      "API base URL must be configured. Set either API_BASE_URL or NEXT_PUBLIC_API_URL in .env file"
+    );
+  }
+
+  return apiUrl.replace(/\/+$/, "");
 }
 
 function getAppBaseUrl() {
-  return (
+  const appUrl =
     process.env.APP_URL ??
-    process.env.NEXT_PUBLIC_APP_URL ??
-    "http://localhost:3000"
-  ).replace(/\/+$/, "");
+    process.env.NEXT_PUBLIC_APP_URL;
+
+  if (!appUrl) {
+    throw new Error(
+      "App base URL must be configured. Set either APP_URL or NEXT_PUBLIC_APP_URL in .env file"
+    );
+  }
+
+  return appUrl.replace(/\/+$/, "");
 }
 
 function verificationTokenTtlMinutes() {
