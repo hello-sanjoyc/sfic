@@ -21,7 +21,7 @@ export const hiContent = {
         invalidState: "राज्य मान्य नहीं है।",
         instituteTypesFetched: "संस्थान के प्रकार सफलतापूर्वक प्राप्त हो गए हैं।",
         internalServerError: "कुछ गड़बड़ हुई है। कृपया फिर से प्रयास करें।",
-        invalidToken: "सत्यापन लिंक मान्य नहीं है या उसकी अवधि समाप्त हो चुकी है।",
+        invalidToken: "सत्यापन कोड मान्य नहीं है या उसकी अवधि समाप्त हो चुकी है।",
         lookupsFetched: "आवश्यक सामान्य जानकारी सफलतापूर्वक प्राप्त हो गई है।",
         notFound: "मांगी गई जानकारी नहीं मिली।",
         noActiveChallenge: "कोई सक्रिय चैलेंज कॉन्फ़िगर नहीं है।",
@@ -30,6 +30,11 @@ export const hiContent = {
             "प्रतिभागी श्रेणियां सफलतापूर्वक प्राप्त हो गई हैं।",
         participantCategoryInstituteTypesFetched:
             "प्रतिभागी श्रेणी और संस्थान प्रकार की मैपिंग सफलतापूर्वक प्राप्त हो गई है।",
+        participantLoginCodeSent:
+            "प्रतिभागी लॉगिन सत्यापन ईमेल भेज दिया गया है।",
+        participantLoginUnable: "प्रतिभागी लॉगिन पूरा नहीं किया जा सका।",
+        participantLoginVerified:
+            "प्रतिभागी लॉगिन सफलतापूर्वक सत्यापित हो गया है।",
         proposalSubmitted: "प्रस्ताव सफलतापूर्वक जमा हो गया है।",
         registrationCreated:
             "पंजीकरण सफलतापूर्वक सहेज लिया गया है। सत्यापन ईमेल भेज दिया गया है।",
@@ -53,6 +58,12 @@ export const hiContent = {
         unableVerifyEmail: "ईमेल पते का सत्यापन नहीं किया जा सका।",
         useStateIdForDistricts: "जिलों को फ़िल्टर करने के लिए stateId का उपयोग करें।",
         validationError: "चिह्नित त्रुटियों को ठीक करें।",
+        verificationCodeRequired: "सत्यापन कोड आवश्यक है।",
+        verificationEmailSent: "सत्यापन ईमेल भेज दिया गया है।",
+        verificationLimitReached:
+            "ईमेल सत्यापन सीमा पूरी हो गई है। फिर से आवेदन करने से पहले कृपया एक घंटे प्रतीक्षा करें।",
+        verificationResendTooSoon:
+            "एक और सत्यापन ईमेल मांगने से पहले कृपया {minutes} मिनट प्रतीक्षा करें।",
         verificationTokenRequired: "सत्यापन टोकन आवश्यक है।",
     },
     apiValidation: {
@@ -109,24 +120,39 @@ export const hiContent = {
                 `टीम सदस्य के रूप में जोड़ा गया: ${applicationNumber}`,
             title: "टीम सदस्य के रूप में जोड़ा गया",
         },
+        participantLoginVerification: {
+            footer:
+                "यह ईमेल Sewa First Innovation Challenge की ओर से भेजा गया है। यदि आपने यह लॉगिन कोड नहीं मांगा है, तो आप इस ईमेल को नज़रअंदाज़ कर सकते हैं।",
+            greeting: (participantName: string) => `प्रिय ${participantName},`,
+            intro:
+                "आपके Sewa First Innovation Challenge प्रतिभागी डैशबोर्ड में लॉगिन के लिए अनुरोध किया गया है।",
+            preheader:
+                "प्रतिभागी डैशबोर्ड में लॉगिन करने के लिए इस कोड का उपयोग करें।",
+            subject:
+                "आपका Sewa First Innovation Challenge प्रतिभागी लॉगिन कोड",
+            title: "प्रतिभागी लॉगिन सत्यापन",
+            verificationCodeLabel: "सत्यापन कोड",
+            verifyInstruction:
+                "डैशबोर्ड पर जाने के लिए {minutes} मिनट के भीतर यह 6 अंकों का कोड दर्ज करें।",
+            verifyTextInstruction:
+                "{minutes} मिनट के भीतर यह 6 अंकों का सत्यापन कोड दर्ज करें:",
+        },
         verification: {
-            ctaLabel: "ईमेल पता सत्यापित करें",
             footer:
                 "यह ईमेल Sewa First Innovation Challenge की ओर से भेजा गया है। यदि आपने यह अनुरोध नहीं किया है, तो आप इस ईमेल को नज़रअंदाज़ कर सकते हैं।",
             greeting: (participantName: string) => `प्रिय ${participantName},`,
             intro:
                 "Sewa First Innovation Challenge के लिए पंजीकरण शुरू करने के लिए धन्यवाद।",
-            linkHelp:
-                "यदि बटन काम नहीं करता है, तो नीचे दिया गया लिंक कॉपी करके अपने ब्राउज़र में पेस्ट करें:",
             preheader:
-                "Sewa First Innovation Challenge का पंजीकरण जारी रखने के लिए अपना ईमेल पता सत्यापित करें।",
+                "Sewa First Innovation Challenge का पंजीकरण जारी रखने के लिए इस कोड से अपना ईमेल सत्यापित करें।",
             subject:
                 "Sewa First Innovation Challenge के लिए अपना ईमेल पता सत्यापित करें",
             title: "Verify your email address",
+            verificationCodeLabel: "Verification Code",
             verifyInstruction:
-                "चरण 2 पर जाने और प्रतिभागी प्रोफाइल पूरा करने के लिए अपना ईमेल पता सत्यापित करें।",
+                "Profile Completion पर जाने के लिए {minutes} मिनट के भीतर यह 6 अंकों का कोड दर्ज करें।",
             verifyTextInstruction:
-                "चरण 2 पर जाने के लिए अपना ईमेल पता सत्यापित करें:",
+                "{minutes} मिनट के भीतर यह 6 अंकों का सत्यापन कोड दर्ज करें:",
         },
     },
     registrations: {

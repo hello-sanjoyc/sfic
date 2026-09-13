@@ -196,14 +196,8 @@ const pages: Record<string, PageDefinition> = {
           <ol className="mt-5 list-decimal space-y-3 pl-6">
             <li>
               <strong className="font-bold text-slate-900">Registration</strong>{" "}
-              – Register using your Full Name, Email Address, and Mobile Number.
-            </li>
-            <li>
-              <strong className="font-bold text-slate-900">
-                Email Verification
-              </strong>{" "}
-              – Verify your registered email address through the verification
-              link sent to your email.
+              – Register using your Full Name, Email Address, and Mobile Number,
+              then verify the 6 digit code sent to your email.
             </li>
             <li>
               <strong className="font-bold text-slate-900">
@@ -331,11 +325,27 @@ function StandardPage({
       <div
         className={`h-1 w-10 ${index % 2 ? "bg-[#138808]" : "bg-[#ff9933]"}`}
       />
-      <h2 className="mt-5 text-2xl font-bold text-[#0b1f3a]">{heading}</h2>
       {typeof text === "string" ? (
-        <p className="mt-3 max-w-3xl leading-7 text-slate-600">{text}</p>
+        <div className="mt-5 flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h2 className="text-2xl font-bold text-[#0b1f3a]">{heading}</h2>
+            <p className="mt-3 max-w-3xl leading-7 text-slate-600">{text}</p>
+          </div>
+          {page === pages.login && index === 0 && (
+            <Link
+              className="inline-flex shrink-0 items-center justify-center rounded-md bg-[#0b1f3a] px-5 py-3 text-sm font-bold text-white transition hover:bg-[#000080]"
+              href={`/${locale}/participants/login`}
+            >
+              Open Participant Login
+              <ArrowRight className="ml-2" size={16} />
+            </Link>
+          )}
+        </div>
       ) : (
-        text
+        <>
+          <h2 className="mt-5 text-2xl font-bold text-[#0b1f3a]">{heading}</h2>
+          {text}
+        </>
       )}
     </article>
       ));

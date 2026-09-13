@@ -14,14 +14,14 @@ export type EmailTemplateInput = {
 };
 
 export type VerificationEmailText = {
-    ctaLabel: string;
     footer: string;
     greeting: (participantName: string) => string;
     intro: string;
-    linkHelp: string;
     preheader: string;
     title: string;
+    verificationCodeLabel: string;
     verifyInstruction: string;
+    verifyTextInstruction: string;
 };
 
 export type ApplicationSubmittedEmailText = {
@@ -127,27 +127,24 @@ export function renderEmailTemplate({
 }
 
 export function renderVerificationEmail(input: {
+    code: string;
     language: string;
     participantName: string;
     text: VerificationEmailText;
-    verificationUrl: string;
 }) {
-    const participantName = escapeHtml(input.participantName);
     const greeting = escapeHtml(input.text.greeting(input.participantName));
+    const code = escapeHtml(input.code);
 
     return renderEmailTemplate({
         bodyHtml: `
       <p style="margin:0 0 16px;">${greeting}</p>
       <p style="margin:0 0 16px;">${escapeHtml(input.text.intro)}</p>
-      <p style="margin:0;">${escapeHtml(input.text.verifyInstruction)}</p>
+      <p style="margin:0 0 12px;">${escapeHtml(input.text.verifyInstruction)}</p>
+      <p style="margin:0 0 12px;color:#102033;font-size:15px;font-weight:700;">${escapeHtml(input.text.verificationCodeLabel)}</p>
+      <p style="margin:0;padding:14px 16px;border-radius:8px;background:#f0f7f1;color:#0b5d12;font-family:Consolas,Monaco,monospace;font-size:28px;font-weight:800;letter-spacing:.14em;">${code}</p>
     `,
-        cta: {
-            label: input.text.ctaLabel,
-            url: input.verificationUrl,
-        },
         footerText: input.text.footer,
         htmlLang: input.language,
-        linkHelpText: input.text.linkHelp,
         preheader: input.text.preheader,
         title: input.text.title,
     });

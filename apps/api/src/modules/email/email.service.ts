@@ -50,6 +50,17 @@ function getPortalUrl() {
     return portalUrl.replace(/\/$/, "");
 }
 
+function emailVerificationTokenTtlMinutes() {
+    return String(process.env.EMAIL_VERIFICATION_TOKEN_TTL_MINUTES ?? 10);
+}
+
+function templateMessage(message: string, values: Record<string, string>) {
+    return Object.entries(values).reduce(
+        (current, [key, value]) => current.replaceAll(`{${key}}`, value),
+        message,
+    );
+}
+
 function getTransporter() {
     const host = process.env.SMTP_HOST;
     const user = process.env.SMTP_USER;
@@ -91,17 +102,27 @@ async function sendEmail(input: SendEmailInput) {
 }
 
 async function sendParticipantVerificationEmail(input: {
+    code: string;
     language: string;
     participantEmail: string;
     participantName: string;
-    verificationUrl: string;
 }) {
     const emailText = getApiContent(input.language).emails.verification;
+    const ttlMinutes = emailVerificationTokenTtlMinutes();
     const html = renderVerificationEmail({
+        code: input.code,
         language: input.language,
         participantName: input.participantName,
-        text: emailText,
-        verificationUrl: input.verificationUrl,
+        text: {
+            ...emailText,
+            verifyInstruction: templateMessage(emailText.verifyInstruction, {
+                minutes: ttlMinutes,
+            }),
+            verifyTextInstruction: templateMessage(
+                emailText.verifyTextInstruction,
+                { minutes: ttlMinutes },
+            ),
+        },
     });
 
     return sendEmail({
@@ -111,8 +132,50 @@ async function sendParticipantVerificationEmail(input: {
             emailText.greeting(input.participantName),
             "",
             emailText.intro,
-            emailText.verifyTextInstruction,
-            input.verificationUrl,
+            templateMessage(emailText.verifyTextInstruction, {
+                minutes: ttlMinutes,
+            }),
+            input.code,
+        ].join("\n"),
+        to: input.participantEmail,
+    });
+}
+
+async function sendParticipantLoginVerificationEmail(input: {
+    code: string;
+    language: string;
+    participantEmail: string;
+    participantName: string;
+}) {
+    const emailText = getApiContent(input.language).emails.participantLoginVerification;
+    const ttlMinutes = emailVerificationTokenTtlMinutes();
+    const html = renderVerificationEmail({
+        code: input.code,
+        language: input.language,
+        participantName: input.participantName,
+        text: {
+            ...emailText,
+            verifyInstruction: templateMessage(emailText.verifyInstruction, {
+                minutes: ttlMinutes,
+            }),
+            verifyTextInstruction: templateMessage(
+                emailText.verifyTextInstruction,
+                { minutes: ttlMinutes },
+            ),
+        },
+    });
+
+    return sendEmail({
+        html,
+        subject: emailText.subject,
+        text: [
+            emailText.greeting(input.participantName),
+            "",
+            emailText.intro,
+            templateMessage(emailText.verifyTextInstruction, {
+                minutes: ttlMinutes,
+            }),
+            input.code,
         ].join("\n"),
         to: input.participantEmail,
     });
@@ -186,6 +249,7 @@ async function sendTeamMemberAddedEmail(input: {
 export const emailService = {
     sendApplicationSubmittedEmail,
     sendEmail,
+    sendParticipantLoginVerificationEmail,
     sendParticipantVerificationEmail,
     sendTeamMemberAddedEmail,
 };

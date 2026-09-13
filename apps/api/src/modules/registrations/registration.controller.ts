@@ -25,8 +25,15 @@ type CreateRegistrationBody = {
 
 type VerifyEmailQuery = {
   applicationId?: string;
+  code?: string;
   locale?: string;
   token?: string;
+};
+
+type VerifyEmailBody = {
+  applicationId?: number | string;
+  code?: string;
+  language?: string;
 };
 
 type RegistrationParams = {
@@ -113,6 +120,10 @@ function getErrorStatusCode(error: unknown) {
   }
 
   return undefined;
+}
+
+function normalizeVerificationCode(value: unknown) {
+  return isNonEmptyString(value) ? normalizeNumericText(value).slice(0, 6) : "";
 }
 
 function requireDatabase(request: FastifyRequest, reply: FastifyReply) {
@@ -499,32 +510,43 @@ async function createRegistration(
 
     return sendError(request, reply, {
       message,
-      statusCode: error instanceof DuplicateRegistrationError ? 409 : 500,
+      statusCode:
+        error instanceof DuplicateRegistrationError
+          ? 409
+          : (getErrorStatusCode(error) ?? 500),
     });
   }
 }
 
 async function verifyEmail(
-  request: FastifyRequest<{ Querystring: VerifyEmailQuery }>,
+  request: FastifyRequest<{
+    Body?: VerifyEmailBody;
+    Querystring: VerifyEmailQuery;
+  }>,
   reply: FastifyReply,
 ) {
   const pg = requireDatabase(request, reply);
   if (!pg) return reply;
 
-  const token = request.query.token?.trim();
+  const token =
+    normalizeVerificationCode(request.body?.code) ||
+    normalizeVerificationCode(request.query.code) ||
+    request.query.token?.trim();
+  const applicationId =
+    numericId(request.body?.applicationId) ?? numericId(request.query.applicationId);
   const language = registrationService.normalizeLanguage(
-    request.query.locale ?? "en",
+    request.body?.language ?? request.query.locale ?? "en",
   );
 
   if (!token) {
     return sendError(request, reply, {
-      messageKey: "verificationTokenRequired",
+      messageKey: "verificationCodeRequired",
       statusCode: 400,
     });
   }
 
   try {
-    const result = await registrationService.verifyEmail(pg, token);
+    const result = await registrationService.verifyEmail(pg, token, applicationId);
 
     if (wantsJson(request)) {
       return sendSuccess(request, reply, {
@@ -558,7 +580,53 @@ async function verifyEmail(
         error instanceof Error
           ? error.message
           : getApiContent(language).api.unableVerifyEmail,
+      statusCode: getErrorStatusCode(error) ?? 400,
+    });
+  }
+}
+
+async function resendVerificationEmail(
+  request: FastifyRequest<{
+    Body?: { language?: string };
+    Params: RegistrationParams;
+  }>,
+  reply: FastifyReply,
+) {
+  const pg = requireDatabase(request, reply);
+  if (!pg) return reply;
+
+  const id = request.params.id.trim();
+  if (!/^\d+$/.test(id)) {
+    return sendError(request, reply, {
+      messageKey: "registrationIdNumeric",
       statusCode: 400,
+    });
+  }
+
+  const language = registrationService.normalizeLanguage(
+    request.body?.language ?? "en",
+  );
+
+  try {
+    const result = await registrationService.resendVerificationEmail(
+      pg,
+      Number(id),
+      language,
+    );
+
+    return sendSuccess(request, reply, {
+      data: result,
+      messageKey: "verificationEmailSent",
+    });
+  } catch (error) {
+    request.server.log.error(error);
+
+    return sendError(request, reply, {
+      message:
+        error instanceof Error
+          ? error.message
+          : getApiContent(language).api.unableCreateRegistration,
+      statusCode: getErrorStatusCode(error) ?? 400,
     });
   }
 }
@@ -664,6 +732,7 @@ async function submitProposal(
 export const registrationController = {
   createRegistration,
   getRegistration,
+  resendVerificationEmail,
   submitProposal,
   verifyEmail,
 };

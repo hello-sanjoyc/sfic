@@ -28,6 +28,9 @@ export type ApiContent = {
         participantNotFound: string;
         participantCategoriesFetched: string;
         participantCategoryInstituteTypesFetched: string;
+        participantLoginCodeSent: string;
+        participantLoginUnable: string;
+        participantLoginVerified: string;
         proposalSubmitted: string;
         registrationCreated: string;
         registrationFetched: string;
@@ -48,6 +51,10 @@ export type ApiContent = {
         unableVerifyEmail: string;
         useStateIdForDistricts: string;
         validationError: string;
+        verificationCodeRequired: string;
+        verificationEmailSent: string;
+        verificationLimitReached: string;
+        verificationResendTooSoon: string;
         verificationTokenRequired: string;
     };
     apiValidation: {
@@ -90,15 +97,25 @@ export type ApiContent = {
             subject: (applicationNumber: string) => string;
             title: string;
         };
-        verification: {
-            ctaLabel: string;
+        participantLoginVerification: {
             footer: string;
             greeting: (participantName: string) => string;
             intro: string;
-            linkHelp: string;
             preheader: string;
             subject: string;
             title: string;
+            verificationCodeLabel: string;
+            verifyInstruction: string;
+            verifyTextInstruction: string;
+        };
+        verification: {
+            footer: string;
+            greeting: (participantName: string) => string;
+            intro: string;
+            preheader: string;
+            subject: string;
+            title: string;
+            verificationCodeLabel: string;
             verifyInstruction: string;
             verifyTextInstruction: string;
         };

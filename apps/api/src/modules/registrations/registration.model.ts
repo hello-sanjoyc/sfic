@@ -22,12 +22,13 @@ export type CreateRegistrationResult = {
     delivered: boolean;
     reason?: string;
   };
-  verificationUrl?: string;
 };
 
 export type VerifyRegistrationResult = {
   application: RegistrationApplication;
 };
+
+export type ResendVerificationResult = CreateRegistrationResult;
 
 export type RegistrationDetailsResult = {
   application: RegistrationApplication;

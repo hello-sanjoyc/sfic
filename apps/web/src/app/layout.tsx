@@ -64,11 +64,12 @@ export const metadata: Metadata = {
     robots: "index, follow",
     icons: {
         icon: [
-            { url: "/favicon.svg", type: "image/svg+xml" },
-            { url: "/favicon.ico", sizes: "any" },
+            { url: "/images/favicon.ico", sizes: "any" },
+            { url: "/images/favicon-32x32.png", sizes: "32x32", type: "image/png" },
+            { url: "/images/favicon-16x16.png", sizes: "16x16", type: "image/png" },
         ],
-        shortcut: "/favicon.svg",
-        apple: "/apple-touch-icon.png",
+        shortcut: "/images/favicon.ico",
+        apple: "/images/apple-touch-icon.png",
     },
     manifest: "/manifest.json",
     alternates: {
@@ -129,7 +130,20 @@ export default function RootLayout({
                     name="apple-mobile-web-app-status-bar-style"
                     content="black-translucent"
                 />
-                <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+                <link rel="icon" href="/images/favicon.ico" sizes="any" />
+                <link
+                    rel="icon"
+                    href="/images/favicon-32x32.png"
+                    sizes="32x32"
+                    type="image/png"
+                />
+                <link
+                    rel="icon"
+                    href="/images/favicon-16x16.png"
+                    sizes="16x16"
+                    type="image/png"
+                />
+                <link rel="apple-touch-icon" href="/images/apple-touch-icon.png" />
                 <link rel="manifest" href="/manifest.json" />
             </head>
             <body>{children}</body>

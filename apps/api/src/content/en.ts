@@ -21,7 +21,7 @@ export const enContent = {
         invalidState: "Invalid state.",
         instituteTypesFetched: "Institute types fetched successfully.",
         internalServerError: "Something went wrong. Please try again.",
-        invalidToken: "Verification link is invalid or has expired.",
+        invalidToken: "Verification code is either invalid or has expired.",
         lookupsFetched: "Common lookups fetched successfully.",
         notFound: "Requested resource was not found.",
         noActiveChallenge: "No active challenge is configured.",
@@ -30,6 +30,10 @@ export const enContent = {
             "Participant categories fetched successfully.",
         participantCategoryInstituteTypesFetched:
             "Participant category institute type mappings fetched successfully.",
+        participantLoginCodeSent:
+            "Participant login verification email has been sent.",
+        participantLoginUnable: "Unable to complete participant login.",
+        participantLoginVerified: "Participant login verified successfully.",
         proposalSubmitted: "Proposal submitted successfully.",
         registrationCreated:
             "Registration saved successfully. Verification email has been sent.",
@@ -53,6 +57,12 @@ export const enContent = {
         unableVerifyEmail: "Unable to verify email address.",
         useStateIdForDistricts: "Use stateId to filter districts.",
         validationError: "Please correct the highlighted errors.",
+        verificationCodeRequired: "Verification code is required.",
+        verificationEmailSent: "Verification email has been sent.",
+        verificationLimitReached:
+            "Email verification limit reached. Please wait one hour before applying again.",
+        verificationResendTooSoon:
+            "Please wait {minutes} minutes before requesting another verification email.",
         verificationTokenRequired: "Verification token is required.",
     },
     apiValidation: {
@@ -109,24 +119,39 @@ export const enContent = {
                 `Added as team member: ${applicationNumber}`,
             title: "Added as team member",
         },
+        participantLoginVerification: {
+            footer:
+                "This email was sent by Sewa First Innovation Challenge. If you did not request this login code, you can safely ignore it.",
+            greeting: (participantName: string) => `Dear ${participantName},`,
+            intro:
+                "A login request was made for your Sewa First Innovation Challenge participant dashboard.",
+            preheader:
+                "Use this code to login to your participant dashboard.",
+            subject:
+                "Your Sewa First Innovation Challenge participant login code",
+            title: "Participant login verification",
+            verificationCodeLabel: "Verification Code",
+            verifyInstruction:
+                "Please enter this 6-digit code within {minutes} minutes to continue to your dashboard.",
+            verifyTextInstruction:
+                "Enter this 6-digit verification code within {minutes} minutes:",
+        },
         verification: {
-            ctaLabel: "Verify email address",
             footer:
                 "This email was sent by Sewa First Innovation Challenge. If you did not request this, you can safely ignore it.",
             greeting: (participantName: string) => `Dear ${participantName},`,
             intro:
                 "Thank you for starting your registration for the Sewa First Innovation Challenge.",
-            linkHelp:
-                "If the button does not work, copy and paste this link into your browser:",
             preheader:
-                "Verify your email address to continue your Sewa First Innovation Challenge registration.",
+                "Use this code to verify your email address and continue your Sewa First Innovation Challenge registration.",
             subject:
                 "Verify your Sewa First Innovation Challenge email address",
             title: "Verify your email address",
+            verificationCodeLabel: "Verification Code",
             verifyInstruction:
-                "Please verify your email address to continue to Step 2 and complete your participant profile.",
+                "Please enter this 6-digit code within {minutes} minutes to continue to Profile Completion.",
             verifyTextInstruction:
-                "Verify your email address to continue to Step 2:",
+                "Enter this 6-digit verification code within {minutes} minutes:",
         },
     },
     registrations: {

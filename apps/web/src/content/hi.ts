@@ -104,17 +104,12 @@ export const hiContent = {
                 {
                     heading: "आवेदन प्रक्रिया",
                     body:
-                        "पोर्टल पर आवेदन पांच चरणों में पूरा होगा:",
+                        "पोर्टल पर आवेदन चार चरणों में पूरा होगा:",
                     steps: [
                         {
                             title: "पंजीकरण",
                             body:
-                                "जूनियर या ओपन श्रेणी चुनें, फिर अपना पूरा नाम, ईमेल पता और मोबाइल नंबर दर्ज करें।",
-                        },
-                        {
-                            title: "ईमेल सत्यापन",
-                            body:
-                                "आपके ईमेल पर भेजे गए सत्यापन लिंक से अपना पंजीकृत ईमेल पता सत्यापित करें।",
+                                "जूनियर या ओपन श्रेणी चुनें, अपना पूरा नाम, ईमेल पता और मोबाइल नंबर दर्ज करें, फिर ईमेल पर भेजे गए 6 अंकों के कोड को सत्यापित करें।",
                         },
                         {
                             title: "प्रोफाइल पूरा करना",
@@ -772,6 +767,65 @@ export const hiContent = {
             ["क्या मैं टीम के रूप में भाग ले सकता हूं?", "हां। अंतिम चैलेंज दिशानिर्देशों के अनुसार आवेदन व्यक्तिगत रूप से या टीम के रूप में किया जा सकता है।"],
         ],
     },
+    participantLogin: {
+        title: "प्रतिभागी लॉगिन",
+        description:
+            "अपने पंजीकृत ईमेल पते और 6 अंकों के सत्यापन कोड से प्रतिभागी डैशबोर्ड खोलें।",
+        features: [
+            "ईमेल आधारित लॉगिन",
+            "सत्यापन कोड आवश्यक",
+            "सत्यापन के बाद डैशबोर्ड एक्सेस",
+        ],
+        email: "ईमेल पता",
+        verificationCode: "सत्यापन कोड",
+        emailHelp:
+            "जमा किए गए आवेदन में उपयोग किया गया ईमेल पता दर्ज करें।",
+        codeHelp:
+            "{email} के लिए 6 अंकों का सत्यापन कोड बनाया गया है।",
+        codeSent:
+            "सत्यापन कोड भेज दिया गया है। {minutes} मिनट के भीतर अपने ईमेल से 6 अंकों का कोड दर्ज करें।",
+        codeResent:
+            "सत्यापन कोड फिर भेज दिया गया है। अपने ईमेल से नवीनतम 6 अंकों का कोड दर्ज करें।",
+        resendAvailableIn: "{time} में फिर भेज सकेंगे",
+        resendVerificationCode: "सत्यापन कोड फिर भेजें",
+        generateCode: "सत्यापन कोड बनाएं",
+        continueToDashboard: "डैशबोर्ड पर जाएं",
+        placeholders: {
+            email: "उदाहरण: participant@example.com",
+            verificationCode: "6 अंकों का कोड दर्ज करें",
+        },
+        errors: {
+            email: "सही ईमेल पता दर्ज करें।",
+            verificationCode: "6 अंकों का सत्यापन कोड दर्ज करें।",
+            requestFailed:
+                "सत्यापन कोड भेजा नहीं जा सका। कृपया फिर प्रयास करें।",
+            verifyFailed:
+                "लॉगिन कोड सत्यापित नहीं किया जा सका। कृपया फिर प्रयास करें।",
+            resendFailed:
+                "सत्यापन कोड फिर नहीं भेजा जा सका। कृपया फिर प्रयास करें।",
+        },
+        dashboard: {
+            label: "प्रतिभागी कार्यक्षेत्र",
+            title: "प्रतिभागी डैशबोर्ड",
+            intro: "अपने Sewa First Innovation Challenge आवेदन की जानकारी देखें।",
+            applicationNumber: "आवेदन संख्या",
+            role: "भूमिका",
+            status: "स्थिति",
+            memberName: "प्रतिभागी का नाम",
+            email: "ईमेल पता",
+            language: "भाषा",
+            logout: "लॉगआउट",
+            roleTeamLead: "टीम लीड",
+            roleTeamMember: "टीम सदस्य",
+            statusDraft: "ड्राफ्ट",
+            statusProfileCompletion: "प्रोफ़ाइल पूर्णता",
+            statusProposalSubmission: "प्रस्ताव जमा करना",
+            statusSubmitted: "जमा हो गया",
+            statusWithdrawn: "वापस लिया गया",
+            loginRequired:
+                "डैशबोर्ड देखने के लिए अपने पंजीकृत ईमेल पते से लॉगिन करें।",
+        },
+    },
     register: {
         showInfo: "जानकारी देखें",
         title: "आवेदन की जानकारी",
@@ -780,7 +834,6 @@ export const hiContent = {
         startRegistration: "पंजीकरण शुरू करें",
         steps: [
             "पंजीकरण",
-            "ईमेल सत्यापन",
             "प्रोफाइल पूरा करना",
             "प्रस्ताव जमा करना",
             "आवेदन संख्या बनना",
@@ -799,7 +852,25 @@ export const hiContent = {
         mobile: "मोबाइल नंबर",
         verifyTitle: "अपना पंजीकृत ईमेल पता सत्यापित करें",
         verifyBody:
-            "{email} पर सत्यापन लिंक भेजा जाएगा। पंजीकृत ईमेल की पुष्टि करने के बाद आगे बढ़ें।",
+            "{email} पर 6 अंकों का सत्यापन कोड भेजा गया है। आगे बढ़ने के लिए {minutes} मिनट के भीतर कोड दर्ज करें।",
+        verificationCode: "ईमेल सत्यापन कोड",
+        resendVerificationCode: "सत्यापन कोड फिर भेजें",
+        resendVerificationAvailableIn: "{time} में फिर भेज सकेंगे",
+        submitVerificationCode: "सत्यापन कोड जमा करें",
+        verificationCodeSent:
+            "सत्यापन कोड भेज दिया गया है। {minutes} मिनट के भीतर अपने ईमेल से 6 अंकों का कोड दर्ज करें।",
+        verificationCodeResent:
+            "सत्यापन कोड फिर भेज दिया गया है। अपने ईमेल से नवीनतम 6 अंकों का कोड दर्ज करें।",
+        verificationCodeExpired:
+            "सत्यापन कोड मान्य नहीं है या उसकी अवधि समाप्त हो गई है। नया कोड पाने के लिए कृपया Step 1 फिर जमा करें।",
+        verificationCodePreviousExpired:
+            "पिछले कोड की अवधि समाप्त हो गई है। नया सत्यापन कोड पाने के लिए Continue पर क्लिक करें।",
+        registrationNotFound:
+            "पंजीकरण नहीं मिला। कृपया Step 1 फिर जमा करें।",
+        unableVerifyCode:
+            "ईमेल सत्यापन कोड सत्यापित नहीं किया जा सका। कृपया फिर प्रयास करें।",
+        unableResendCode:
+            "सत्यापन कोड फिर नहीं भेजा जा सका। कृपया फिर प्रयास करें।",
         continueAfterVerification: "सत्यापन के बाद आगे बढ़ें",
         state: "राज्य",
         district: "जिला",
@@ -836,6 +907,10 @@ export const hiContent = {
         proposalDescription:
             "हर प्रश्न का उत्तर सरल भाषा में दें। उत्तर स्पष्ट, व्यावहारिक और प्रमाण पर आधारित रखें।",
         enter: "दर्ज करें",
+        countdownUnits: {
+            minute: "मिनट",
+            second: "सेकंड",
+        },
         fileUnits: {
             kb: "KB",
             mb: "MB",
@@ -844,6 +919,7 @@ export const hiContent = {
             fullName: "उदाहरण: रोनित मुखर्जी",
             email: "उदाहरण: ronitmukherjee@gmail.com",
             mobile: "उदाहरण: 9876543210",
+            verificationCode: "6 अंकों का कोड दर्ज करें",
             city: "उदाहरण: कोलकाता",
             pinCode: "उदाहरण: 700064",
             address: "उदाहरण: 26/B DD Block, Sector I, Salt Lake",
@@ -876,6 +952,7 @@ export const hiContent = {
             participationMode: "व्यक्तिगत या टीम चुनें।",
             email: "सही ईमेल पता दर्ज करें।",
             mobile: "सही 10 अंकों का मोबाइल नंबर दर्ज करें।",
+            verificationCode: "6 अंकों का सत्यापन कोड दर्ज करें।",
             address: "अपना पता दर्ज करें।",
             city: "अपना शहर दर्ज करें।",
             district: "अपना जिला चुनें।",

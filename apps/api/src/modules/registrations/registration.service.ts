@@ -8,6 +8,7 @@ import type {
   RegistrationApplication,
   RegistrationDetailsResult,
   RegistrationLanguage,
+  ResendVerificationResult,
   SubmitProposalInput,
   SubmitProposalResult,
   VerifyRegistrationResult,
@@ -28,6 +29,16 @@ export class DuplicateRegistrationError extends Error {
   }
 }
 
+export class RegistrationRuleError extends Error {
+  statusCode: number;
+
+  constructor(message: string, statusCode = 400) {
+    super(message);
+    this.name = "RegistrationRuleError";
+    this.statusCode = statusCode;
+  }
+}
+
 type ChallengeRow = {
   code: string;
   id: string;
@@ -43,6 +54,8 @@ type ParticipantRow = {
 };
 
 type ExistingParticipantRow = {
+  created_at: Date;
+  email_verified: boolean;
   id: string;
 };
 
@@ -95,6 +108,10 @@ function normalizeLanguage(language: string): RegistrationLanguage {
 
 function hashToken(token: string) {
   return createHash("sha256").update(token).digest("hex");
+}
+
+function createVerificationCode() {
+  return String(Math.floor(100000 + Math.random() * 900000));
 }
 
 function makeDraftApplicationNumber(challengeCode: string) {
@@ -159,11 +176,62 @@ function getAppBaseUrl() {
 }
 
 function verificationTokenTtlMinutes() {
-  return Number(process.env.EMAIL_VERIFICATION_TOKEN_TTL_MINUTES ?? 1440);
+  return Number(process.env.EMAIL_VERIFICATION_TOKEN_TTL_MINUTES ?? 10);
 }
 
-function shouldExposeVerificationUrl() {
-  return process.env.NODE_ENV !== "production";
+function verificationResendIntervalMinutes() {
+  return Number(process.env.EMAIL_VERIFICATION_RESEND_INTERVAL_MINUTES ?? 10);
+}
+
+function verificationAttemptWindowMinutes() {
+  return Number(process.env.EMAIL_VERIFICATION_ATTEMPT_WINDOW_MINUTES ?? 60);
+}
+
+function verificationMaxEmailSendsPerWindow() {
+  return Number(process.env.EMAIL_VERIFICATION_MAX_RESENDS_PER_WINDOW ?? 3) + 1;
+}
+
+async function ensureVerificationAttemptTable(pg: DatabasePool) {
+  await pg.query("CREATE EXTENSION IF NOT EXISTS citext");
+  await pg.query(`
+    CREATE OR REPLACE FUNCTION set_updated_at()
+    RETURNS TRIGGER AS $$
+    BEGIN
+      NEW.updated_at = NOW();
+      RETURN NEW;
+    END;
+    $$ LANGUAGE plpgsql;
+  `);
+  await pg.query(`
+    CREATE TABLE IF NOT EXISTS participant_email_verification_attempts (
+      id                 BIGSERIAL PRIMARY KEY,
+      email              CITEXT NOT NULL UNIQUE,
+      mobile             VARCHAR(20) NOT NULL,
+      first_requested_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      last_sent_at       TIMESTAMPTZ,
+      send_count         INTEGER NOT NULL DEFAULT 0,
+      locked_until       TIMESTAMPTZ,
+      created_at         TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at         TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `);
+  await pg.query(`
+    CREATE INDEX IF NOT EXISTS idx_email_verification_attempts_mobile
+      ON participant_email_verification_attempts(mobile)
+  `);
+  await pg.query(`
+    CREATE INDEX IF NOT EXISTS idx_email_verification_attempts_locked_until
+      ON participant_email_verification_attempts(locked_until)
+  `);
+  await pg.query(`
+    DROP TRIGGER IF EXISTS trg_email_verification_attempts_updated_at
+      ON participant_email_verification_attempts
+  `);
+  await pg.query(`
+    CREATE TRIGGER trg_email_verification_attempts_updated_at
+    BEFORE UPDATE ON participant_email_verification_attempts
+    FOR EACH ROW EXECUTE FUNCTION set_updated_at()
+  `);
 }
 
 function toRegistrationApplication(row: ApplicationRow): RegistrationApplication {
@@ -216,7 +284,7 @@ async function createOrUpdateParticipant(
 ) {
   const existingParticipant = await client.query<ExistingParticipantRow>(
     `
-      SELECT id
+      SELECT id, email_verified, created_at
       FROM participants
       WHERE email = $1
          OR mobile = $2
@@ -241,6 +309,118 @@ async function createOrUpdateParticipant(
   );
 
   return result.rows[0];
+}
+
+async function cleanupExpiredEmailVerificationDrafts(client: PoolClient) {
+  const expiredApplications = await client.query<{ participant_id: string }>(`
+    WITH expired AS (
+      SELECT pa.id, pa.participant_id
+      FROM participant_applications pa
+      JOIN participants p ON p.id = pa.participant_id
+      WHERE pa.status = 'email_verification'
+        AND p.email_verified = FALSE
+        AND EXISTS (
+          SELECT 1
+          FROM participant_email_verification_tokens evt
+          WHERE evt.application_id = pa.id
+            AND evt.consumed_at IS NULL
+            AND evt.expires_at <= NOW()
+        )
+        AND NOT EXISTS (
+          SELECT 1
+          FROM participant_email_verification_tokens evt
+          WHERE evt.application_id = pa.id
+            AND evt.consumed_at IS NULL
+            AND evt.expires_at > NOW()
+        )
+      FOR UPDATE OF pa
+    ),
+    deleted AS (
+      DELETE FROM participant_applications pa
+      USING expired
+      WHERE pa.id = expired.id
+      RETURNING expired.participant_id
+    )
+    SELECT participant_id FROM deleted
+  `);
+
+  if (!expiredApplications.rows.length) return;
+
+  await client.query(
+    `
+      DELETE FROM participants p
+      WHERE p.email_verified = FALSE
+        AND p.id = ANY($1::bigint[])
+        AND NOT EXISTS (
+          SELECT 1
+          FROM participant_applications pa
+          WHERE pa.participant_id = p.id
+        )
+    `,
+    [expiredApplications.rows.map((row) => row.participant_id)],
+  );
+}
+
+async function reserveVerificationEmailAttempt(input: {
+  client: PoolClient;
+  email: string;
+  language: RegistrationLanguage;
+  mobile: string;
+}) {
+  const result = await input.client.query<{
+    locked_until: Date | null;
+    send_count: number;
+    last_sent_at: Date | null;
+  }>(
+    `
+      INSERT INTO participant_email_verification_attempts (
+        email,
+        mobile,
+        first_requested_at,
+        last_sent_at,
+        send_count
+      )
+      VALUES ($1, $2, NOW(), NOW(), 1)
+      ON CONFLICT (email) DO UPDATE
+      SET mobile = EXCLUDED.mobile,
+          first_requested_at = CASE
+            WHEN participant_email_verification_attempts.first_requested_at <= NOW() - ($3 || ' minutes')::interval
+              THEN NOW()
+            ELSE participant_email_verification_attempts.first_requested_at
+          END,
+          send_count = CASE
+            WHEN participant_email_verification_attempts.first_requested_at <= NOW() - ($3 || ' minutes')::interval
+              THEN 1
+            ELSE participant_email_verification_attempts.send_count + 1
+          END,
+          last_sent_at = NOW(),
+          locked_until = CASE
+            WHEN participant_email_verification_attempts.locked_until IS NOT NULL
+             AND participant_email_verification_attempts.locked_until > NOW()
+              THEN participant_email_verification_attempts.locked_until
+            WHEN participant_email_verification_attempts.first_requested_at > NOW() - ($3 || ' minutes')::interval
+             AND participant_email_verification_attempts.send_count + 1 > $4
+              THEN participant_email_verification_attempts.first_requested_at + ($3 || ' minutes')::interval
+            ELSE NULL
+          END,
+          updated_at = NOW()
+      RETURNING locked_until, send_count, last_sent_at
+    `,
+    [
+      input.email,
+      input.mobile,
+      verificationAttemptWindowMinutes(),
+      verificationMaxEmailSendsPerWindow(),
+    ],
+  );
+
+  const attempt = result.rows[0];
+  if (attempt.locked_until && attempt.locked_until.getTime() > Date.now()) {
+    throw new RegistrationRuleError(
+      getApiContent(input.language).api.verificationLimitReached,
+      429,
+    );
+  }
 }
 
 async function createOrUpdateApplication(input: {
@@ -389,8 +569,18 @@ async function createVerificationToken(input: {
   client: PoolClient;
   participantId: string;
 }) {
-  const token = randomBytes(32).toString("hex");
+  const token = createVerificationCode();
   const tokenHash = hashToken(token);
+
+  await input.client.query(
+    `
+      UPDATE participant_email_verification_tokens
+      SET consumed_at = COALESCE(consumed_at, NOW())
+      WHERE application_id = $1
+        AND consumed_at IS NULL
+    `,
+    [input.applicationId],
+  );
 
   await input.client.query(
     `
@@ -451,6 +641,13 @@ async function createRegistration(
 
   try {
     await client.query("BEGIN");
+    await cleanupExpiredEmailVerificationDrafts(client);
+    await reserveVerificationEmailAttempt({
+      client,
+      email: input.email,
+      language,
+      mobile: input.mobile,
+    });
 
     const challenge = await getActiveChallenge(client);
     const participantCategory = await getParticipantCategory(
@@ -516,39 +713,50 @@ async function createRegistration(
     client.release();
   }
 
-  const verificationUrl = buildVerificationUrl({
-    applicationId: application.id,
-    language,
-    token,
-  });
   const emailDelivery = await emailService.sendParticipantVerificationEmail({
+    code: token,
     language,
     participantEmail: input.email,
     participantName: input.fullName,
-    verificationUrl,
   });
 
   if (!emailDelivery.delivered) {
     // The API still returns the draft registration so local development can
     // continue without SMTP credentials.
-    console.info(`Email verification link for ${input.email}: ${verificationUrl}`);
+    console.info(`Email verification code for ${input.email}: ${token}`);
   }
 
   return {
     application,
     emailDelivery,
-    verificationUrl: shouldExposeVerificationUrl() ? verificationUrl : undefined,
   };
+}
+
+async function cleanupExpiredVerificationDrafts(pg: DatabasePool) {
+  const client = await pg.connect();
+
+  try {
+    await client.query("BEGIN");
+    await cleanupExpiredEmailVerificationDrafts(client);
+    await client.query("COMMIT");
+  } catch (error) {
+    await client.query("ROLLBACK");
+    throw error;
+  } finally {
+    client.release();
+  }
 }
 
 async function verifyEmail(
   pg: DatabasePool,
   token: string,
+  applicationId?: number,
 ): Promise<VerifyRegistrationResult> {
   const client = await pg.connect();
 
   try {
     await client.query("BEGIN");
+    await cleanupExpiredEmailVerificationDrafts(client);
 
     const tokenHash = hashToken(token);
     const tokenResult = await client.query<{
@@ -559,11 +767,12 @@ async function verifyEmail(
         SELECT participant_id, application_id
         FROM participant_email_verification_tokens
         WHERE token_hash = $1
+          AND ($2::bigint IS NULL OR application_id = $2)
           AND consumed_at IS NULL
           AND expires_at > NOW()
         FOR UPDATE
       `,
-      [tokenHash],
+      [tokenHash, applicationId ?? null],
     );
     const tokenRow = tokenResult.rows[0];
 
@@ -628,6 +837,122 @@ async function verifyEmail(
   } finally {
     client.release();
   }
+}
+
+async function resendVerificationEmail(
+  pg: DatabasePool,
+  applicationId: number,
+  language: RegistrationLanguage,
+): Promise<ResendVerificationResult> {
+  const client = await pg.connect();
+  let token = "";
+  let application: RegistrationApplication;
+  let participant: { email: string; full_name: string; mobile: string };
+
+  try {
+    await client.query("BEGIN");
+    await cleanupExpiredEmailVerificationDrafts(client);
+
+    const registration = await client.query<
+      ApplicationRow & {
+        email: string;
+        full_name: string;
+        mobile: string;
+      }
+    >(
+      `
+        SELECT
+          pa.id,
+          pa.application_number,
+          pa.participant_id,
+          pa.status,
+          p.email_verified,
+          p.email::text AS email,
+          p.full_name,
+          p.mobile
+        FROM participant_applications pa
+        JOIN participants p ON p.id = pa.participant_id
+        WHERE pa.id = $1
+        FOR UPDATE
+      `,
+      [applicationId],
+    );
+    const row = registration.rows[0];
+
+    if (!row) {
+      throw new RegistrationRuleError(getApiContent(language).api.registrationNotFound, 404);
+    }
+    if (row.email_verified) {
+      throw new RegistrationRuleError(getApiContent(language).api.emailVerified, 409);
+    }
+
+    const latestToken = await client.query<{ created_at: Date }>(
+      `
+        SELECT created_at
+        FROM participant_email_verification_tokens
+        WHERE application_id = $1
+        ORDER BY created_at DESC
+        LIMIT 1
+      `,
+      [applicationId],
+    );
+    const lastCreatedAt = latestToken.rows[0]?.created_at;
+    if (
+      lastCreatedAt &&
+      Date.now() - lastCreatedAt.getTime() <
+        verificationResendIntervalMinutes() * 60 * 1000
+    ) {
+      throw new RegistrationRuleError(
+        getApiContent(language).api.verificationResendTooSoon.replace(
+          "{minutes}",
+          String(verificationResendIntervalMinutes()),
+        ),
+        429,
+      );
+    }
+
+    await reserveVerificationEmailAttempt({
+      client,
+      email: row.email,
+      language,
+      mobile: row.mobile,
+    });
+
+    token = await createVerificationToken({
+      applicationId: row.id,
+      client,
+      participantId: row.participant_id,
+    });
+
+    await client.query("COMMIT");
+    application = toRegistrationApplication(row);
+    participant = {
+      email: row.email,
+      full_name: row.full_name,
+      mobile: row.mobile,
+    };
+  } catch (error) {
+    await client.query("ROLLBACK");
+    throw error;
+  } finally {
+    client.release();
+  }
+
+  const emailDelivery = await emailService.sendParticipantVerificationEmail({
+    code: token,
+    language,
+    participantEmail: participant.email,
+    participantName: participant.full_name,
+  });
+
+  if (!emailDelivery.delivered) {
+    console.info(`Email verification code for ${participant.email}: ${token}`);
+  }
+
+  return {
+    application,
+    emailDelivery,
+  };
 }
 
 async function getRegistration(
@@ -1246,9 +1571,12 @@ async function submitProposal(
 
 export const registrationService = {
   buildRedirectUrl,
+  cleanupExpiredVerificationDrafts,
   createRegistration,
+  ensureVerificationAttemptTable,
   getRegistration,
   normalizeLanguage,
+  resendVerificationEmail,
   submitProposal,
   verifyEmail,
 };

@@ -5,6 +5,9 @@ import Fastify from "fastify";
 import type { PoolConfig } from "pg";
 import { sendError, sendSuccess } from "./modules/common/api-response.js";
 import { commonRoutes } from "./modules/common/index.js";
+import { participantRoutes } from "./modules/participants/index.js";
+import { participantService } from "./modules/participants/participant.service.js";
+import { registrationService } from "./modules/registrations/registration.service.js";
 import { registrationRoutes } from "./modules/registrations/index.js";
 
 function envFlag(name: string, defaultValue = false) {
@@ -108,7 +111,29 @@ export function buildApp() {
       files: Number(process.env.SUPPORTING_DOCUMENT_MAX_FILES ?? 3),
     },
   });
-  if (postgresConfig) app.register(postgres, postgresConfig);
+  if (postgresConfig) {
+    app.register(postgres, postgresConfig);
+    app.after(() => {
+      registrationService
+        .ensureVerificationAttemptTable(app.pg)
+        .catch((error) => app.log.error(error));
+      participantService
+        .ensureParticipantLoginTables(app.pg)
+        .catch((error) => app.log.error(error));
+
+      const cleanupIntervalMs = Number(
+        process.env.EMAIL_VERIFICATION_CLEANUP_INTERVAL_MS ?? 60_000,
+      );
+      const cleanupTimer = setInterval(() => {
+        registrationService
+          .cleanupExpiredVerificationDrafts(app.pg)
+          .catch((error) => app.log.error(error));
+      }, cleanupIntervalMs);
+
+      cleanupTimer.unref();
+      app.addHook("onClose", async () => clearInterval(cleanupTimer));
+    });
+  }
 
   app.setErrorHandler((error, request, reply) => {
     app.log.error(error);
@@ -158,6 +183,7 @@ export function buildApp() {
     }),
   );
   app.register(commonRoutes, { prefix: "/api/v1/common" });
+  app.register(participantRoutes, { prefix: "/api/v1/participants" });
   app.register(registrationRoutes, { prefix: "/api/v1/registrations" });
 
   app.setNotFoundHandler((request, reply) =>

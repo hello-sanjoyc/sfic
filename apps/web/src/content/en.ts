@@ -104,17 +104,12 @@ export const enContent = {
                 {
                     heading: "Application process",
                     body:
-                        "The application will be completed through the portal in five steps:",
+                        "The application will be completed through the portal in four steps:",
                     steps: [
                         {
                             title: "Registration",
                             body:
-                                "Select Junior or Open category, then enter your full name, email address and mobile number.",
-                        },
-                        {
-                            title: "Email Verification",
-                            body:
-                                "Verify your registered email address through the verification link sent to your email.",
+                                "Select Junior or Open category, enter your full name, email address and mobile number, then verify the 6 digit code sent to your email.",
                         },
                         {
                             title: "Profile Completion",
@@ -772,6 +767,62 @@ export const enContent = {
             ["Can I participate as a team?", "Yes. Applications may be submitted individually or as a team, subject to the final Challenge guidelines."],
         ],
     },
+    participantLogin: {
+        title: "Participant login",
+        description:
+            "Access your participant dashboard using your registered email address and a 6 digit verification code.",
+        features: [
+            "Email based login",
+            "Verification code required",
+            "Dashboard access after verification",
+        ],
+        email: "Email Address",
+        verificationCode: "Verification Code",
+        emailHelp:
+            "Enter the email address used in your submitted application.",
+        codeHelp:
+            "A 6 digit verification code has been generated for {email}.",
+        codeSent:
+            "Verification code sent. Enter the 6 digit code from your email within {minutes} minutes.",
+        codeResent:
+            "Verification code re-sent. Enter the latest 6 digit code from your email.",
+        resendAvailableIn: "Resend available in {time}",
+        resendVerificationCode: "Resend Verification Code",
+        generateCode: "Generate Verification Code",
+        continueToDashboard: "Continue to Dashboard",
+        placeholders: {
+            email: "e.g. participant@example.com",
+            verificationCode: "Enter 6 digit code",
+        },
+        errors: {
+            email: "Enter a valid email address.",
+            verificationCode: "Enter the 6 digit verification code.",
+            requestFailed: "Unable to send verification code. Please try again.",
+            verifyFailed: "Unable to verify login code. Please try again.",
+            resendFailed: "Unable to resend verification code. Please try again.",
+        },
+        dashboard: {
+            label: "Participant Workspace",
+            title: "Participant dashboard",
+            intro: "Track your Sewa First Innovation Challenge application details.",
+            applicationNumber: "Application Number",
+            role: "Role",
+            status: "Status",
+            memberName: "Participant Name",
+            email: "Email Address",
+            language: "Language",
+            logout: "Logout",
+            roleTeamLead: "Team Lead",
+            roleTeamMember: "Team Member",
+            statusDraft: "Draft",
+            statusProfileCompletion: "Profile Completion",
+            statusProposalSubmission: "Proposal Submission",
+            statusSubmitted: "Submitted",
+            statusWithdrawn: "Withdrawn",
+            loginRequired:
+                "Please login with your registered email address to access the dashboard.",
+        },
+    },
     register: {
         showInfo: "Show the info",
         title: "Application information",
@@ -780,7 +831,6 @@ export const enContent = {
         startRegistration: "Start Registration",
         steps: [
             "Registration",
-            "Email Verification",
             "Profile Completion",
             "Proposal Submission",
             "Application Number Generation",
@@ -799,7 +849,25 @@ export const enContent = {
         mobile: "Mobile Number",
         verifyTitle: "Verify your registered email address",
         verifyBody:
-            "A verification link would be sent to {email}. Continue after confirming the registered email address.",
+            "A 6 digit verification code has been sent to {email}. Enter it within {minutes} minutes to continue.",
+        verificationCode: "Email Verification Code",
+        resendVerificationCode: "Resend Verification Code",
+        resendVerificationAvailableIn: "Resend available in {time}",
+        submitVerificationCode: "Submit Verification Code",
+        verificationCodeSent:
+            "Verification code sent. Enter the 6 digit code from your email within {minutes} minutes.",
+        verificationCodeResent:
+            "Verification code re-sent. Enter the latest 6 digit code from your email.",
+        verificationCodeExpired:
+            "The verification code is either invalid or has expired. Please submit Step 1 again to receive a new code.",
+        verificationCodePreviousExpired:
+            "The previous code expired. Click Continue to receive a fresh verification code.",
+        registrationNotFound:
+            "Registration was not found. Please submit Step 1 again.",
+        unableVerifyCode:
+            "Unable to verify email code. Please try again.",
+        unableResendCode:
+            "Unable to resend verification code. Please try again.",
         continueAfterVerification: "Continue After Verification",
         state: "State",
         district: "District",
@@ -836,6 +904,10 @@ export const enContent = {
         proposalDescription:
             "Answer each prompt in plain language. Keep it specific, practical and evidence-led.",
         enter: "Enter",
+        countdownUnits: {
+            minute: "minute",
+            second: "second",
+        },
         fileUnits: {
             kb: "KB",
             mb: "MB",
@@ -844,6 +916,7 @@ export const enContent = {
             fullName: "e.g. Ronit Mukherjee",
             email: "e.g. ronitmukherjee@gmail.com",
             mobile: "e.g. 9876543210",
+            verificationCode: "Enter 6 digit code",
             city: "e.g. Kolkata",
             pinCode: "e.g. 700064",
             address: "e.g. 26/B DD Block, Sector I, Salt Lake",
@@ -876,6 +949,7 @@ export const enContent = {
             participationMode: "Select Individual or Team.",
             email: "Enter a valid email address.",
             mobile: "Enter a valid 10 digit mobile number.",
+            verificationCode: "Enter the 6 digit verification code.",
             address: "Enter your address.",
             city: "Enter your city.",
             district: "Select your district.",

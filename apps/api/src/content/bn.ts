@@ -21,7 +21,7 @@ export const bnContent = {
         invalidState: "রাজ্য সঠিক নয়।",
         instituteTypesFetched: "প্রতিষ্ঠানের ধরন সফলভাবে পাওয়া গেছে।",
         internalServerError: "কিছু সমস্যা হয়েছে। আবার চেষ্টা করুন।",
-        invalidToken: "যাচাইকরণ লিঙ্কটি সঠিক নয় অথবা এর মেয়াদ শেষ হয়েছে।",
+        invalidToken: "যাচাইকরণ কোডটি সঠিক নয় অথবা এর মেয়াদ শেষ হয়েছে।",
         lookupsFetched: "প্রয়োজনীয় সাধারণ তথ্য সফলভাবে পাওয়া গেছে।",
         notFound: "চাওয়া তথ্য পাওয়া যায়নি।",
         noActiveChallenge: "কোনও সক্রিয় চ্যালেঞ্জ কনফিগার করা নেই।",
@@ -30,6 +30,12 @@ export const bnContent = {
             "অংশগ্রহণকারী বিভাগগুলি সফলভাবে পাওয়া গেছে।",
         participantCategoryInstituteTypesFetched:
             "অংশগ্রহণকারী বিভাগ ও প্রতিষ্ঠানের ধরনের ম্যাপিং সফলভাবে পাওয়া গেছে।",
+        participantLoginCodeSent:
+            "অংশগ্রহণকারী লগইনের যাচাইকরণ ইমেল পাঠানো হয়েছে।",
+        participantLoginUnable:
+            "অংশগ্রহণকারী লগইন সম্পন্ন করা যায়নি।",
+        participantLoginVerified:
+            "অংশগ্রহণকারী লগইন সফলভাবে যাচাই হয়েছে।",
         proposalSubmitted: "প্রস্তাব সফলভাবে জমা হয়েছে।",
         registrationCreated:
             "নিবন্ধন সফলভাবে সংরক্ষিত হয়েছে। যাচাইকরণ ইমেল পাঠানো হয়েছে।",
@@ -53,6 +59,12 @@ export const bnContent = {
         unableVerifyEmail: "ইমেল ঠিকানা যাচাই করা যায়নি।",
         useStateIdForDistricts: "জেলা বাছাই করতে stateId ব্যবহার করুন।",
         validationError: "চিহ্নিত ভুলগুলি ঠিক করুন।",
+        verificationCodeRequired: "যাচাইকরণ কোড প্রয়োজন।",
+        verificationEmailSent: "যাচাইকরণ ইমেল পাঠানো হয়েছে।",
+        verificationLimitReached:
+            "ইমেল যাচাইকরণের সীমা পূর্ণ হয়েছে। আবার আবেদন করার আগে অনুগ্রহ করে এক ঘণ্টা অপেক্ষা করুন।",
+        verificationResendTooSoon:
+            "আরেকটি যাচাইকরণ ইমেল চাইতে অনুগ্রহ করে {minutes} মিনিট অপেক্ষা করুন।",
         verificationTokenRequired: "যাচাইকরণ টোকেন প্রয়োজন।",
     },
     apiValidation: {
@@ -109,24 +121,39 @@ export const bnContent = {
                 `দলের সদস্য হিসেবে যুক্ত করা হয়েছে: ${applicationNumber}`,
             title: "দলের সদস্য হিসেবে যুক্ত করা হয়েছে",
         },
+        participantLoginVerification: {
+            footer:
+                "এই ইমেলটি Sewa First Innovation Challenge থেকে পাঠানো হয়েছে। আপনি যদি এই লগইন কোড না চেয়ে থাকেন, তাহলে ইমেলটি উপেক্ষা করতে পারেন।",
+            greeting: (participantName: string) => `প্রিয় ${participantName},`,
+            intro:
+                "আপনার Sewa First Innovation Challenge অংশগ্রহণকারী ড্যাশবোর্ডে লগইনের জন্য একটি অনুরোধ করা হয়েছে।",
+            preheader:
+                "অংশগ্রহণকারী ড্যাশবোর্ডে লগইন করতে এই কোড ব্যবহার করুন।",
+            subject:
+                "আপনার Sewa First Innovation Challenge অংশগ্রহণকারী লগইন কোড",
+            title: "অংশগ্রহণকারী লগইন যাচাইকরণ",
+            verificationCodeLabel: "যাচাইকরণ কোড",
+            verifyInstruction:
+                "ড্যাশবোর্ডে যেতে {minutes} মিনিটের মধ্যে এই ৬ সংখ্যার কোডটি লিখুন।",
+            verifyTextInstruction:
+                "{minutes} মিনিটের মধ্যে এই ৬ সংখ্যার যাচাইকরণ কোডটি লিখুন:",
+        },
         verification: {
-            ctaLabel: "ইমেল ঠিকানা যাচাই করুন",
             footer:
                 "এই ইমেলটি Sewa First Innovation Challenge থেকে পাঠানো হয়েছে। আপনি যদি এই অনুরোধ না করে থাকেন, তাহলে ইমেলটি উপেক্ষা করতে পারেন।",
             greeting: (participantName: string) => `প্রিয় ${participantName},`,
             intro:
                 "Sewa First Innovation Challenge-এর নিবন্ধন শুরু করার জন্য ধন্যবাদ।",
-            linkHelp:
-                "বোতামটি কাজ না করলে নিচের লিঙ্কটি কপি করে ব্রাউজারে পেস্ট করুন:",
             preheader:
-                "Sewa First Innovation Challenge-এর নিবন্ধন চালিয়ে যেতে আপনার ইমেল ঠিকানা যাচাই করুন।",
+                "Sewa First Innovation Challenge-এর নিবন্ধন চালিয়ে যেতে এই কোড ব্যবহার করে আপনার ইমেল যাচাই করুন।",
             subject:
                 "Sewa First Innovation Challenge-এর ইমেল ঠিকানা যাচাই করুন",
             title: "Verify your email address",
+            verificationCodeLabel: "Verification Code",
             verifyInstruction:
-                "ধাপ ২-এ যেতে এবং অংশগ্রহণকারীর প্রোফাইল সম্পূর্ণ করতে আপনার ইমেল ঠিকানা যাচাই করুন।",
+                "Profile Completion-এ যেতে {minutes} মিনিটের মধ্যে এই ৬ সংখ্যার কোডটি লিখুন।",
             verifyTextInstruction:
-                "ধাপ ২-এ যেতে আপনার ইমেল ঠিকানা যাচাই করুন:",
+                "{minutes} মিনিটের মধ্যে এই ৬ সংখ্যার যাচাইকরণ কোডটি লিখুন:",
         },
     },
     registrations: {

@@ -16,7 +16,6 @@ import { themes } from "@/mocks/public";
 
 const steps = [
     "Registration",
-    "Email Verification",
     "Profile Completion",
     "Proposal Submission",
     "Application Number Generation",
@@ -90,7 +89,9 @@ type CreateRegistrationResponse = {
         delivered: boolean;
         reason?: string;
     };
-    verificationUrl?: string;
+};
+type VerifyEmailResponse = {
+    application: RegistrationApplicationResponse;
 };
 type SubmitProposalResponse = {
     application: RegistrationApplicationResponse;
@@ -124,6 +125,7 @@ type StoredRegistrationForm = {
     emailVerified?: boolean;
     isOpen?: boolean;
     participantId?: number;
+    resendAvailableAt?: number;
     step?: number;
     teamMembers?: TeamMember[];
     values?: Partial<FormValues>;
@@ -178,6 +180,18 @@ const maxSupportingDocumentSizeMb = Number.parseInt(
 );
 const maxSupportingDocumentSizeBytes =
     maxSupportingDocumentSizeMb * 1024 * 1024;
+const verificationTokenTtlMinutes = Number.parseInt(
+    process.env.NEXT_PUBLIC_EMAIL_VERIFICATION_TOKEN_TTL_MINUTES ?? "10",
+    10,
+);
+const verificationResendIntervalMs =
+    Number.parseInt(
+        process.env.NEXT_PUBLIC_EMAIL_VERIFICATION_RESEND_INTERVAL_MINUTES ??
+            "10",
+        10,
+    ) *
+    60 *
+    1000;
 const instituteTypesByCategory: Record<string, string[]> = {
     Junior: ["School", "ITI", "Diploma", "Under-graduate"],
     Open: [
@@ -550,7 +564,7 @@ const eligibleStates = Object.keys(eligibleStateDistricts);
 
 const stepFields: Record<number, FieldName[]> = {
     0: ["participantCategory", "fullName", "email", "mobile"],
-    2: [
+    1: [
         "state",
         "district",
         "city",
@@ -560,7 +574,7 @@ const stepFields: Record<number, FieldName[]> = {
         "organisationType",
         "participationMode",
     ],
-    3: ["theme", ...proposalElementFields, "supportingDocuments"],
+    2: ["theme", ...proposalElementFields, "supportingDocuments"],
 };
 const multilingualNamePattern = /^[\p{L}\p{M} ]{2,}$/u;
 const nonMultilingualNameCharacters = /[^\p{L}\p{M} ]/gu;
@@ -734,6 +748,17 @@ function formatFileSize(
     return `${(size / (1024 * 1024)).toFixed(1)} ${units.mb}`;
 }
 
+function formatCountdown(
+    milliseconds: number,
+    units: ReturnType<typeof getSiteContent>["register"]["countdownUnits"],
+) {
+    const totalSeconds = Math.max(0, Math.ceil(milliseconds / 1000));
+    const minutes = Math.floor(totalSeconds / 60);
+    const seconds = totalSeconds % 60;
+
+    return `${minutes} ${units.minute} ${seconds} ${units.second}`;
+}
+
 function getFileKey(file: File) {
     return `${file.name}-${file.size}-${file.lastModified}`;
 }
@@ -840,6 +865,8 @@ export function RegistrationProcessForm({
     const [isOpen, setIsOpen] = useState(startOpen);
     const [hasRestoredForm, setHasRestoredForm] = useState(false);
     const [step, setStep] = useState(0);
+    const [hasSubmittedApplication, setHasSubmittedApplication] =
+        useState(false);
     const [values, setValues] = useState<FormValues>(initialValues);
     const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
     const [hasSupportingDocuments, setHasSupportingDocuments] = useState(false);
@@ -855,6 +882,7 @@ export function RegistrationProcessForm({
     const [applicationId, setApplicationId] = useState<number | undefined>();
     const [participantId, setParticipantId] = useState<number | undefined>();
     const [isEmailVerified, setIsEmailVerified] = useState(false);
+    const [verificationCode, setVerificationCode] = useState("");
     const [isSubmittingRegistration, setIsSubmittingRegistration] =
         useState(false);
     const [isSubmittingProposal, setIsSubmittingProposal] = useState(false);
@@ -862,6 +890,8 @@ export function RegistrationProcessForm({
         useState("");
     const [proposalSubmitError, setProposalSubmitError] = useState("");
     const [verificationMessage, setVerificationMessage] = useState("");
+    const [resendAvailableAt, setResendAvailableAt] = useState(0);
+    const [currentTime, setCurrentTime] = useState(() => Date.now());
     const [stateOptions, setStateOptions] = useState<LookupOption[]>([]);
     const [districtOptions, setDistrictOptions] = useState<DistrictOption[]>([]);
     const [instituteTypeOptions, setInstituteTypeOptions] = useState<
@@ -929,10 +959,15 @@ export function RegistrationProcessForm({
         (errors) => Object.keys(errors).length > 0,
     );
     const hasSubmittedRegistrationStep = Boolean(applicationId || participantId);
+    const resendRemainingMs = Math.max(resendAvailableAt - currentTime, 0);
+    const isResendLocked = resendRemainingMs > 0;
     const canContinue =
         Object.keys(currentErrors).length === 0 &&
-        (step !== 1 || isEmailVerified) &&
-        (step !== 2 || !hasTeamMemberErrors) &&
+        (step !== 0 ||
+            isEmailVerified ||
+            !hasSubmittedRegistrationStep ||
+            /^\d{6}$/.test(verificationCode)) &&
+        (step !== 1 || !hasTeamMemberErrors) &&
         !isSubmittingRegistration &&
         !isSubmittingProposal;
     const hasReachedSupportingDocumentLimit =
@@ -1069,6 +1104,7 @@ export function RegistrationProcessForm({
             setApplicationNumber(parsed.applicationNumber ?? "");
             setIsEmailVerified(Boolean(parsed.emailVerified));
             setParticipantId(parsed.participantId);
+            setResendAvailableAt(parsed.resendAvailableAt ?? 0);
         } catch {
             localStorage.removeItem(registrationFormStorageKey);
         } finally {
@@ -1078,6 +1114,10 @@ export function RegistrationProcessForm({
 
     useEffect(() => {
         if (!hasRestoredForm) return;
+        if (hasSubmittedApplication || step === steps.length - 1) {
+            localStorage.removeItem(registrationFormStorageKey);
+            return;
+        }
         if (!isOpen) return;
 
         localStorage.setItem(
@@ -1088,6 +1128,7 @@ export function RegistrationProcessForm({
                 emailVerified: isEmailVerified,
                 isOpen,
                 participantId,
+                resendAvailableAt,
                 step,
                 teamMembers,
                 values,
@@ -1096,14 +1137,29 @@ export function RegistrationProcessForm({
     }, [
         applicationId,
         applicationNumber,
+        hasSubmittedApplication,
         hasRestoredForm,
         isEmailVerified,
         isOpen,
         participantId,
+        resendAvailableAt,
         step,
         teamMembers,
         values,
     ]);
+
+    useEffect(() => {
+        if (!isOpen || !resendAvailableAt) return;
+
+        setCurrentTime(Date.now());
+        if (resendAvailableAt <= Date.now()) return;
+
+        const timer = window.setInterval(() => {
+            setCurrentTime(Date.now());
+        }, 1000);
+
+        return () => window.clearInterval(timer);
+    }, [isOpen, resendAvailableAt]);
 
     useEffect(() => {
         if (!hasRestoredForm) return;
@@ -1127,7 +1183,8 @@ export function RegistrationProcessForm({
             setIsEmailVerified(true);
             setVerificationMessage("");
             setRegistrationSubmitError("");
-            setStep(2);
+            setResendAvailableAt(0);
+            setStep(1);
 
             if (Number.isFinite(verifiedApplicationId)) {
                 setApplicationId(verifiedApplicationId);
@@ -1175,10 +1232,9 @@ export function RegistrationProcessForm({
         }
 
         setIsEmailVerified(false);
-        setStep(1);
-        setVerificationMessage(
-            "The verification link is invalid or has expired. Please submit Step 1 again to receive a new link.",
-        );
+        setStep(0);
+        setResendAvailableAt(0);
+        setVerificationMessage(content.verificationCodeExpired);
 
         return () => {
             isMounted = false;
@@ -1333,7 +1389,21 @@ export function RegistrationProcessForm({
             setApplicationNumber(result.application.applicationNumber);
             setIsEmailVerified(result.application.emailVerified);
             setParticipantId(result.application.participantId);
-            setStep(result.application.emailVerified ? 2 : 1);
+            setStep(result.application.emailVerified ? 1 : 0);
+            setVerificationCode("");
+            setCurrentTime(Date.now());
+            setResendAvailableAt(
+                result.application.emailVerified
+                    ? 0
+                    : Date.now() + verificationResendIntervalMs,
+            );
+            setVerificationMessage(
+                result.application.emailVerified
+                    ? ""
+                    : messageTemplate(content.verificationCodeSent, {
+                          minutes: verificationTokenTtlMinutes,
+                      }),
+            );
         } catch (error) {
             setRegistrationSubmitError(
                 error instanceof Error
@@ -1345,11 +1415,95 @@ export function RegistrationProcessForm({
         }
     };
 
+    const verifyRegistrationCode = async () => {
+        if (!applicationId) {
+            setRegistrationSubmitError(content.registrationNotFound);
+            return;
+        }
+
+        setIsSubmittingRegistration(true);
+        setRegistrationSubmitError("");
+        setVerificationMessage("");
+
+        try {
+            const result = await apiClient.post<VerifyEmailResponse>(
+                endpoints.registrations.verifyEmail,
+                {
+                    applicationId,
+                    code: verificationCode,
+                    language: lookupLocale,
+                },
+            );
+
+            setApplicationId(result.application.id);
+            setApplicationNumber(result.application.applicationNumber);
+            setIsEmailVerified(true);
+            setParticipantId(result.application.participantId);
+            setResendAvailableAt(0);
+            setStep(1);
+        } catch (error) {
+            setRegistrationSubmitError(
+                error instanceof Error
+                    ? error.message
+                    : content.unableVerifyCode,
+            );
+        } finally {
+            setIsSubmittingRegistration(false);
+        }
+    };
+
+    const resendVerificationCode = async () => {
+        if (!applicationId) {
+            await submitRegistrationStep();
+            return;
+        }
+
+        setIsSubmittingRegistration(true);
+        setRegistrationSubmitError("");
+        setVerificationMessage("");
+
+        try {
+            await apiClient.post<CreateRegistrationResponse>(
+                endpoints.registrations.resendVerification(String(applicationId)),
+                { language: lookupLocale },
+            );
+
+            setVerificationCode("");
+            setCurrentTime(Date.now());
+            setResendAvailableAt(Date.now() + verificationResendIntervalMs);
+            setVerificationMessage(
+                content.verificationCodeResent,
+            );
+        } catch (error) {
+            const message =
+                error instanceof Error
+                    ? error.message
+                    : content.unableResendCode;
+
+            if (/not found/i.test(message)) {
+                setApplicationId(undefined);
+                setParticipantId(undefined);
+                setApplicationNumber("");
+                setVerificationCode("");
+                setResendAvailableAt(0);
+                setVerificationMessage(
+                    content.verificationCodePreviousExpired,
+                );
+                setRegistrationSubmitError("");
+                return;
+            }
+
+            setRegistrationSubmitError(
+                message,
+            );
+        } finally {
+            setIsSubmittingRegistration(false);
+        }
+    };
+
     const submitProposalStep = async () => {
         if (!applicationId) {
-            setProposalSubmitError(
-                "Registration was not found. Please complete Step 1 again.",
-            );
+            setProposalSubmitError(content.registrationNotFound);
             return;
         }
 
@@ -1394,7 +1548,9 @@ export function RegistrationProcessForm({
             );
 
             setApplicationNumber(result.application.applicationNumber);
-            setStep(4);
+            setHasSubmittedApplication(true);
+            localStorage.removeItem(registrationFormStorageKey);
+            setStep(3);
         } catch (error) {
             setProposalSubmitError(
                 error instanceof Error
@@ -1415,7 +1571,12 @@ export function RegistrationProcessForm({
         if (step === 0) {
             if (isEmailVerified) {
                 setRegistrationSubmitError("");
-                setStep(2);
+                setStep(1);
+                return;
+            }
+
+            if (hasSubmittedRegistrationStep) {
+                await verifyRegistrationCode();
                 return;
             }
 
@@ -1423,7 +1584,7 @@ export function RegistrationProcessForm({
             return;
         }
 
-        if (step === 3) {
+        if (step === 2) {
             await submitProposalStep();
             return;
         }
@@ -1566,7 +1727,7 @@ export function RegistrationProcessForm({
                         </p>
                     </div>
 
-                    <ol className="mt-5 grid gap-2 text-xs font-semibold text-slate-500 sm:grid-cols-5">
+                    <ol className="mt-5 grid gap-2 text-xs font-semibold text-slate-500 sm:grid-cols-4">
                         {localizedSteps.map((label, index) => (
                             <li
                                 className={`flex min-h-16 items-center rounded border px-3 py-2 ${index === step ? "border-[#ff9933] bg-orange-50 text-[#0b1f3a]" : index < step ? "border-[#138808] bg-green-50 text-[#138808]" : "border-slate-200 bg-slate-50"}`}
@@ -1600,7 +1761,7 @@ export function RegistrationProcessForm({
                                                         ? "border-[#ff9933] bg-orange-50 ring-2 ring-[#ff9933]/20"
                                                         : "border-slate-200 bg-slate-50"
                                                 } disabled:cursor-not-allowed disabled:opacity-75`}
-                                                disabled={isEmailVerified}
+                                                disabled={hasSubmittedRegistrationStep}
                                                 key={category.value}
                                                 onClick={() =>
                                                     selectParticipantCategory(
@@ -1635,7 +1796,7 @@ export function RegistrationProcessForm({
                                             currentErrors.fullName,
                                         )}
                                         className={inputClass}
-                                        disabled={isEmailVerified}
+                                        disabled={hasSubmittedRegistrationStep}
                                         onChange={updateValue("fullName")}
                                         placeholder={content.placeholders.fullName}
                                         type="text"
@@ -1646,28 +1807,13 @@ export function RegistrationProcessForm({
                                     />
                                 </label>
                                 <label className="text-sm font-bold text-slate-700">
-                                    {content.email}
-                                    <input
-                                        aria-invalid={Boolean(
-                                            currentErrors.email,
-                                        )}
-                                        className={inputClass}
-                                        disabled={isEmailVerified}
-                                        onChange={updateValue("email")}
-                                        placeholder={content.placeholders.email}
-                                        type="email"
-                                        value={values.email}
-                                    />
-                                    <FieldError message={currentErrors.email} />
-                                </label>
-                                <label className="text-sm font-bold text-slate-700">
                                     {content.mobile}
                                     <input
                                         aria-invalid={Boolean(
                                             currentErrors.mobile,
                                         )}
                                         className={inputClass}
-                                        disabled={isEmailVerified}
+                                        disabled={hasSubmittedRegistrationStep}
                                         inputMode="numeric"
                                         maxLength={10}
                                         onChange={updateValue("mobile")}
@@ -1680,7 +1826,99 @@ export function RegistrationProcessForm({
                                         message={currentErrors.mobile}
                                     />
                                 </label>
+                                <label className="text-sm font-bold text-slate-700">
+                                    {content.email}
+                                    <input
+                                        aria-invalid={Boolean(
+                                            currentErrors.email,
+                                        )}
+                                        className={inputClass}
+                                        disabled={hasSubmittedRegistrationStep}
+                                        onChange={updateValue("email")}
+                                        placeholder={content.placeholders.email}
+                                        type="email"
+                                        value={values.email}
+                                    />
+                                    <FieldError message={currentErrors.email} />
+                                </label>
+                                {hasSubmittedRegistrationStep &&
+                                    !isEmailVerified && (
+                                        <label className="text-sm font-bold text-slate-700">
+                                            {content.verificationCode}
+                                            <input
+                                                className={inputClass}
+                                                inputMode="numeric"
+                                                maxLength={6}
+                                                onChange={(event) =>
+                                                    setVerificationCode(
+                                                        numericFieldValue(
+                                                            event.target.value,
+                                                            6,
+                                                        ),
+                                                    )
+                                                }
+                                                pattern="[0-9]{6}"
+                                                placeholder={
+                                                    content.placeholders
+                                                        .verificationCode
+                                                }
+                                                type="text"
+                                                value={verificationCode}
+                                            />
+                                            <FieldError
+                                                message={
+                                                    verificationCode &&
+                                                    !/^\d{6}$/.test(
+                                                        verificationCode,
+                                                    )
+                                                        ? content.errors
+                                                              .verificationCode
+                                                        : ""
+                                                }
+                                            />
+                                        </label>
+                                    )}
                             </div>
+                            {hasSubmittedRegistrationStep &&
+                                !isEmailVerified && (
+                                    <div className="rounded-md border border-orange-200 bg-orange-50 p-4">
+                                        <p className="text-sm font-semibold text-[#0b1f3a]">
+                                            {content.verifyTitle}
+                                        </p>
+                                        <p className="mt-1 text-sm font-normal leading-6 text-slate-600">
+                                            {messageTemplate(
+                                                content.verifyBody,
+                                                {
+                                                    email:
+                                                        values.email ||
+                                                        content.email,
+                                                    minutes:
+                                                        verificationTokenTtlMinutes,
+                                                },
+                                            )}
+                                        </p>
+                                        <button
+                                            className="mt-3 rounded-md border border-[#ff9933] bg-white px-4 py-2 text-xs font-bold text-[#0b1f3a] transition hover:bg-orange-100 disabled:cursor-not-allowed disabled:opacity-60"
+                                            disabled={
+                                                isSubmittingRegistration ||
+                                                isResendLocked
+                                            }
+                                            onClick={resendVerificationCode}
+                                            type="button"
+                                        >
+                                            {isResendLocked
+                                                ? content.resendVerificationAvailableIn.replace(
+                                                      "{time}",
+                                                      formatCountdown(
+                                                          resendRemainingMs,
+                                                          content.countdownUnits,
+                                                      ),
+                                                  )
+                                                : content.resendVerificationCode}
+                                        </button>
+                                    </div>
+                                )}
+                            <FieldError message={verificationMessage} />
                             <FieldError message={registrationSubmitError} />
                             <StepActions
                                 backLabel={content.back}
@@ -1689,7 +1927,9 @@ export function RegistrationProcessForm({
                                 nextLabel={
                                     isEmailVerified
                                         ? content.continueAfterVerification
-                                        : content.continue
+                                        : hasSubmittedRegistrationStep
+                                          ? content.submitVerificationCode
+                                          : content.continue
                                 }
                                 step={step}
                                 setStep={setStep}
@@ -1698,33 +1938,6 @@ export function RegistrationProcessForm({
                     )}
 
                     {step === 1 && (
-                        <form
-                            className="mt-6 grid gap-4"
-                            onSubmit={continueToNextStep}
-                        >
-                            <div className="rounded-lg border border-orange-200 bg-orange-50 p-4">
-                                <p className="font-semibold text-[#0b1f3a]">
-                                    {content.verifyTitle}
-                                </p>
-                                <p className="mt-2 text-sm leading-6 text-slate-600">
-                                    {content.verifyBody.replace(
-                                        "{email}",
-                                        values.email || content.email,
-                                    )}
-                                </p>
-                            </div>
-                            <FieldError message={verificationMessage} />
-                            <StepActions
-                                backLabel={content.back}
-                                canContinue={canContinue}
-                                nextLabel={content.continueAfterVerification}
-                                setStep={setStep}
-                                step={step}
-                            />
-                        </form>
-                    )}
-
-                    {step === 2 && (
                         <form
                             className="mt-6 grid gap-4"
                             onSubmit={continueToNextStep}
@@ -2124,7 +2337,7 @@ export function RegistrationProcessForm({
                         </form>
                     )}
 
-                    {step === 3 && (
+                    {step === 2 && (
                         <form
                             className="mt-6 grid gap-4"
                             onSubmit={continueToNextStep}
@@ -2382,7 +2595,7 @@ export function RegistrationProcessForm({
                         </form>
                     )}
 
-                    {step === 4 && (
+                    {step === 3 && (
                         <div className="mt-6 rounded-lg border border-green-200 bg-green-50 p-5">
                             <CheckCircle2
                                 className="text-[#138808]"
@@ -2400,30 +2613,6 @@ export function RegistrationProcessForm({
                             >
                                 {applicationNumber}
                             </p>
-                            <button
-                                className="mt-5 rounded-md border border-slate-300 px-4 py-2.5 text-sm font-bold text-[#0b1f3a] hover:border-[#0b1f3a]"
-                                onClick={() => {
-                                    setStep(0);
-                                    setValues(initialValues);
-                                    setHasSupportingDocuments(false);
-                                    setSupportingDocumentsError("");
-                                    setSelectedSupportingDocuments([]);
-                                    setTeamMembers([]);
-                                    setApplicationId(undefined);
-                                    setApplicationNumber("");
-                                    setIsEmailVerified(false);
-                                    setParticipantId(undefined);
-                                    setProposalSubmitError("");
-                                    setRegistrationSubmitError("");
-                                    setVerificationMessage("");
-                                    localStorage.removeItem(
-                                        registrationFormStorageKey,
-                                    );
-                                }}
-                                type="button"
-                            >
-                                {content.startAnother}
-                            </button>
                         </div>
                     )}
                 </section>
