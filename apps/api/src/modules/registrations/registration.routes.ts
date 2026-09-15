@@ -6,6 +6,7 @@ export const registrationRoutes: FastifyPluginAsync = async (app) => {
   app.get("/verify-email", registrationController.verifyEmail);
   app.post("/verify-email", registrationController.verifyEmail);
   app.post("/:id/resend-verification", registrationController.resendVerificationEmail);
+  app.post("/:id/profile", registrationController.submitProfile);
   app.post("/:id/proposal", registrationController.submitProposal);
   app.get("/:id", registrationController.getRegistration);
 };

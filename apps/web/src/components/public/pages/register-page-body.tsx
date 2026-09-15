@@ -1,13 +1,10 @@
 "use client";
 
-import { ArrowRight, X } from "lucide-react";
-import { usePathname, useSearchParams } from "next/navigation";
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { X } from "lucide-react";
+import { usePathname } from "next/navigation";
+import { useState, type ReactNode } from "react";
 import { getSiteContent } from "@/content";
 import { RegistrationProcessForm } from "./registration-process-form";
-
-const registrationVisibilityKey =
-    "sewa-first-innovation-challenge-registration-form-visible";
 
 export function RegisterPageBody({
   children,
@@ -17,70 +14,26 @@ export function RegisterPageBody({
   id?: string;
 }) {
   const pathname = usePathname();
-  const searchParams = useSearchParams();
   const locale = pathname.split("/")[1] || "en";
   const content = getSiteContent(locale).register;
-  const [hasRestoredVisibility, setHasRestoredVisibility] = useState(false);
-  const [showForm, setShowForm] = useState(false);
   const [showInfo, setShowInfo] = useState(false);
-  const sectionRef = useRef<HTMLElement>(null);
-
-  useEffect(() => {
-    setShowForm(localStorage.getItem(registrationVisibilityKey) === "true");
-    setHasRestoredVisibility(true);
-  }, []);
-
-  useEffect(() => {
-    if (searchParams.has("emailVerified")) {
-      setShowForm(true);
-    }
-  }, [searchParams]);
-
-  useEffect(() => {
-    if (!hasRestoredVisibility) return;
-
-    localStorage.setItem(registrationVisibilityKey, String(showForm));
-  }, [hasRestoredVisibility, showForm]);
-
-  const startRegistration = () => {
-    setShowForm(true);
-    setTimeout(() => {
-      sectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
-    }, 0);
-  };
 
   return (
     <section
       className="mx-auto max-w-5xl px-4 py-16 sm:px-6"
       id={id}
-      ref={sectionRef}
       tabIndex={id ? -1 : undefined}
     >
-      {!showForm ? (
-        <>
-          <div className="grid gap-6">{children}</div>
-          <button
-            className="mt-8 inline-flex items-center rounded-md bg-[#ff9933] px-5 py-3 font-bold text-[#071426] transition hover:bg-[#f08a24]"
-            onClick={startRegistration}
-            type="button"
-          >
-            {content.startRegistration} <ArrowRight className="ml-2" size={18} />
-          </button>
-        </>
-      ) : (
-        <>
-          <div className="mb-5 flex justify-end">
-            <button
-              className="text-sm font-bold text-[#000080] underline underline-offset-4 hover:text-[#0b1f3a]"
-              onClick={() => setShowInfo(true)}
-              type="button"
-            >
-              {content.showInfo}
-            </button>
-          </div>
-          <RegistrationProcessForm showStartButton={false} startOpen />
-        </>
-      )}
+      <div className="mb-5 flex justify-end">
+        <button
+          className="text-sm font-bold text-[#000080] underline underline-offset-4 hover:text-[#0b1f3a]"
+          onClick={() => setShowInfo(true)}
+          type="button"
+        >
+          {content.showInfo}
+        </button>
+      </div>
+      <RegistrationProcessForm showStartButton={false} startOpen />
 
       {showInfo && (
         <div

@@ -16,10 +16,10 @@ export const hiContent = {
         invalidDistrictForState: "चुने गए राज्य के लिए जिला मान्य नहीं है।",
         invalidFileUpload: "अपलोड किए गए सहायक दस्तावेज मान्य नहीं हैं।",
         invalidInstituteTypeForParticipantCategory:
-            "चुनी गई प्रतिभागी श्रेणी के लिए संस्थान का प्रकार मान्य नहीं है।",
+            "चुनी गई प्रतिभागी श्रेणी के लिए संगठन का प्रकार मान्य नहीं है।",
         invalidParticipantCategory: "प्रतिभागी श्रेणी मान्य नहीं है।",
         invalidState: "राज्य मान्य नहीं है।",
-        instituteTypesFetched: "संस्थान के प्रकार सफलतापूर्वक प्राप्त हो गए हैं।",
+        instituteTypesFetched: "संगठन के प्रकार सफलतापूर्वक प्राप्त हो गए हैं।",
         internalServerError: "कुछ गड़बड़ हुई है। कृपया फिर से प्रयास करें।",
         invalidToken: "सत्यापन कोड मान्य नहीं है या उसकी अवधि समाप्त हो चुकी है।",
         lookupsFetched: "आवश्यक सामान्य जानकारी सफलतापूर्वक प्राप्त हो गई है।",
@@ -29,7 +29,7 @@ export const hiContent = {
         participantCategoriesFetched:
             "प्रतिभागी श्रेणियां सफलतापूर्वक प्राप्त हो गई हैं।",
         participantCategoryInstituteTypesFetched:
-            "प्रतिभागी श्रेणी और संस्थान प्रकार की मैपिंग सफलतापूर्वक प्राप्त हो गई है।",
+            "प्रतिभागी श्रेणी और संगठन प्रकार की मैपिंग सफलतापूर्वक प्राप्त हो गई है।",
         participantLoginCodeSent:
             "प्रतिभागी लॉगिन सत्यापन ईमेल भेज दिया गया है।",
         participantLoginUnable: "प्रतिभागी लॉगिन पूरा नहीं किया जा सका।",
@@ -47,11 +47,11 @@ export const hiContent = {
         unableFetchChallengeCategories: "चैलेंज श्रेणियां प्राप्त नहीं की जा सकीं।",
         unableFetchCommonLookups: "आवश्यक सामान्य जानकारी प्राप्त नहीं की जा सकी।",
         unableFetchDistricts: "जिलों की जानकारी प्राप्त नहीं की जा सकी।",
-        unableFetchInstituteTypes: "संस्थान के प्रकार प्राप्त नहीं किए जा सके।",
+        unableFetchInstituteTypes: "संगठन के प्रकार प्राप्त नहीं किए जा सके।",
         unableFetchParticipantCategories:
             "प्रतिभागी श्रेणियां प्राप्त नहीं की जा सकीं।",
         unableFetchParticipantCategoryInstituteTypes:
-            "प्रतिभागी श्रेणी और संस्थान प्रकार की मैपिंग प्राप्त नहीं की जा सकी।",
+            "प्रतिभागी श्रेणी और संगठन प्रकार की मैपिंग प्राप्त नहीं की जा सकी।",
         unableFetchRegistration: "पंजीकरण की जानकारी प्राप्त नहीं की जा सकी।",
         unableFetchStates: "राज्यों की जानकारी प्राप्त नहीं की जा सकी।",
         unableSubmitProposal: "प्रस्ताव जमा नहीं किया जा सका।",

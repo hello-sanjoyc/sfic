@@ -9,6 +9,8 @@ import type {
   RegistrationDetailsResult,
   RegistrationLanguage,
   ResendVerificationResult,
+  SubmitProfileInput,
+  SubmitProfileResult,
   SubmitProposalInput,
   SubmitProposalResult,
   VerifyRegistrationResult,
@@ -68,8 +70,10 @@ type ApplicationRow = {
 };
 
 type RegistrationDetailsRow = ApplicationRow & {
+  date_of_birth: Date | string | null;
   email: string;
   full_name: string;
+  gender: string | null;
   mobile: string;
   participant_category_code: string;
 };
@@ -93,13 +97,27 @@ type InstituteTypeRow = {
 };
 
 type ParticipantDetailsRow = {
+  date_of_birth: Date | string | null;
   email: string;
   full_name: string;
+  gender: string | null;
   mobile: string;
   participant_category_code: string;
 };
 
 const languageCodes = new Set(["bn", "en", "hi"]);
+function formatDateOfBirth(value: Date | string | null) {
+  if (!value) return "";
+
+  const date = value instanceof Date ? value : new Date(`${value}T00:00:00Z`);
+  if (Number.isNaN(date.getTime())) return "";
+
+  const day = String(date.getUTCDate()).padStart(2, "0");
+  const month = String(date.getUTCMonth() + 1).padStart(2, "0");
+  const year = date.getUTCFullYear();
+
+  return `${day}-${month}-${year}`;
+}
 
 function normalizeLanguage(language: string): RegistrationLanguage {
   if (language === "hn") return "hi";
@@ -968,7 +986,9 @@ async function getRegistration(
         pa.status,
         p.email_verified,
         p.full_name,
+        p.date_of_birth,
         p.email::text AS email,
+        p.gender,
         p.mobile,
         pc.code AS participant_category_code
       FROM participant_applications pa
@@ -986,13 +1006,86 @@ async function getRegistration(
   return {
     application: toRegistrationApplication(application),
     participant: {
+      dateOfBirth: formatDateOfBirth(application.date_of_birth),
       email: application.email,
       fullName: application.full_name,
+      gender: application.gender ?? "",
       id: Number(application.participant_id),
       mobile: application.mobile,
       participantCategoryCode: application.participant_category_code,
     },
   };
+}
+
+async function submitProfile(
+  pg: DatabasePool,
+  applicationId: number,
+  input: SubmitProfileInput,
+): Promise<SubmitProfileResult> {
+  const client = await pg.connect();
+  const language = normalizeLanguage(input.language);
+
+  try {
+    await client.query("BEGIN");
+
+    const existingApplication = await getApplicationForSubmit(
+      client,
+      applicationId,
+    );
+    if (!existingApplication) {
+      throw new Error(getApiContent(language).api.registrationNotFound);
+    }
+    if (!existingApplication.email_verified) {
+      throw new Error(getApiContent(language).api.emailMustBeVerified);
+    }
+
+    await client.query(
+      `
+        UPDATE participants
+        SET date_of_birth = $1::date,
+            gender = $2,
+            updated_at = NOW()
+        WHERE id = $3
+      `,
+      [input.dateOfBirth, input.gender, existingApplication.participant_id],
+    );
+
+    const result = await client.query<ApplicationRow>(
+      `
+        UPDATE participant_applications
+        SET status = CASE
+              WHEN status IN ('draft', 'email_verification')
+                THEN 'profile_completion'
+              ELSE status
+            END,
+            updated_at = NOW()
+        WHERE id = $1
+        RETURNING
+          id,
+          application_number,
+          participant_id,
+          status,
+          TRUE AS email_verified
+      `,
+      [applicationId],
+    );
+
+    const application = result.rows[0];
+    if (!application) {
+      throw new Error(getApiContent(language).api.registrationNotFound);
+    }
+
+    await client.query("COMMIT");
+
+    return {
+      application: toRegistrationApplication(application),
+    };
+  } catch (error) {
+    await client.query("ROLLBACK");
+    throw error;
+  } finally {
+    client.release();
+  }
 }
 
 async function getState(client: PoolClient, stateId: number) {
@@ -1001,6 +1094,7 @@ async function getState(client: PoolClient, stateId: number) {
       SELECT id, name_en
       FROM states
       WHERE id = $1
+        AND is_active = TRUE
       LIMIT 1
     `,
     [stateId],
@@ -1048,6 +1142,7 @@ async function getDistrict(input: {
       FROM districts
       WHERE id = $1
         AND state_id = $2
+        AND is_active = TRUE
       LIMIT 1
     `,
     [input.districtId, input.stateId],
@@ -1087,8 +1182,10 @@ async function getParticipantDetails(client: PoolClient, participantId: string) 
   const result = await client.query<ParticipantDetailsRow>(
     `
       SELECT
+        p.date_of_birth,
         p.full_name,
         p.email::text AS email,
+        p.gender,
         p.mobile,
         pc.code AS participant_category_code
       FROM participants p
@@ -1259,6 +1356,11 @@ function submittedDetails(input: {
   return [
     { label: "Application Number", value: input.applicationNumber },
     { label: "Participant Name", value: input.applicant.full_name },
+    {
+      label: "Date of Birth",
+      value: formatDateOfBirth(input.applicant.date_of_birth),
+    },
+    { label: "Gender", value: input.applicant.gender ?? undefined },
     { label: "Email", value: input.applicant.email },
     { label: "Mobile", value: input.applicant.mobile },
     {
@@ -1270,8 +1372,17 @@ function submittedDetails(input: {
     { label: "City", value: input.form.city },
     { label: "PIN Code", value: input.form.pinCode },
     { label: "Address", value: input.form.address },
-    { label: "Institute Name", value: input.form.instituteName },
-    { label: "Institute Type", value: input.form.instituteType },
+    {
+      label: "Highest Educational Qualification",
+      value: input.form.highestEducationalQualification,
+    },
+    {
+      label: "Last Attended Educational Institute",
+      value: input.form.lastAttendedEducationalInstitute,
+    },
+    { label: "Year of Passing", value: input.form.yearOfPassing },
+    { label: "Present Organisation Name", value: input.form.instituteName },
+    { label: "Organisation Type", value: input.form.instituteType },
     { label: "Participation Mode", value: input.form.participationMode },
     { label: "Team Members", value: teamMembers },
     { label: "Challenge Category", value: input.form.theme },
@@ -1285,7 +1396,13 @@ function submittedDetails(input: {
     { label: "Expected Impact", value: input.form.expectedImpact },
     { label: "Scalability", value: input.form.scalability },
     { label: "Prototype or Pilot", value: input.form.prototypePilot },
+    { label: "Mentor / Acknowledge to", value: input.form.mentorAcknowledgeTo },
+    {
+      label: "Intellectual Property / Publication",
+      value: input.form.intellectualPropertyPublication,
+    },
     { label: "Supporting Documents", value: documents },
+    { label: "Video URL", value: input.form.videoUrl },
   ];
 }
 
@@ -1405,20 +1522,26 @@ async function submitProposal(
             pin_code = $8,
             address = $9,
             institute_name = $10,
-            other_institute_type = NULLIF($11, ''),
-            problem_location = $12,
-            proposed_solution = $13,
-            technology_method = $14,
-            implementation_route = $15,
-            cost_funding = $16,
-            beneficiaries = $17,
-            project_timeline = $18,
-            expected_impact = $19,
-            scalability = $20,
-            prototype_pilot = $21,
+            highest_educational_qualification = $11,
+            last_attended_educational_institute = $12,
+            year_of_passing = $13,
+            other_institute_type = NULLIF($14, ''),
+            problem_location = $15,
+            proposed_solution = $16,
+            technology_method = $17,
+            implementation_route = $18,
+            cost_funding = $19,
+            beneficiaries = $20,
+            project_timeline = $21,
+            expected_impact = $22,
+            scalability = $23,
+            prototype_pilot = $24,
+            mentor_acknowledge_to = $25,
+            intellectual_property_publication = NULLIF($26, ''),
+            video_url = NULLIF($27, ''),
             submitted_at = COALESCE(submitted_at, NOW()),
             updated_at = NOW()
-        WHERE id = $22
+        WHERE id = $28
         RETURNING
           id,
           application_number,
@@ -1437,6 +1560,9 @@ async function submitProposal(
         input.pinCode,
         input.address,
         input.instituteName,
+        input.highestEducationalQualification,
+        input.lastAttendedEducationalInstitute,
+        input.yearOfPassing,
         input.otherInstituteType ?? "",
         input.problemLocation,
         input.proposedSolution,
@@ -1448,6 +1574,9 @@ async function submitProposal(
         input.expectedImpact,
         input.scalability,
         input.prototypePilot,
+        input.mentorAcknowledgeTo ?? "",
+        input.intellectualPropertyPublication ?? "",
+        input.videoUrl ?? "",
         applicationId,
       ],
     );
@@ -1577,6 +1706,7 @@ export const registrationService = {
   getRegistration,
   normalizeLanguage,
   resendVerificationEmail,
+  submitProfile,
   submitProposal,
   verifyEmail,
 };

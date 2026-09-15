@@ -16,10 +16,10 @@ export const enContent = {
         invalidDistrictForState: "Invalid district for selected state.",
         invalidFileUpload: "Uploaded supporting documents are invalid.",
         invalidInstituteTypeForParticipantCategory:
-            "Invalid institute type for participant category.",
+            "Invalid organisation type for participant category.",
         invalidParticipantCategory: "Invalid participant category.",
         invalidState: "Invalid state.",
-        instituteTypesFetched: "Institute types fetched successfully.",
+        instituteTypesFetched: "Organisation types fetched successfully.",
         internalServerError: "Something went wrong. Please try again.",
         invalidToken: "Verification code is either invalid or has expired.",
         lookupsFetched: "Common lookups fetched successfully.",
@@ -29,7 +29,7 @@ export const enContent = {
         participantCategoriesFetched:
             "Participant categories fetched successfully.",
         participantCategoryInstituteTypesFetched:
-            "Participant category institute type mappings fetched successfully.",
+            "Participant category organisation type mappings fetched successfully.",
         participantLoginCodeSent:
             "Participant login verification email has been sent.",
         participantLoginUnable: "Unable to complete participant login.",
@@ -46,11 +46,11 @@ export const enContent = {
         unableFetchChallengeCategories: "Unable to fetch challenge categories.",
         unableFetchCommonLookups: "Unable to fetch common lookups.",
         unableFetchDistricts: "Unable to fetch districts.",
-        unableFetchInstituteTypes: "Unable to fetch institute types.",
+        unableFetchInstituteTypes: "Unable to fetch organisation types.",
         unableFetchParticipantCategories:
             "Unable to fetch participant categories.",
         unableFetchParticipantCategoryInstituteTypes:
-            "Unable to fetch participant category institute type mappings.",
+            "Unable to fetch participant category organisation type mappings.",
         unableFetchRegistration: "Unable to fetch registration.",
         unableFetchStates: "Unable to fetch states.",
         unableSubmitProposal: "Unable to submit proposal.",

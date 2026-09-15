@@ -20,17 +20,26 @@ const steps = [
     "Proposal Submission",
     "Application Number Generation",
 ];
+const lastDateOfSubmissionValue =
+    process.env.NEXT_PUBLIC_LAST_DATE_OF_SUBMISSION ?? "2026-10-30";
+const applicationClosingDate =
+    parseLastDateOfSubmission(lastDateOfSubmissionValue) ??
+    new Date(Date.UTC(2026, 9, 30));
 
 type FormValues = {
     participantCategory: string;
     participationMode: string;
     fullName: string;
+    dateOfBirth: string;
     email: string;
+    gender: string;
     mobile: string;
     address: string;
     city: string;
     district: string;
     districtId: string;
+    highestEducationalQualification: string;
+    lastAttendedEducationalInstitute: string;
     state: string;
     stateId: string;
     country: string;
@@ -38,17 +47,21 @@ type FormValues = {
     organisationName: string;
     organisationType: string;
     otherOrganisationType: string;
+    yearOfPassing: string;
     theme: string;
     problemLocation: string;
     proposedSolution: string;
     technologyMethod: string;
     implementationRoute: string;
+    intellectualPropertyPublication: string;
     costFunding: string;
     beneficiaries: string;
+    mentorAcknowledgeTo: string;
     projectTimeline: string;
     expectedImpact: string;
     scalability: string;
     prototypePilot: string;
+    videoUrl: string;
 };
 type TeamMember = {
     fullName: string;
@@ -103,8 +116,10 @@ type SubmitProposalResponse = {
 type RegistrationDetailsResponse = {
     application: RegistrationApplicationResponse;
     participant: {
+        dateOfBirth: string;
         email: string;
         fullName: string;
+        gender: string;
         id: number;
         mobile: string;
         participantCategoryCode: string;
@@ -135,30 +150,38 @@ const initialValues: FormValues = {
     participantCategory: "",
     participationMode: "",
     fullName: "",
+    dateOfBirth: "",
     email: "",
+    gender: "",
     mobile: "",
     address: "",
     city: "",
     district: "",
     districtId: "",
-    state: "West Bengal",
+    highestEducationalQualification: "",
+    lastAttendedEducationalInstitute: "",
+    state: "",
     stateId: "",
     country: "India",
     pinCode: "",
     organisationName: "",
     organisationType: "",
     otherOrganisationType: "",
+    yearOfPassing: "",
     theme: "",
     problemLocation: "",
     proposedSolution: "",
     technologyMethod: "",
     implementationRoute: "",
+    intellectualPropertyPublication: "",
     costFunding: "",
     beneficiaries: "",
+    mentorAcknowledgeTo: "",
     projectTimeline: "",
     expectedImpact: "",
     scalability: "",
     prototypePilot: "",
+    videoUrl: "",
 };
 const emptyTeamMember: TeamMember = {
     fullName: "",
@@ -570,6 +593,9 @@ const stepFields: Record<number, FieldName[]> = {
         "city",
         "pinCode",
         "address",
+        "highestEducationalQualification",
+        "lastAttendedEducationalInstitute",
+        "yearOfPassing",
         "organisationName",
         "organisationType",
         "participationMode",
@@ -578,6 +604,9 @@ const stepFields: Record<number, FieldName[]> = {
 };
 const multilingualNamePattern = /^[\p{L}\p{M} ]{2,}$/u;
 const nonMultilingualNameCharacters = /[^\p{L}\p{M} ]/gu;
+const dateOfBirthPattern =
+    /^(0[1-9]|[12][0-9]|3[01])-(0[1-9]|1[0-2])-\d{4}$/;
+const genderOptions = ["Male", "Female", "Others"] as const;
 type ValidationMessages = ReturnType<typeof getSiteContent>["register"]["errors"];
 
 function messageTemplate(
@@ -589,6 +618,86 @@ function messageTemplate(
             current.replaceAll(`{${key}}`, String(value)),
         message,
     );
+}
+
+function dateOfBirthFieldValue(value: string) {
+    const digits = numericFieldValue(value, 8);
+    const parts = [digits.slice(0, 2), digits.slice(2, 4), digits.slice(4, 8)]
+        .filter(Boolean);
+
+    return parts.join("-");
+}
+
+function parseLastDateOfSubmission(value: string) {
+    const trimmedValue = value.trim();
+    const isoMatch = trimmedValue.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    const displayMatch = trimmedValue.match(/^(\d{2})-(\d{2})-(\d{4})$/);
+
+    const [, yearText, monthText, dayText] = isoMatch ?? [];
+    const [, displayDayText, displayMonthText, displayYearText] =
+        displayMatch ?? [];
+    const year = Number(yearText ?? displayYearText);
+    const month = Number(monthText ?? displayMonthText);
+    const day = Number(dayText ?? displayDayText);
+    const date = new Date(Date.UTC(year, month - 1, day));
+
+    if (
+        Number.isNaN(date.getTime()) ||
+        date.getUTCFullYear() !== year ||
+        date.getUTCMonth() + 1 !== month ||
+        date.getUTCDate() !== day
+    ) {
+        return null;
+    }
+
+    return date;
+}
+
+function formatLastDateOfSubmission(locale: string) {
+    return new Intl.DateTimeFormat(locale, {
+        day: "numeric",
+        month: "long",
+        year: "numeric",
+        timeZone: "UTC",
+    }).format(applicationClosingDate);
+}
+
+function parseDateOfBirth(value: string) {
+    const match = value.match(/^(\d{2})-(\d{2})-(\d{4})$/);
+    if (!match) return null;
+
+    const [, dayText, monthText, yearText] = match;
+    const day = Number(dayText);
+    const month = Number(monthText);
+    const year = Number(yearText);
+    const date = new Date(Date.UTC(year, month - 1, day));
+
+    if (
+        Number.isNaN(date.getTime()) ||
+        date.getUTCFullYear() !== year ||
+        date.getUTCMonth() + 1 !== month ||
+        date.getUTCDate() !== day ||
+        date > applicationClosingDate
+    ) {
+        return null;
+    }
+
+    return date;
+}
+
+function calculateAgeOnClosingDate(dateOfBirth: string) {
+    const birthDate = parseDateOfBirth(dateOfBirth);
+    if (!birthDate) return null;
+
+    let age = applicationClosingDate.getUTCFullYear() - birthDate.getUTCFullYear();
+    const hasBirthdayPassed =
+        applicationClosingDate.getUTCMonth() > birthDate.getUTCMonth() ||
+        (applicationClosingDate.getUTCMonth() === birthDate.getUTCMonth() &&
+            applicationClosingDate.getUTCDate() >= birthDate.getUTCDate());
+
+    if (!hasBirthdayPassed) age -= 1;
+
+    return age;
 }
 
 function validateField(
@@ -605,6 +714,14 @@ function validateField(
             return multilingualNamePattern.test(value)
                 ? ""
                 : messages.alphabetsOnly;
+        case "dateOfBirth":
+            return dateOfBirthPattern.test(value) && parseDateOfBirth(value)
+                ? ""
+                : messages.dateOfBirth;
+        case "gender":
+            return genderOptions.includes(value as (typeof genderOptions)[number])
+                ? ""
+                : messages.gender;
         case "participantCategory":
             return participantCategories.some(
                 (category) => category.value === value,
@@ -635,6 +752,12 @@ function validateField(
             return value === "India" ? "" : messages.country;
         case "pinCode":
             return /^[0-9]{4,10}$/.test(value) ? "" : messages.pinCode;
+        case "highestEducationalQualification":
+            return value ? "" : messages.highestEducationalQualification;
+        case "lastAttendedEducationalInstitute":
+            return value ? "" : messages.lastAttendedEducationalInstitute;
+        case "yearOfPassing":
+            return /^(19|20)\d{2}$/.test(value) ? "" : messages.yearOfPassing;
         case "organisationName":
             return value ? "" : messages.instituteName;
         case "organisationType":
@@ -660,6 +783,10 @@ function validateField(
             return value.length >= 50 && value.length <= 1000
                 ? ""
                 : messages.proposalCharacters;
+        case "videoUrl":
+            return !value || /^https?:\/\/\S+$/i.test(value)
+                ? ""
+                : messages.videoUrl;
         case "supportingDocuments":
             return hasSupportingDocuments
                 ? ""
@@ -675,8 +802,14 @@ function validateStep(
     hasSupportingDocuments: boolean,
     messages: ValidationMessages,
     lookups: ValidationLookups,
+    isEmailVerified: boolean,
 ) {
-    return (stepFields[step] ?? []).reduce<FormErrors>((errors, field) => {
+    const fields =
+        step === 0 && isEmailVerified
+            ? ([...stepFields[0], "dateOfBirth", "gender"] as FieldName[])
+            : (stepFields[step] ?? []);
+
+    return fields.reduce<FormErrors>((errors, field) => {
         const error = validateField(
             field,
             values,
@@ -902,6 +1035,7 @@ export function RegistrationProcessForm({
     const [instituteTypeLookupError, setInstituteTypeLookupError] =
         useState("");
     const formRef = useRef<HTMLDivElement>(null);
+    const districtRequestIdRef = useRef(0);
     const supportingDocumentsInputRef = useRef<HTMLInputElement>(null);
     const validationLookups = useMemo<ValidationLookups>(
         () => ({
@@ -921,6 +1055,14 @@ export function RegistrationProcessForm({
             ),
         [step],
     );
+    const ageOnClosingDate = useMemo(
+        () => calculateAgeOnClosingDate(values.dateOfBirth),
+        [values.dateOfBirth],
+    );
+    const lastDateOfSubmissionText = useMemo(
+        () => formatLastDateOfSubmission(lookupLocale),
+        [lookupLocale],
+    );
     const currentErrors = useMemo(
         () =>
             validateStep(
@@ -929,9 +1071,11 @@ export function RegistrationProcessForm({
                 hasSupportingDocuments,
                 validationMessages,
                 validationLookups,
+                isEmailVerified,
             ),
         [
             hasSupportingDocuments,
+            isEmailVerified,
             step,
             validationLookups,
             validationMessages,
@@ -993,53 +1137,6 @@ export function RegistrationProcessForm({
     }, [validationMessages.state]);
 
     useEffect(() => {
-        if (!stateOptions.length) return;
-
-        setValues((current) => {
-            if (current.stateId) return current;
-
-            const westBengal = stateOptions.find(
-                (state) => state.name.en === "West Bengal",
-            );
-            if (!westBengal) return current;
-
-            return {
-                ...current,
-                state: westBengal.name.en,
-                stateId: String(westBengal.id),
-            };
-        });
-    }, [stateOptions]);
-
-    useEffect(() => {
-        if (!values.stateId) {
-            setDistrictOptions([]);
-            return;
-        }
-
-        let isMounted = true;
-
-        apiClient
-            .get<DistrictOption[]>(endpoints.common.districts, {
-                query: { stateId: values.stateId },
-            })
-            .then((districts) => {
-                if (!isMounted) return;
-                setDistrictOptions(districts);
-                setDistrictLookupError("");
-            })
-            .catch(() => {
-                if (!isMounted) return;
-                setDistrictOptions([]);
-                setDistrictLookupError(validationMessages.district);
-            });
-
-        return () => {
-            isMounted = false;
-        };
-    }, [validationMessages.district, values.stateId]);
-
-    useEffect(() => {
         if (!values.participantCategory) {
             setInstituteTypeOptions([]);
             return;
@@ -1086,12 +1183,23 @@ export function RegistrationProcessForm({
                     ? Math.min(Math.max(parsed.step, 0), steps.length - 1)
                     : 0,
             );
+            const savedValues = parsed.values ?? {};
+            const hasStaleDefaultState =
+                savedValues.state === "West Bengal" && !savedValues.districtId;
             setValues({
                 ...initialValues,
-                ...parsed.values,
+                ...savedValues,
                 country: "India",
-                districtId: parsed.values?.districtId ?? "",
-                stateId: parsed.values?.stateId ?? "",
+                district: hasStaleDefaultState
+                    ? ""
+                    : (savedValues.district ?? ""),
+                districtId: hasStaleDefaultState
+                    ? ""
+                    : (savedValues.districtId ?? ""),
+                state: hasStaleDefaultState ? "" : (savedValues.state ?? ""),
+                stateId: hasStaleDefaultState
+                    ? ""
+                    : (savedValues.stateId ?? ""),
             });
             setTeamMembers(
                 (parsed.teamMembers ?? []).slice(0, 4).map((member) => ({
@@ -1184,7 +1292,8 @@ export function RegistrationProcessForm({
             setVerificationMessage("");
             setRegistrationSubmitError("");
             setResendAvailableAt(0);
-            setStep(1);
+            setStep(0);
+            scrollToFormTop();
 
             if (Number.isFinite(verifiedApplicationId)) {
                 setApplicationId(verifiedApplicationId);
@@ -1208,8 +1317,11 @@ export function RegistrationProcessForm({
 
                         setValues((current) => ({
                             ...current,
+                            dateOfBirth:
+                                registration.participant.dateOfBirth ?? "",
                             email: registration.participant.email,
                             fullName: registration.participant.fullName,
+                            gender: registration.participant.gender ?? "",
                             mobile: registration.participant.mobile,
                             participantCategory: getParticipantCategoryFromCode(
                                 registration.participant
@@ -1251,6 +1363,15 @@ export function RegistrationProcessForm({
         }, 0);
     };
 
+    const scrollToFormTop = () => {
+        window.requestAnimationFrame(() => {
+            formRef.current?.scrollIntoView({
+                behavior: "smooth",
+                block: "start",
+            });
+        });
+    };
+
     const updateValue =
         (field: keyof FormValues) =>
         (
@@ -1263,8 +1384,12 @@ export function RegistrationProcessForm({
             const nextValue =
                 field === "fullName"
                     ? rawValue.replace(nonMultilingualNameCharacters, "")
+                    : field === "dateOfBirth"
+                      ? dateOfBirthFieldValue(rawValue)
                     : field === "mobile"
                       ? numericFieldValue(rawValue, 10)
+                      : field === "yearOfPassing"
+                        ? numericFieldValue(rawValue, 4)
                       : field === "pinCode"
                         ? numericFieldValue(rawValue, 10)
                       : isProposalElementField(field)
@@ -1283,6 +1408,8 @@ export function RegistrationProcessForm({
     const updateState = (event: React.ChangeEvent<HTMLSelectElement>) => {
         const stateId = event.target.value;
         const state = getOptionById(stateOptions, stateId);
+        const requestId = districtRequestIdRef.current + 1;
+        districtRequestIdRef.current = requestId;
 
         setValues((current) => ({
             ...current,
@@ -1292,6 +1419,23 @@ export function RegistrationProcessForm({
             stateId,
         }));
         setDistrictOptions([]);
+        setDistrictLookupError("");
+
+        if (!stateId) return;
+
+        apiClient
+            .get<DistrictOption[]>(endpoints.common.districts, {
+                query: { stateId },
+            })
+            .then((districts) => {
+                if (districtRequestIdRef.current !== requestId) return;
+                setDistrictOptions(districts);
+            })
+            .catch(() => {
+                if (districtRequestIdRef.current !== requestId) return;
+                setDistrictOptions([]);
+                setDistrictLookupError(validationMessages.district);
+            });
     };
 
     const updateDistrict = (event: React.ChangeEvent<HTMLSelectElement>) => {
@@ -1389,7 +1533,10 @@ export function RegistrationProcessForm({
             setApplicationNumber(result.application.applicationNumber);
             setIsEmailVerified(result.application.emailVerified);
             setParticipantId(result.application.participantId);
-            setStep(result.application.emailVerified ? 1 : 0);
+            setStep(0);
+            if (result.application.emailVerified) {
+                scrollToFormTop();
+            }
             setVerificationCode("");
             setCurrentTime(Date.now());
             setResendAvailableAt(
@@ -1440,12 +1587,48 @@ export function RegistrationProcessForm({
             setIsEmailVerified(true);
             setParticipantId(result.application.participantId);
             setResendAvailableAt(0);
-            setStep(1);
+            setStep(0);
+            scrollToFormTop();
         } catch (error) {
             setRegistrationSubmitError(
                 error instanceof Error
                     ? error.message
                     : content.unableVerifyCode,
+            );
+        } finally {
+            setIsSubmittingRegistration(false);
+        }
+    };
+
+    const submitProfileStep = async () => {
+        if (!applicationId) {
+            setRegistrationSubmitError(content.registrationNotFound);
+            return;
+        }
+
+        setIsSubmittingRegistration(true);
+        setRegistrationSubmitError("");
+
+        try {
+            const result = await apiClient.post<VerifyEmailResponse>(
+                endpoints.registrations.submitProfile(String(applicationId)),
+                {
+                    dateOfBirth: values.dateOfBirth,
+                    gender: values.gender,
+                    language: lookupLocale,
+                },
+            );
+
+            setApplicationId(result.application.id);
+            setApplicationNumber(result.application.applicationNumber);
+            setParticipantId(result.application.participantId);
+            setStep(1);
+            scrollToFormTop();
+        } catch (error) {
+            setRegistrationSubmitError(
+                error instanceof Error
+                    ? error.message
+                    : "Unable to save profile details. Please try again.",
             );
         } finally {
             setIsSubmittingRegistration(false);
@@ -1518,10 +1701,17 @@ export function RegistrationProcessForm({
                 costFunding: values.costFunding,
                 districtId: Number(values.districtId),
                 expectedImpact: values.expectedImpact,
+                highestEducationalQualification:
+                    values.highestEducationalQualification,
                 implementationRoute: values.implementationRoute,
+                intellectualPropertyPublication:
+                    values.intellectualPropertyPublication,
                 instituteName: values.organisationName,
                 instituteType: values.organisationType,
                 language: lookupLocale,
+                lastAttendedEducationalInstitute:
+                    values.lastAttendedEducationalInstitute,
+                mentorAcknowledgeTo: values.mentorAcknowledgeTo,
                 otherInstituteType: values.otherOrganisationType,
                 participationMode: values.participationMode,
                 pinCode: values.pinCode,
@@ -1535,6 +1725,8 @@ export function RegistrationProcessForm({
                     values.participationMode === "Team" ? teamMembers : [],
                 technologyMethod: values.technologyMethod,
                 theme: values.theme,
+                videoUrl: values.videoUrl,
+                yearOfPassing: values.yearOfPassing,
             };
             const body = new FormData();
             body.append("payload", JSON.stringify(payload));
@@ -1571,7 +1763,7 @@ export function RegistrationProcessForm({
         if (step === 0) {
             if (isEmailVerified) {
                 setRegistrationSubmitError("");
-                setStep(1);
+                await submitProfileStep();
                 return;
             }
 
@@ -1878,6 +2070,88 @@ export function RegistrationProcessForm({
                                             />
                                         </label>
                                     )}
+                                {isEmailVerified && (
+                                    <div className="grid gap-4 md:col-span-2 md:grid-cols-2">
+                                        <label className="text-sm font-bold text-slate-700">
+                                            {content.dateOfBirth}
+                                            <div className="mt-1 flex overflow-hidden rounded-md border border-slate-300 bg-white transition focus-within:border-[#000080] focus-within:ring-2 focus-within:ring-[#000080]/20">
+                                                <input
+                                                    aria-invalid={Boolean(
+                                                        currentErrors.dateOfBirth,
+                                                    )}
+                                                    className="min-w-0 flex-1 px-3 py-2.5 text-sm font-normal outline-none placeholder:font-normal"
+                                                    inputMode="numeric"
+                                                    maxLength={10}
+                                                    onChange={updateValue(
+                                                        "dateOfBirth",
+                                                    )}
+                                                    pattern="[0-9]{2}-[0-9]{2}-[0-9]{4}"
+                                                    placeholder={
+                                                        content.placeholders
+                                                            .dateOfBirth
+                                                    }
+                                                    type="text"
+                                                    value={values.dateOfBirth}
+                                                />
+                                                <div className="flex min-w-32 items-center justify-center bg-slate-300 px-4 text-center text-sm font-bold text-[#071426]">
+                                                    {ageOnClosingDate === null
+                                                        ? content.ageYears
+                                                        : `${ageOnClosingDate} ${content.ageYears}`}
+                                                </div>
+                                            </div>
+                                            <FieldError
+                                                message={
+                                                    currentErrors.dateOfBirth
+                                                }
+                                            />
+                                            <span className="mt-1 block text-xs font-normal text-slate-500">
+                                                {messageTemplate(
+                                                    content.ageCalculationInfo,
+                                                    {
+                                                        lastDateOfSubmission:
+                                                            lastDateOfSubmissionText,
+                                                    },
+                                                )}
+                                            </span>
+                                        </label>
+                                        <label className="text-sm font-bold text-slate-700">
+                                            {content.gender}
+                                            <select
+                                                aria-invalid={Boolean(
+                                                    currentErrors.gender,
+                                                )}
+                                                className={inputClass}
+                                                onChange={updateValue("gender")}
+                                                value={values.gender}
+                                            >
+                                                <option value="">
+                                                    {content.gender}
+                                                </option>
+                                                <option value="Male">
+                                                    {
+                                                        content.genderOptions
+                                                            .male
+                                                    }
+                                                </option>
+                                                <option value="Female">
+                                                    {
+                                                        content.genderOptions
+                                                            .female
+                                                    }
+                                                </option>
+                                                <option value="Others">
+                                                    {
+                                                        content.genderOptions
+                                                            .others
+                                                    }
+                                                </option>
+                                            </select>
+                                            <FieldError
+                                                message={currentErrors.gender}
+                                            />
+                                        </label>
+                                    </div>
+                                )}
                             </div>
                             {hasSubmittedRegistrationStep &&
                                 !isEmailVerified && (
@@ -1983,7 +2257,8 @@ export function RegistrationProcessForm({
                                         <option value="">
                                             {values.stateId
                                                 ? content.district
-                                                : content.state}
+                                                : content.placeholders
+                                                      .districtStateFirst}
                                         </option>
                                         {districtOptions.map((district) => (
                                             <option
@@ -2048,6 +2323,77 @@ export function RegistrationProcessForm({
                                     />
                                     <FieldError
                                         message={currentErrors.address}
+                                    />
+                                </label>
+                                <label className="text-sm font-bold text-slate-700">
+                                    {content.highestEducationalQualification}
+                                    <input
+                                        aria-invalid={Boolean(
+                                            currentErrors.highestEducationalQualification,
+                                        )}
+                                        className={inputClass}
+                                        onChange={updateValue(
+                                            "highestEducationalQualification",
+                                        )}
+                                        placeholder={
+                                            content.placeholders
+                                                .highestEducationalQualification
+                                        }
+                                        type="text"
+                                        value={
+                                            values.highestEducationalQualification
+                                        }
+                                    />
+                                    <FieldError
+                                        message={
+                                            currentErrors.highestEducationalQualification
+                                        }
+                                    />
+                                </label>
+                                <label className="text-sm font-bold text-slate-700">
+                                    {content.lastAttendedEducationalInstitute}
+                                    <input
+                                        aria-invalid={Boolean(
+                                            currentErrors.lastAttendedEducationalInstitute,
+                                        )}
+                                        className={inputClass}
+                                        onChange={updateValue(
+                                            "lastAttendedEducationalInstitute",
+                                        )}
+                                        placeholder={
+                                            content.placeholders
+                                                .lastAttendedEducationalInstitute
+                                        }
+                                        type="text"
+                                        value={
+                                            values.lastAttendedEducationalInstitute
+                                        }
+                                    />
+                                    <FieldError
+                                        message={
+                                            currentErrors.lastAttendedEducationalInstitute
+                                        }
+                                    />
+                                </label>
+                                <label className="text-sm font-bold text-slate-700">
+                                    {content.yearOfPassing}
+                                    <input
+                                        aria-invalid={Boolean(
+                                            currentErrors.yearOfPassing,
+                                        )}
+                                        className={inputClass}
+                                        inputMode="numeric"
+                                        maxLength={4}
+                                        onChange={updateValue("yearOfPassing")}
+                                        pattern="[0-9]{4}"
+                                        placeholder={
+                                            content.placeholders.yearOfPassing
+                                        }
+                                        type="text"
+                                        value={values.yearOfPassing}
+                                    />
+                                    <FieldError
+                                        message={currentErrors.yearOfPassing}
                                     />
                                 </label>
                                 <label className="text-sm font-bold text-slate-700">
@@ -2441,6 +2787,52 @@ export function RegistrationProcessForm({
                                     </div>
                                 </div>
                                 <label className="text-sm font-bold text-slate-700 md:col-span-2">
+                                    {content.mentorAcknowledgeTo}
+                                    <textarea
+                                        className={`${inputClass} min-h-24 resize-y`}
+                                        maxLength={1000}
+                                        onChange={updateValue(
+                                            "mentorAcknowledgeTo",
+                                        )}
+                                        placeholder={
+                                            content.placeholders
+                                                .mentorAcknowledgeTo
+                                        }
+                                        rows={3}
+                                        value={values.mentorAcknowledgeTo}
+                                    />
+                                    <span className="mt-1 block text-right text-xs font-normal text-slate-500">
+                                        {values.mentorAcknowledgeTo.length}
+                                        /1000
+                                    </span>
+                                </label>
+                                <label className="text-sm font-bold text-slate-700 md:col-span-2">
+                                    {content.intellectualPropertyPublication}
+                                    <textarea
+                                        className={`${inputClass} min-h-24 resize-y`}
+                                        maxLength={1000}
+                                        onChange={updateValue(
+                                            "intellectualPropertyPublication",
+                                        )}
+                                        placeholder={
+                                            content.placeholders
+                                                .intellectualPropertyPublication
+                                        }
+                                        rows={3}
+                                        value={
+                                            values.intellectualPropertyPublication
+                                        }
+                                    />
+                                    <span className="mt-1 block text-right text-xs font-normal text-slate-500">
+                                        {
+                                            values
+                                                .intellectualPropertyPublication
+                                                .length
+                                        }
+                                        /1000
+                                    </span>
+                                </label>
+                                <label className="text-sm font-bold text-slate-700 md:col-span-2">
                                     {content.supportingDocuments}
                                     <div
                                         className={`mt-1 rounded-lg border-2 border-dashed p-6 text-center transition ${
@@ -2581,6 +2973,24 @@ export function RegistrationProcessForm({
                                             )}
                                         </ul>
                                     )}
+                                </label>
+                                <label className="text-sm font-bold text-slate-700 md:col-span-2">
+                                    {content.videoUrl}
+                                    <input
+                                        aria-invalid={Boolean(
+                                            currentErrors.videoUrl,
+                                        )}
+                                        className={inputClass}
+                                        onChange={updateValue("videoUrl")}
+                                        placeholder={
+                                            content.placeholders.videoUrl
+                                        }
+                                        type="url"
+                                        value={values.videoUrl}
+                                    />
+                                    <FieldError
+                                        message={currentErrors.videoUrl}
+                                    />
                                 </label>
                             </div>
                             <FieldError message={proposalSubmitError} />

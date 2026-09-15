@@ -26,7 +26,7 @@ export type DistrictFilters = {
 };
 
 function districtWhereClause(filters: DistrictFilters) {
-    const conditions: string[] = [];
+    const conditions: string[] = ["d.is_active = TRUE", "s.is_active = TRUE"];
     const values: number[] = [];
 
     if (filters.stateId !== undefined) {
@@ -44,6 +44,7 @@ async function getStates(pg: DatabaseClient) {
     const result = await pg.query<NamedRow>(`
     SELECT id, name_en, name_bn, name_hi
     FROM states
+    WHERE is_active = TRUE
     ORDER BY name_en
   `);
 

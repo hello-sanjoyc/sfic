@@ -30,11 +30,23 @@ export type VerifyRegistrationResult = {
 
 export type ResendVerificationResult = CreateRegistrationResult;
 
+export type SubmitProfileInput = {
+  dateOfBirth: string;
+  gender: "Male" | "Female" | "Others";
+  language: RegistrationLanguage;
+};
+
+export type SubmitProfileResult = {
+  application: RegistrationApplication;
+};
+
 export type RegistrationDetailsResult = {
   application: RegistrationApplication;
   participant: {
+    dateOfBirth: string;
     email: string;
     fullName: string;
+    gender: string;
     id: number;
     mobile: string;
     participantCategoryCode: string;
@@ -62,10 +74,14 @@ export type SubmitProposalInput = {
   costFunding: string;
   districtId: number;
   expectedImpact: string;
+  highestEducationalQualification: string;
   implementationRoute: string;
+  intellectualPropertyPublication?: string;
   instituteName: string;
   instituteType: string;
   language: RegistrationLanguage;
+  lastAttendedEducationalInstitute: string;
+  mentorAcknowledgeTo?: string;
   otherInstituteType?: string;
   participationMode: "Individual" | "Team";
   pinCode: string;
@@ -79,6 +95,8 @@ export type SubmitProposalInput = {
   teamMembers: TeamMemberInput[];
   technologyMethod: string;
   theme: string;
+  videoUrl?: string;
+  yearOfPassing: string;
 };
 
 export type SubmitProposalResult = {

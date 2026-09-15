@@ -36,6 +36,12 @@ type VerifyEmailBody = {
   language?: string;
 };
 
+type SubmitProfileBody = {
+  dateOfBirth?: string;
+  gender?: string;
+  language?: string;
+};
+
 type RegistrationParams = {
   id: string;
 };
@@ -47,10 +53,14 @@ type SubmitProposalBody = {
   costFunding?: string;
   districtId?: number | string;
   expectedImpact?: string;
+  highestEducationalQualification?: string;
   implementationRoute?: string;
+  intellectualPropertyPublication?: string;
   instituteName?: string;
   instituteType?: string;
   language?: string;
+  lastAttendedEducationalInstitute?: string;
+  mentorAcknowledgeTo?: string;
   otherInstituteType?: string;
   participationMode?: string;
   pinCode?: string;
@@ -72,6 +82,8 @@ type SubmitProposalBody = {
   teamMembers?: Array<{ email?: string; fullName?: string; mobile?: string }>;
   technologyMethod?: string;
   theme?: string;
+  videoUrl?: string;
+  yearOfPassing?: string;
 };
 
 type StoredSupportingDocument = {
@@ -202,6 +214,53 @@ function validateCreateRegistrationBody(body: CreateRegistrationBody) {
   };
 }
 
+function parseDateOfBirth(value: string) {
+  const match = value
+    .trim()
+    .match(/^(\d{2})-(\d{2})-(\d{4})$/);
+  if (!match) return "";
+
+  const [, day, month, year] = match;
+
+  const isoDate = `${year}-${month}-${day}`;
+  const date = new Date(`${isoDate}T00:00:00Z`);
+  if (
+    Number.isNaN(date.getTime()) ||
+    date.getUTCFullYear() !== Number(year) ||
+    date.getUTCMonth() + 1 !== Number(month) ||
+    date.getUTCDate() !== Number(day) ||
+    date > new Date()
+  ) {
+    return "";
+  }
+
+  return isoDate;
+}
+
+function validateSubmitProfileBody(body: SubmitProfileBody) {
+  const errors: string[] = [];
+  const language = registrationService.normalizeLanguage(body.language ?? "en");
+  const validationMessages = getApiContent(language).apiValidation;
+  const dateOfBirth = isNonEmptyString(body.dateOfBirth)
+    ? parseDateOfBirth(body.dateOfBirth)
+    : "";
+  const gender = isNonEmptyString(body.gender) ? body.gender.trim() : "";
+
+  if (!dateOfBirth) errors.push(validationMessages.fieldRequired("dateOfBirth"));
+  if (!["Male", "Female", "Others"].includes(gender)) {
+    errors.push(validationMessages.fieldRequired("gender"));
+  }
+
+  return {
+    errors,
+    value: {
+      dateOfBirth,
+      gender: gender as "Male" | "Female" | "Others",
+      language,
+    },
+  };
+}
+
 function numericId(value: unknown) {
   const numericValue =
     typeof value === "number" ? value : Number(String(value ?? "").trim());
@@ -319,12 +378,23 @@ function validateSubmitProposalBody(body: SubmitProposalBody) {
       errors,
       validationMessages.fieldRequired,
     ),
+    highestEducationalQualification: requiredText(
+      body,
+      "highestEducationalQualification",
+      errors,
+      validationMessages.fieldRequired,
+    ),
     implementationRoute: requiredText(
       body,
       "implementationRoute",
       errors,
       validationMessages.fieldRequired,
     ),
+    intellectualPropertyPublication: isNonEmptyString(
+      body.intellectualPropertyPublication,
+    )
+      ? body.intellectualPropertyPublication.trim()
+      : "",
     instituteName: requiredText(
       body,
       "instituteName",
@@ -338,6 +408,15 @@ function validateSubmitProposalBody(body: SubmitProposalBody) {
       validationMessages.fieldRequired,
     ),
     language,
+    lastAttendedEducationalInstitute: requiredText(
+      body,
+      "lastAttendedEducationalInstitute",
+      errors,
+      validationMessages.fieldRequired,
+    ),
+    mentorAcknowledgeTo: isNonEmptyString(body.mentorAcknowledgeTo)
+      ? body.mentorAcknowledgeTo.trim()
+      : "",
     otherInstituteType: isNonEmptyString(body.otherInstituteType)
       ? body.otherInstituteType.trim()
       : "",
@@ -385,10 +464,32 @@ function validateSubmitProposalBody(body: SubmitProposalBody) {
       validationMessages.fieldRequired,
     ),
     theme: requiredText(body, "theme", errors, validationMessages.fieldRequired),
+    videoUrl: isNonEmptyString(body.videoUrl) ? body.videoUrl.trim() : "",
+    yearOfPassing: normalizeNumericText(
+      requiredText(
+        body,
+        "yearOfPassing",
+        errors,
+        validationMessages.fieldRequired,
+      ),
+    ),
   };
 
   if (!/^[0-9]{4,10}$/.test(value.pinCode)) {
     errors.push(validationMessages.pinCodeInvalid);
+  }
+  if (!/^(19|20)\d{2}$/.test(value.yearOfPassing)) {
+    errors.push(validationMessages.fieldRequired("yearOfPassing"));
+  }
+  if (value.videoUrl) {
+    try {
+      const url = new URL(value.videoUrl);
+      if (!["http:", "https:"].includes(url.protocol)) {
+        errors.push(validationMessages.fieldRequired("videoUrl"));
+      }
+    } catch {
+      errors.push(validationMessages.fieldRequired("videoUrl"));
+    }
   }
 
   return { errors, value };
@@ -669,6 +770,59 @@ async function getRegistration(
   }
 }
 
+async function submitProfile(
+  request: FastifyRequest<{
+    Body: SubmitProfileBody;
+    Params: RegistrationParams;
+  }>,
+  reply: FastifyReply,
+) {
+  const pg = requireDatabase(request, reply);
+  if (!pg) return reply;
+
+  const id = request.params.id.trim();
+  if (!/^\d+$/.test(id)) {
+    return sendError(request, reply, {
+      messageKey: "registrationIdNumeric",
+      statusCode: 400,
+    });
+  }
+
+  const validated = validateSubmitProfileBody(request.body ?? {});
+  if (validated.errors.length) {
+    return sendError(request, reply, {
+      data: {
+        errors: [...new Set(validated.errors)],
+      },
+      messageKey: "validationError",
+      statusCode: 400,
+    });
+  }
+
+  try {
+    const result = await registrationService.submitProfile(
+      pg,
+      Number(id),
+      validated.value,
+    );
+
+    return sendSuccess(request, reply, {
+      data: result,
+      messageKey: "registrationFetched",
+    });
+  } catch (error) {
+    request.server.log.error(error);
+
+    return sendError(request, reply, {
+      message:
+        error instanceof Error
+          ? error.message
+          : getApiContent(validated.value.language).api.unableCreateRegistration,
+      statusCode: getErrorStatusCode(error) ?? 400,
+    });
+  }
+}
+
 async function submitProposal(
   request: FastifyRequest<{
     Body: SubmitProposalBody;
@@ -733,6 +887,7 @@ export const registrationController = {
   createRegistration,
   getRegistration,
   resendVerificationEmail,
+  submitProfile,
   submitProposal,
   verifyEmail,
 };

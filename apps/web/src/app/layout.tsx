@@ -85,7 +85,7 @@ export const metadata: Metadata = {
         url: siteUrl,
         title: "Sewa First Innovation Challenge 2026",
         description:
-            "Join the Sewa First Innovation Challenge 2026. Submit innovative solutions to real-world problems. Challenge period: 17 September - 17 October 2026.",
+            "Join the Sewa First Innovation Challenge 2026. Submit innovative solutions to real-world problems. Challenge period: 17 September - 30 October 2026.",
         siteName: "Sewa First Innovation Challenge",
         images: [
             {
@@ -100,7 +100,7 @@ export const metadata: Metadata = {
         card: "summary_large_image",
         title: "Sewa First Innovation Challenge 2026",
         description:
-            "Join the innovation challenge. Challenge period: 17 Sep - 17 Oct 2026. Open to Eastern & North-Eastern India.",
+            "Join the innovation challenge. Challenge period: 17 Sep - 30 Oct 2026. Open to Eastern & North-Eastern India.",
         images: [ogImageUrl],
         creator: "@WBGovt",
     },

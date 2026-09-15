@@ -47,7 +47,7 @@ export const enContent = {
     },
     seo: {
         title: "Sewa First Innovation Challenge 2026 | Eastern Region",
-        description: "Join the Sewa First Innovation Challenge 2026. Submit innovative solutions to real-world problems. Challenge period: 17 September - 17 October 2026. Open to participants from Eastern & North-Eastern India.",
+        description: "Join the Sewa First Innovation Challenge 2026. Submit innovative solutions to real-world problems. Challenge period: 17 September - 30 October 2026. Open to participants from West Bengal, Bihar and Jharkhand.",
         keywords: "innovation challenge, hackathon, startup, innovation competition, West Bengal, Eastern India",
         ogImage: "/images/og-image.jpg",
         ogImageAlt: "Sewa First Innovation Challenge 2026 - Eastern Region",
@@ -94,12 +94,12 @@ export const enContent = {
                 {
                     heading: "Who can apply",
                     body:
-                        "Participants from Arunachal Pradesh, Assam, Bihar, Jharkhand, Manipur, Meghalaya, Mizoram, Nagaland, Sikkim, Tripura and West Bengal can apply through this portal. Choose Junior if you are from school, ITI, diploma or undergraduate level. Choose Open if you are a graduate, professional, startup or community group.",
+                        "Participants from West Bengal, Bihar and Jharkhand can apply through this portal. Choose Junior if you are from school, ITI, diploma or undergraduate level. Choose Open if you are a graduate, professional, startup or community group.",
                 },
                 {
                     heading: "What you will need",
                     body:
-                        "Keep your contact details, location details, institute information, participation mode, team member details if applying as a team, proposal responses and supporting PDF documents ready before you begin.",
+                        "Keep your contact details, location details, education details, organisation information, participation mode, team member details if applying as a team, proposal responses and supporting PDF documents ready before you begin.",
                 },
                 {
                     heading: "Application process",
@@ -114,7 +114,7 @@ export const enContent = {
                         {
                             title: "Profile Completion",
                             body:
-                                "Provide your state, district, city, PIN code, address, institute name and institute type. You may apply as an individual or as a team. The applicant is treated as the Team Lead by default, and up to four additional team members can be added.",
+                                "Provide your state, district, city, PIN code, address, education details, present organisation name and organisation type. You may apply as an individual or as a team. The applicant is treated as the Team Lead by default, and up to four additional team members can be added.",
                         },
                         {
                             title: "Proposal Submission",
@@ -523,12 +523,12 @@ export const enContent = {
                 eyebrow: "Eastern Region Challenge",
                 title: "Build practical solutions for real communities.",
                 description:
-                    "Open to participants from Arunachal Pradesh, Assam, Bihar, Jharkhand, Manipur, Meghalaya, Mizoram, Nagaland, Sikkim, Tripura and West Bengal.",
+                    "Open to participants from West Bengal, Bihar and Jharkhand.",
                 primaryCTA: "Explore Themes",
                 secondaryCTA: "How to Participate",
             },
             {
-                eyebrow: "17 September - 17 October 2026",
+                eyebrow: "17 September - 30 October 2026",
                 title: "From local problems to pilots and adoption.",
                 description:
                     "Identify a local problem, build a practical solution, show how it can work, explain the impact and take it further.",
@@ -545,9 +545,9 @@ export const enContent = {
             footer: "People · Innovation · Sustainability · Tomorrow",
         },
         quick: [
-            ["Challenge period", "17 September - 17 October 2026"],
+            ["Challenge period", "17 September - 30 October 2026"],
             ["Regional hub", "Kolkata"],
-            ["Open to", "Eastern & North-Eastern India"],
+            ["Open to", "West Bengal, Bihar and Jharkhand"],
             ["Need assistance?", "Contact the helpdesk"],
         ],
         liveNow: "Live now",
@@ -633,13 +633,13 @@ export const enContent = {
             ],
         },
         focus: {
-            eyebrow: "FOCUS AREAS FOR EASTERN & NORTH-EASTERN INDIA",
+            eyebrow: "FOCUS AREAS FOR WEST BENGAL, BIHAR & JHARKHAND",
             title: "Why the Eastern Region matters",
             description:
-                "Eastern and North-Eastern India has a wide range of challenges and opportunities, from floods, river systems and climate risks to agriculture, fisheries, hill connectivity, healthcare, education, livelihoods and growing urban centres.",
+                "West Bengal, Bihar and Jharkhand have a wide range of challenges and opportunities, from floods, river systems and climate risks to agriculture, fisheries, healthcare, education, livelihoods and growing urban centres.",
             stats: [
                 ["200+", "Million People"],
-                ["11", "States"],
+                ["3", "States"],
                 ["Vast", "Opportunities"],
             ],
             tagline: ["Resilient People. Thriving Regions.", "A Stronger India."],
@@ -666,7 +666,7 @@ export const enContent = {
                 ["Screening & Shortlisting", "October 2026", "Eligibility · completeness · technical merit", "Entries will be checked for eligibility, completeness and technical merit.", "Shortlisted entries move to regional evaluation"],
                 ["Regional Evaluation", "October 2026", "Expert jury presentation", "Shortlisted participants will present their solution, model, prototype or implementation plan before an expert jury.", "Promising innovators identified"],
                 ["Mentoring & Prototype Support", "After shortlisting", "Guidance · refinement · next-stage preparation", "Selected innovators may receive guidance to strengthen the solution and prepare it for the next stage.", "Stronger prototype, pilot or implementation plan"],
-                ["Final Evaluation", "10 - 17 Oct 2026", "Final challenge evaluation", "The strongest entries will move forward through the Challenge evaluation process.", "Leading innovations selected for recognition"],
+                ["Final Evaluation", "10 - 30 Oct 2026", "Final challenge evaluation", "The strongest entries will move forward through the Challenge evaluation process.", "Leading innovations selected for recognition"],
                 ["Pilot & Adoption", "After the Challenge", "Institutions · departments · industry partners", "Promising solutions may be connected with institutions, government departments, industry or implementation partners for further development and possible pilot use.", "Pathway to prototype, pilot, incubation or adoption"],
             ],
         },
@@ -704,7 +704,7 @@ export const enContent = {
                 ["Incubation support", "Promising ideas may be connected with incubation and prototype-development opportunities."],
                 ["Pilot opportunities", "Practical solutions may be connected with institutions, departments, industry or implementation partners."],
                 ["Research support", "Guidance can help participants improve evidence, feasibility and implementation plans."],
-                ["Ecosystem access", "Kolkata serves as the regional hub for bringing Eastern and North-Eastern ideas together."],
+                ["Ecosystem access", "Kolkata serves as the regional hub for bringing ideas from West Bengal, Bihar and Jharkhand together."],
                 ["National recognition", "Strong local solutions can earn visibility through the Sewa First Innovation Challenge platform."],
             ],
         },
@@ -753,7 +753,7 @@ export const enContent = {
         faqItems: [
             ["What is the Sewa First Innovation Challenge?", "It is a platform for young people to identify real problems around them and develop practical solutions that can be implemented and, where possible, scaled."],
             ["Who can participate?", "School and college students, ITI and polytechnic students, graduates, young professionals, researchers, early-stage startups, independent innovators and community groups may participate, subject to the final Challenge guidelines."],
-            ["Which states are covered by the Eastern Region?", "West Bengal, Bihar, Jharkhand, Assam, Arunachal Pradesh, Meghalaya, Manipur, Mizoram, Nagaland, Tripura and Sikkim."],
+            ["Which states are covered by the Eastern Region?", "West Bengal, Bihar and Jharkhand."],
             ["Do I need to have a startup?", "No. You can participate as a student, professional, independent innovator, startup or community group."],
             ["Do I need a working prototype?", "Not in every case. Junior participants may submit a strong idea with a clear implementation plan. Open-category participants are expected to present a stronger implementation case, and a prototype or pilot is preferred."],
             ["Does my solution have to use AI?", "No. Use the technology or method that fits the problem. A simple, affordable solution that works is better than using AI where it is not needed."],
@@ -824,7 +824,7 @@ export const enContent = {
         },
     },
     register: {
-        showInfo: "Show the info",
+        showInfo: "Registration guidelines",
         title: "Application information",
         details: "Registration Details",
         closeInfo: "Close application information",
@@ -838,14 +838,24 @@ export const enContent = {
         stepOf: "Step {current} of {total}",
         complete: "{progress}% complete",
         eligibility:
-            "Participants only from Arunachal Pradesh, Assam, Bihar, Jharkhand, Manipur, Meghalaya, Mizoram, Nagaland, Sikkim, Tripura and West Bengal are eligible to apply via this portal.",
+            "Participants only from West Bengal, Bihar and Jharkhand are eligible to apply via this portal.",
         participantCategory: "Participant Category",
         junior: "Junior",
         juniorDescription: "School, ITI and undergraduate.",
         open: "Open",
         openDescription: "Graduates, professionals, startups and community groups.",
         fullName: "Full Name",
+        dateOfBirth: "Date of Birth",
+        ageYears: "Years",
+        ageCalculationInfo:
+            "Age is calculated considering Last Date of Submission ({lastDateOfSubmission}).",
         email: "Email Address",
+        gender: "Gender",
+        genderOptions: {
+            male: "Male",
+            female: "Female",
+            others: "Others",
+        },
         mobile: "Mobile Number",
         verifyTitle: "Verify your registered email address",
         verifyBody:
@@ -874,8 +884,12 @@ export const enContent = {
         city: "City",
         pinCode: "PIN Code",
         address: "Address",
-        instituteName: "Institute Name",
-        instituteType: "Institute Type",
+        highestEducationalQualification: "Highest Educational Qualification",
+        lastAttendedEducationalInstitute:
+            "Last Attended Educational Institute",
+        yearOfPassing: "Year of Passing",
+        instituteName: "Present Organisation Name",
+        instituteType: "Organisation Type",
         participateAs: "Participate as",
         individual: "Individual",
         individualDescription:
@@ -914,13 +928,23 @@ export const enContent = {
         },
         placeholders: {
             fullName: "e.g. Ronit Mukherjee",
+            dateOfBirth: "dd-mm-yyyy",
             email: "e.g. ronitmukherjee@gmail.com",
             mobile: "e.g. 9876543210",
             verificationCode: "Enter 6 digit code",
+            districtStateFirst: "Select the State first...",
             city: "e.g. Kolkata",
             pinCode: "e.g. 700064",
             address: "e.g. 26/B DD Block, Sector I, Salt Lake",
-            instituteName: "e.g. ABC Institute",
+            highestEducationalQualification: "e.g. Graduate",
+            lastAttendedEducationalInstitute: "e.g. ABC Institute",
+            yearOfPassing: "e.g. 2024",
+            instituteName: "e.g. ABC Organisation",
+            intellectualPropertyPublication:
+                "Mention any patent, copyright, publication or prior disclosure, if applicable.",
+            mentorAcknowledgeTo:
+                "Name the mentor, guide, organisation or people you want to acknowledge.",
+            videoUrl: "https://example.com/video",
             teamMemberName: "e.g. Ananya Das",
             teamMemberEmail: "e.g. ananya@example.com",
             proposalPrefix: "Enter",
@@ -938,6 +962,10 @@ export const enContent = {
             ["Scalability", "Whether it can travel to another district, and what would have to change."],
             ["Prototype or Pilot", "Where one exists, evidence rather than description."],
         ],
+        intellectualPropertyPublication:
+            "Intellectual Property / Publication (optional)",
+        mentorAcknowledgeTo: "Mentor / Acknowledge to (optional)",
+        videoUrl: "Video URL related to the problem/solution (optional)",
         dragDrop: "Drag and drop PDF files here",
         chooseFiles: "or choose files from your device",
         browseFiles: "Browse Files",
@@ -945,6 +973,8 @@ export const enContent = {
         uploadHint: "Upload up to {count} PDF files, max {size} MB each.",
         errors: {
             alphabetsOnly: "Enter letters and spaces only.",
+            dateOfBirth: "Enter date of birth in dd-mm-yyyy format.",
+            gender: "Select your gender.",
             participantCategory: "Select a participant category.",
             participationMode: "Select Individual or Team.",
             email: "Enter a valid email address.",
@@ -956,11 +986,17 @@ export const enContent = {
             state: "Select your state.",
             country: "Country must be India.",
             pinCode: "Enter a valid PIN code.",
-            instituteName: "Enter your institute name.",
-            instituteType: "Select your institute type.",
+            highestEducationalQualification:
+                "Enter your highest educational qualification.",
+            lastAttendedEducationalInstitute:
+                "Enter your last attended educational institute.",
+            yearOfPassing: "Enter a valid 4 digit year of passing.",
+            instituteName: "Enter your present organisation name.",
+            instituteType: "Select your organisation type.",
             organisationType: "Enter the organisation type.",
             challengeCategory: "Select a challenge category.",
             proposalCharacters: "Enter 50 to 1000 characters.",
+            videoUrl: "Enter a valid URL beginning with http:// or https://.",
             supportingDocumentRequired: "Upload at least one supporting document.",
             pdfOnly: "Upload PDF files only.",
             supportingDocumentSize: "Each supporting document must be {size} MB or smaller.",

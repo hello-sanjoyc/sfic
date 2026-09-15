@@ -16,10 +16,10 @@ export const bnContent = {
         invalidDistrictForState: "নির্বাচিত রাজ্যের জন্য জেলা সঠিক নয়।",
         invalidFileUpload: "আপলোড করা সহায়ক নথিগুলি সঠিক নয়।",
         invalidInstituteTypeForParticipantCategory:
-            "নির্বাচিত অংশগ্রহণকারী বিভাগের জন্য প্রতিষ্ঠানের ধরন সঠিক নয়।",
+            "নির্বাচিত অংশগ্রহণকারী বিভাগের জন্য সংস্থার ধরন সঠিক নয়।",
         invalidParticipantCategory: "অংশগ্রহণকারী বিভাগ সঠিক নয়।",
         invalidState: "রাজ্য সঠিক নয়।",
-        instituteTypesFetched: "প্রতিষ্ঠানের ধরন সফলভাবে পাওয়া গেছে।",
+        instituteTypesFetched: "সংস্থার ধরন সফলভাবে পাওয়া গেছে।",
         internalServerError: "কিছু সমস্যা হয়েছে। আবার চেষ্টা করুন।",
         invalidToken: "যাচাইকরণ কোডটি সঠিক নয় অথবা এর মেয়াদ শেষ হয়েছে।",
         lookupsFetched: "প্রয়োজনীয় সাধারণ তথ্য সফলভাবে পাওয়া গেছে।",
@@ -29,7 +29,7 @@ export const bnContent = {
         participantCategoriesFetched:
             "অংশগ্রহণকারী বিভাগগুলি সফলভাবে পাওয়া গেছে।",
         participantCategoryInstituteTypesFetched:
-            "অংশগ্রহণকারী বিভাগ ও প্রতিষ্ঠানের ধরনের ম্যাপিং সফলভাবে পাওয়া গেছে।",
+            "অংশগ্রহণকারী বিভাগ ও সংস্থার ধরনের ম্যাপিং সফলভাবে পাওয়া গেছে।",
         participantLoginCodeSent:
             "অংশগ্রহণকারী লগইনের যাচাইকরণ ইমেল পাঠানো হয়েছে।",
         participantLoginUnable:
@@ -48,11 +48,11 @@ export const bnContent = {
         unableFetchChallengeCategories: "চ্যালেঞ্জের বিভাগগুলি পাওয়া যায়নি।",
         unableFetchCommonLookups: "প্রয়োজনীয় সাধারণ তথ্য পাওয়া যায়নি।",
         unableFetchDistricts: "জেলার তথ্য পাওয়া যায়নি।",
-        unableFetchInstituteTypes: "প্রতিষ্ঠানের ধরন পাওয়া যায়নি।",
+        unableFetchInstituteTypes: "সংস্থার ধরন পাওয়া যায়নি।",
         unableFetchParticipantCategories:
             "অংশগ্রহণকারী বিভাগ পাওয়া যায়নি।",
         unableFetchParticipantCategoryInstituteTypes:
-            "অংশগ্রহণকারী বিভাগ ও প্রতিষ্ঠানের ধরনের ম্যাপিং পাওয়া যায়নি।",
+            "অংশগ্রহণকারী বিভাগ ও সংস্থার ধরনের ম্যাপিং পাওয়া যায়নি।",
         unableFetchRegistration: "নিবন্ধনের তথ্য পাওয়া যায়নি।",
         unableFetchStates: "রাজ্যের তথ্য পাওয়া যায়নি।",
         unableSubmitProposal: "প্রস্তাব জমা দেওয়া যায়নি।",

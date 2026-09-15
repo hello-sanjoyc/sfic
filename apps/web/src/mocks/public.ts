@@ -58,7 +58,7 @@ export const heroSlides: HeroSlide[] = [
         eyebrow: "Eastern Region Challenge",
         title: "Build practical solutions for real communities.",
         description:
-            "Open to participants from Arunachal Pradesh, Assam, Bihar, Jharkhand, Manipur, Meghalaya, Mizoram, Nagaland, Sikkim, Tripura and West Bengal.",
+            "Open to participants from West Bengal, Bihar and Jharkhand.",
         desktopImage: "/images/hero-slider-02.webp",
         imageAlt: "Innovation technology hero visual",
         primaryCTA: { label: "Explore Themes", href: "/en/themes" },
@@ -69,7 +69,7 @@ export const heroSlides: HeroSlide[] = [
     },
     {
         id: "solar",
-        eyebrow: "17 September - 17 October 2026",
+        eyebrow: "17 September - 30 October 2026",
         title: "From local problems to pilots and adoption.",
         description:
             "Identify a local problem, build a practical solution, show how it can work, explain the impact and take it further.",
@@ -218,7 +218,7 @@ export const timeline = [
     ["Sep - Oct 2026", "Proposal submission", "Upcoming"],
     ["Oct 2026", "Screening and evaluation", "Upcoming"],
     ["Oct 2026", "Regional challenge round", "Upcoming"],
-    ["10 - 17 Oct 2026", "Finale and recognition", "Upcoming"],
+    ["10 - 30 Oct 2026", "Finale and recognition", "Upcoming"],
 ];
 export const announcements = [
     {
@@ -254,7 +254,7 @@ export const faqs = [
     ],
     [
         "Which states are covered by the Eastern Region?",
-        "West Bengal, Bihar, Jharkhand, Assam, Arunachal Pradesh, Meghalaya, Manipur, Mizoram, Nagaland, Tripura and Sikkim.",
+        "West Bengal, Bihar and Jharkhand.",
     ],
     [
         "Do I need to have a startup?",
@@ -311,13 +311,13 @@ export type KeyFact = {
 export const keyFacts: KeyFact[] = [
     {
         label: "Challenge period",
-        value: "17 Sep - 17 Oct 2026",
+        value: "17 Sep - 30 Oct 2026",
         icon: BadgeIndianRupee,
         tone: "saffron",
     },
     {
         label: "Eastern region",
-        value: "11 states",
+        value: "3 states",
         icon: CalendarClock,
         tone: "blue",
     },
@@ -416,7 +416,7 @@ export const stages: Stage[] = [
         slug: "final-evaluation",
         index: "07",
         title: "Final Evaluation",
-        window: "10 - 17 Oct 2026",
+        window: "10 - 30 Oct 2026",
         format: "Final challenge evaluation",
         status: "Upcoming",
         description:
@@ -489,7 +489,7 @@ export const benefits: Benefit[] = [
     {
         title: "Ecosystem access",
         description:
-            "Kolkata serves as the regional hub for bringing Eastern and North-Eastern ideas together.",
+            "Kolkata serves as the regional hub for bringing ideas from West Bengal, Bihar and Jharkhand together.",
         icon: Briefcase,
     },
     {
