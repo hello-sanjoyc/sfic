@@ -1,5 +1,5 @@
 export const pendingScrollTargetKey =
-    "sewa-first-innovation-challenge-scroll-target";
+    "seva-first-innovation-challenge-scroll-target";
 
 function normalizeTarget(target: string) {
     return target.replace(/^#/, "");

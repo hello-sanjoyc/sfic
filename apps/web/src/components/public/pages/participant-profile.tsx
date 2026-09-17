@@ -198,7 +198,7 @@ export function ParticipantProfilePage() {
         <aside className="hidden bg-[#08213c] text-white lg:flex lg:flex-col">
           <div className="p-7">
             <p className="text-2xl font-black leading-tight text-white">
-              Sewa First Innovation Challenge
+              Seva First Innovation Challenge
             </p>
           </div>
 
@@ -253,7 +253,7 @@ export function ParticipantProfilePage() {
                   My Profile
                 </h1>
                 <p className="text-sm text-slate-500">
-                  Manage your personal and participation details in the Sewa First Innovation Challenge 2026
+                  Manage your personal and participation details in the Seva First Innovation Challenge 2026
                 </p>
               </div>
               <div className="ml-auto hidden h-10 min-w-80 items-center gap-3 rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-500 shadow-sm xl:flex">

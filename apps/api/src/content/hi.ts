@@ -71,7 +71,7 @@ export const hiContent = {
         fieldRequired: (field: string) => `${field} आवश्यक है।`,
         fullNameRequired: "fullName आवश्यक है।",
         participantCategoryRequired: "participantCategory आवश्यक है।",
-        pinCodeInvalid: "pinCode मान्य नहीं है।",
+        pinCodeInvalid: "पिन कोड ठीक 6 अंकों का होना चाहिए।",
         supportingDocumentMax: (count: number) =>
             `अधिकतम ${count} PDF फाइलें अपलोड करें।`,
         supportingDocumentInvalid: "अपलोड किए गए सहायक दस्तावेज मान्य नहीं हैं।",
@@ -96,10 +96,10 @@ export const hiContent = {
             applicationNumberLabel: "आवेदन संख्या",
             detailsTitle: "जमा की गई जानकारी",
             footer:
-                "यह ईमेल Sewa First Innovation Challenge की ओर से भेजा गया है। यदि आपने यह अनुरोध नहीं किया है, तो आप इस ईमेल को नज़रअंदाज़ कर सकते हैं।",
+                "यह ईमेल Seva First Innovation Challenge की ओर से भेजा गया है। यदि आपने यह अनुरोध नहीं किया है, तो आप इस ईमेल को नज़रअंदाज़ कर सकते हैं।",
             greeting: (participantName: string) => `प्रिय ${participantName},`,
             intro:
-                "Sewa First Innovation Challenge के लिए आपका आवेदन सफलतापूर्वक जमा हो गया है।",
+                "Seva First Innovation Challenge के लिए आपका आवेदन सफलतापूर्वक जमा हो गया है।",
             preheader: (applicationNumber: string) =>
                 `आपकी आवेदन संख्या ${applicationNumber} है।`,
             subject: (applicationNumber: string) =>
@@ -109,7 +109,7 @@ export const hiContent = {
         teamMemberAdded: {
             applicationNumberLabel: "आवेदन संख्या",
             footer:
-                "यह ईमेल Sewa First Innovation Challenge की ओर से भेजा गया है। यदि यह जानकारी सही नहीं लगती, तो कृपया टीम लीड से संपर्क करें।",
+                "यह ईमेल Seva First Innovation Challenge की ओर से भेजा गया है। यदि यह जानकारी सही नहीं लगती, तो कृपया टीम लीड से संपर्क करें।",
             greeting: (participantName: string) => `प्रिय ${participantName},`,
             intro: (teamLeadName: string, applicationNumber: string) =>
                 `टीम लीड ${teamLeadName} ने आपको आवेदन संख्या ${applicationNumber} के लिए टीम सदस्य के रूप में जोड़ा है।`,
@@ -122,14 +122,14 @@ export const hiContent = {
         },
         participantLoginVerification: {
             footer:
-                "यह ईमेल Sewa First Innovation Challenge की ओर से भेजा गया है। यदि आपने यह लॉगिन कोड नहीं मांगा है, तो आप इस ईमेल को नज़रअंदाज़ कर सकते हैं।",
+                "यह ईमेल Seva First Innovation Challenge की ओर से भेजा गया है। यदि आपने यह लॉगिन कोड नहीं मांगा है, तो आप इस ईमेल को नज़रअंदाज़ कर सकते हैं।",
             greeting: (participantName: string) => `प्रिय ${participantName},`,
             intro:
-                "आपके Sewa First Innovation Challenge प्रतिभागी डैशबोर्ड में लॉगिन के लिए अनुरोध किया गया है।",
+                "आपके Seva First Innovation Challenge प्रतिभागी डैशबोर्ड में लॉगिन के लिए अनुरोध किया गया है।",
             preheader:
                 "प्रतिभागी डैशबोर्ड में लॉगिन करने के लिए इस कोड का उपयोग करें।",
             subject:
-                "आपका Sewa First Innovation Challenge प्रतिभागी लॉगिन कोड",
+                "आपका Seva First Innovation Challenge प्रतिभागी लॉगिन कोड",
             title: "प्रतिभागी लॉगिन सत्यापन",
             verificationCodeLabel: "सत्यापन कोड",
             verifyInstruction:
@@ -139,14 +139,14 @@ export const hiContent = {
         },
         verification: {
             footer:
-                "यह ईमेल Sewa First Innovation Challenge की ओर से भेजा गया है। यदि आपने यह अनुरोध नहीं किया है, तो आप इस ईमेल को नज़रअंदाज़ कर सकते हैं।",
+                "यह ईमेल Seva First Innovation Challenge की ओर से भेजा गया है। यदि आपने यह अनुरोध नहीं किया है, तो आप इस ईमेल को नज़रअंदाज़ कर सकते हैं।",
             greeting: (participantName: string) => `प्रिय ${participantName},`,
             intro:
-                "Sewa First Innovation Challenge के लिए पंजीकरण शुरू करने के लिए धन्यवाद।",
+                "Seva First Innovation Challenge के लिए पंजीकरण शुरू करने के लिए धन्यवाद।",
             preheader:
-                "Sewa First Innovation Challenge का पंजीकरण जारी रखने के लिए इस कोड से अपना ईमेल सत्यापित करें।",
+                "Seva First Innovation Challenge का पंजीकरण जारी रखने के लिए इस कोड से अपना ईमेल सत्यापित करें।",
             subject:
-                "Sewa First Innovation Challenge के लिए अपना ईमेल पता सत्यापित करें",
+                "Seva First Innovation Challenge के लिए अपना ईमेल पता सत्यापित करें",
             title: "Verify your email address",
             verificationCodeLabel: "Verification Code",
             verifyInstruction:

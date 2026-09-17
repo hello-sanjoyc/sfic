@@ -27,6 +27,7 @@ import {
     themes,
 } from "@/mocks/public";
 import { getSiteContent } from "@/content";
+import { challengeDates } from "@/lib/challenge-dates";
 import { FAQAccordion } from "../common/faq-accordion";
 import { HeroSlider } from "../common/hero-slider";
 import { LandingScrollRestorer } from "../common/landing-scroll-restorer";
@@ -112,11 +113,11 @@ function FlowNodeCard({
 const eventJsonLd = {
     "@context": "https://schema.org",
     "@type": "Event",
-    name: "Sewa First Innovation Challenge 2026 - Eastern Region",
+    name: "Seva First Innovation Challenge 2026 - Eastern Region",
     description:
-        "The Eastern Region Sewa First Innovation Challenge invites students, young professionals, startups, independent innovators and community groups to identify real problems and develop practical solutions.",
-    startDate: "2026-09-17",
-    endDate: "2026-10-17",
+        "The Eastern Region Seva First Innovation Challenge invites students, young professionals, startups, independent innovators and community groups to identify real problems and develop practical solutions.",
+    startDate: challengeDates.startIso,
+    endDate: challengeDates.endIso,
     eventStatus: "https://schema.org/EventScheduled",
     eventAttendanceMode: "https://schema.org/MixedEventAttendanceMode",
     location: {
@@ -137,8 +138,8 @@ const eventJsonLd = {
         price: "0",
         priceCurrency: "INR",
         availability: "https://schema.org/InStock",
-        validFrom: "2026-09-17",
-        validThrough: "2026-10-17",
+        validFrom: challengeDates.startIso,
+        validThrough: challengeDates.endIso,
     },
 };
 
@@ -828,7 +829,7 @@ export function PortalHome({ locale }: { locale: string }) {
                 href={link("/register")}
                 label={content.common.applyNow}
                 statusText={content.common.applicationsOpen}
-                hint={`17 ${content.common.months.short.sep} - 17 ${content.common.months.short.oct} 2026`}
+                hint={challengeDates.shortDisplay[locale as keyof typeof challengeDates.shortDisplay] ?? challengeDates.shortDisplay.en}
                 hideWhenVisible="apply"
             />
         </>

@@ -174,7 +174,7 @@ export function ParticipantDashboardPage() {
         <aside className="hidden bg-[#08213c] text-white lg:flex lg:flex-col">
           <div className="p-7">
             <p className="text-2xl font-black leading-tight text-white">
-              Sewa First Innovation Challenge
+              Seva First Innovation Challenge
             </p>
           </div>
 
@@ -226,7 +226,7 @@ export function ParticipantDashboardPage() {
                   Dashboard
                 </h1>
                 <p className="text-sm text-slate-500">
-                  Track your journey in the Sewa First Innovation Challenge 2026
+                  Track your journey in the Seva First Innovation Challenge 2026
                 </p>
               </div>
 
@@ -294,7 +294,7 @@ export function ParticipantDashboardPage() {
                 }}
               >
                 <p className="text-sm font-bold uppercase tracking-wider text-slate-500">
-                  Sewa First Innovation Challenge 2026
+                  Seva First Innovation Challenge 2026
                 </p>
                 <h2 className="mt-3 text-3xl font-black tracking-normal text-[#0b1f3a]">
                   Welcome back, {participantName.split(" ")[0]}!

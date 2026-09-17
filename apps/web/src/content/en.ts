@@ -1,3 +1,5 @@
+import { challengeDates } from "@/lib/challenge-dates";
+
 export const enContent = {
     common: {
         login: "Login",
@@ -46,15 +48,15 @@ export const enContent = {
         },
     },
     seo: {
-        title: "Sewa First Innovation Challenge 2026 | Eastern Region",
-        description: "Join the Sewa First Innovation Challenge 2026. Submit innovative solutions to real-world problems. Challenge period: 17 September - 30 October 2026. Open to participants from West Bengal, Bihar and Jharkhand.",
+        title: "Seva First Innovation Challenge 2026 | Eastern Region",
+        description: `Join the Seva First Innovation Challenge 2026. Submit innovative solutions to real-world problems. Challenge open: ${challengeDates.display.en}. Open to participants from West Bengal, Bihar and Jharkhand.`,
         keywords: "innovation challenge, hackathon, startup, innovation competition, West Bengal, Eastern India",
         ogImage: "/images/og-image.jpg",
-        ogImageAlt: "Sewa First Innovation Challenge 2026 - Eastern Region",
+        ogImageAlt: "Seva First Innovation Challenge 2026 - Eastern Region",
     },
     header: {
-        brand: "Sewa First Innovation Challenge",
-        subtitle: "Under Sewa Sankalp Abhiyan",
+        brand: "Seva First Innovation Challenge",
+        subtitle: "Under Seva Sankalp Abhiyan",
         menu: "Menu",
         nav: {
             home: "Home",
@@ -80,8 +82,7 @@ export const enContent = {
             "Vigyan Chetana Bhavan, 26/B, DD Block, Sector I, Salt Lake, Kolkata 700064",
         landmark: "Landmark: City Centre I, Behind ILS Hospital",
         tagline: "Science, technology and innovation for public impact.",
-        note:
-            "A Government of West Bengal platform supporting ideas that can serve people, communities and the state.",
+        note: "",
         rights:
             "Department of Science & Technology and Biotechnology, Government of West Bengal. All rights reserved.",
     },
@@ -193,7 +194,7 @@ export const enContent = {
                     heading: "Need help?",
                     body:
                         "If you face difficulty using the portal with assistive technology, contact the helpdesk with the page name, browser, device and screen reader details.",
-                    items: ["Email: wbdstbt@gmail.com"],
+                    items: ["Email: sficeast@gmail.com"],
                 },
             ],
         },
@@ -204,7 +205,7 @@ export const enContent = {
                 {
                     heading: "Introduction",
                     content: [
-                        "This Privacy Policy explains how the Sewa First Innovation Challenge (\"we\", \"us\", or \"our\") collects, uses, discloses, and safeguards your information when you visit our website (\"Site\").",
+                        "This Privacy Policy explains how the Seva First Innovation Challenge (\"we\", \"us\", or \"our\") collects, uses, discloses, and safeguards your information when you visit our website (\"Site\").",
                         "Please read this Privacy Policy carefully. If you do not agree with our policies and practices, please do not use our Site.",
                     ],
                 },
@@ -270,7 +271,7 @@ export const enContent = {
                 {
                     heading: "Use License",
                     content: [
-                        "Permission is granted to temporarily download one copy of the materials (information or software) on the Sewa First Innovation Challenge website for personal, non-commercial transitory viewing only. This is the grant of a license, not a transfer of title, and under this license you may not:",
+                        "Permission is granted to temporarily download one copy of the materials (information or software) on the Seva First Innovation Challenge website for personal, non-commercial transitory viewing only. This is the grant of a license, not a transfer of title, and under this license you may not:",
                         "• Modify or copy the materials",
                         "• Use the materials for any commercial purpose or for any public display",
                         "• Attempt to decompile or reverse engineer any software contained on the website",
@@ -281,31 +282,31 @@ export const enContent = {
                 {
                     heading: "Disclaimer",
                     content: [
-                        "The materials on the Sewa First Innovation Challenge website are provided on an 'as is' basis. The site makes no warranties, expressed or implied, and hereby disclaims and negates all other warranties including, without limitation, implied warranties or conditions of merchantability, fitness for a particular purpose, or non-infringement of intellectual property or other violation of rights.",
+                        "The materials on the Seva First Innovation Challenge website are provided on an 'as is' basis. The site makes no warranties, expressed or implied, and hereby disclaims and negates all other warranties including, without limitation, implied warranties or conditions of merchantability, fitness for a particular purpose, or non-infringement of intellectual property or other violation of rights.",
                     ],
                 },
                 {
                     heading: "Limitations",
                     content: [
-                        "In no event shall the Sewa First Innovation Challenge or its suppliers be liable for any damages (including, without limitation, damages for loss of data or profit, or due to business interruption) arising out of the use or inability to use the materials on the Sewa First Innovation Challenge website, even if the site or an authorized representative has been notified orally or in writing of the possibility of such damage.",
+                        "In no event shall the Seva First Innovation Challenge or its suppliers be liable for any damages (including, without limitation, damages for loss of data or profit, or due to business interruption) arising out of the use or inability to use the materials on the Seva First Innovation Challenge website, even if the site or an authorized representative has been notified orally or in writing of the possibility of such damage.",
                     ],
                 },
                 {
                     heading: "Accuracy of Materials",
                     content: [
-                        "The materials appearing on the Sewa First Innovation Challenge website could include technical, typographical, or photographic errors. The site does not warrant that any of the materials on its website are accurate, complete, or current. The site may make changes to the materials contained on its website at any time without notice.",
+                        "The materials appearing on the Seva First Innovation Challenge website could include technical, typographical, or photographic errors. The site does not warrant that any of the materials on its website are accurate, complete, or current. The site may make changes to the materials contained on its website at any time without notice.",
                     ],
                 },
                 {
                     heading: "Links",
                     content: [
-                        "The Sewa First Innovation Challenge has not reviewed all of the sites linked to its website and is not responsible for the contents of any such linked site. The inclusion of any link does not imply endorsement by the site of the linked website. Use of any such linked website is at the user's own risk.",
+                        "The Seva First Innovation Challenge has not reviewed all of the sites linked to its website and is not responsible for the contents of any such linked site. The inclusion of any link does not imply endorsement by the site of the linked website. Use of any such linked website is at the user's own risk.",
                     ],
                 },
                 {
                     heading: "Modifications",
                     content: [
-                        "The Sewa First Innovation Challenge may revise these terms of service for its website at any time without notice. By using this website, you are agreeing to be bound by the then current version of these terms of service.",
+                        "The Seva First Innovation Challenge may revise these terms of service for its website at any time without notice. By using this website, you are agreeing to be bound by the then current version of these terms of service.",
                     ],
                 },
                 {
@@ -323,36 +324,36 @@ export const enContent = {
                 {
                     heading: "Intellectual Property Rights",
                     content: [
-                        "All content on the Sewa First Innovation Challenge website, including text, graphics, logos, images, audio clips, and software, is the property of the Department of Science & Technology or its content suppliers and is protected by international copyright laws.",
-                        "The compilation, arrangement, and assembly of all content on this website is the exclusive property of the Sewa First Innovation Challenge and is protected by international copyright laws.",
+                        "All content on the Seva First Innovation Challenge website, including text, graphics, logos, images, audio clips, and software, is the property of the Department of Science & Technology or its content suppliers and is protected by international copyright laws.",
+                        "The compilation, arrangement, and assembly of all content on this website is the exclusive property of the Seva First Innovation Challenge and is protected by international copyright laws.",
                     ],
                 },
                 {
                     heading: "User-Generated Content",
                     content: [
-                        "By submitting content to the Sewa First Innovation Challenge website (including but not limited to ideas, suggestions, feedback, submissions, or documents), you grant to the Sewa First Innovation Challenge a worldwide, non-exclusive, perpetual, irrevocable, royalty-free license to use, reproduce, modify, and distribute such content.",
+                        "By submitting content to the Seva First Innovation Challenge website (including but not limited to ideas, suggestions, feedback, submissions, or documents), you grant to the Seva First Innovation Challenge a worldwide, non-exclusive, perpetual, irrevocable, royalty-free license to use, reproduce, modify, and distribute such content.",
                         "You represent and warrant that you own or have the necessary rights to the content you submit, and that your submission does not violate any third-party intellectual property rights.",
-                        "The Sewa First Innovation Challenge reserves the right to edit, remove, or reject any user-generated content that violates these terms or applicable laws.",
+                        "The Seva First Innovation Challenge reserves the right to edit, remove, or reject any user-generated content that violates these terms or applicable laws.",
                     ],
                 },
                 {
                     heading: "Patents and Innovations",
                     content: [
-                        "Submissions to the Sewa First Innovation Challenge may involve patentable inventions or innovations. Participants are responsible for obtaining patent protection for their innovations before or after submission, as appropriate under applicable laws.",
-                        "The Sewa First Innovation Challenge does not claim ownership of any patents or innovations submitted by participants. However, by participating in the challenge, participants acknowledge that the challenge organizers may use submitted innovations for evaluation, recognition, and promotional purposes.",
+                        "Submissions to the Seva First Innovation Challenge may involve patentable inventions or innovations. Participants are responsible for obtaining patent protection for their innovations before or after submission, as appropriate under applicable laws.",
+                        "The Seva First Innovation Challenge does not claim ownership of any patents or innovations submitted by participants. However, by participating in the challenge, participants acknowledge that the challenge organizers may use submitted innovations for evaluation, recognition, and promotional purposes.",
                     ],
                 },
                 {
                     heading: "Trademarks",
                     content: [
-                        "All trademarks, service marks, and logos (\"Marks\") appearing on the Sewa First Innovation Challenge website are the property of their respective owners. Nothing on this website grants you the right to use any of these Marks.",
+                        "All trademarks, service marks, and logos (\"Marks\") appearing on the Seva First Innovation Challenge website are the property of their respective owners. Nothing on this website grants you the right to use any of these Marks.",
                         "You may not use any of these Marks without the prior written permission of the respective owners.",
                     ],
                 },
                 {
                     heading: "License Grant",
                     content: [
-                        "We grant you a limited, non-exclusive, non-transferable license to access and use the Sewa First Innovation Challenge website for lawful purposes only. This license does not include the right to:",
+                        "We grant you a limited, non-exclusive, non-transferable license to access and use the Seva First Innovation Challenge website for lawful purposes only. This license does not include the right to:",
                         "• Modify or create derivative works based on the website or its content",
                         "• Reproduce, distribute, or publicly display content from the website",
                         "• Use the website or its content for commercial purposes without authorization",
@@ -362,7 +363,7 @@ export const enContent = {
                 {
                     heading: "Violation of Intellectual Property Rights",
                     content: [
-                        "If you believe that your intellectual property rights have been violated on the Sewa First Innovation Challenge website, please contact us immediately at ip@innovation-challenge.gov.in with:",
+                        "If you believe that your intellectual property rights have been violated on the Seva First Innovation Challenge website, please contact us immediately at ip@innovation-challenge.gov.in with:",
                         "• A detailed description of the infringing content",
                         "• Your contact information",
                         "• A statement under penalty of perjury that you are the copyright owner or authorized representative",
@@ -385,7 +386,7 @@ export const enContent = {
                 {
                     heading: "Our Commitment",
                     content: [
-                        "The Sewa First Innovation Challenge is committed to ensuring digital accessibility for people with disabilities. We are continually improving the user experience for everyone and applying the relevant accessibility standards.",
+                        "The Seva First Innovation Challenge is committed to ensuring digital accessibility for people with disabilities. We are continually improving the user experience for everyone and applying the relevant accessibility standards.",
                     ],
                 },
                 {
@@ -451,22 +452,22 @@ export const enContent = {
                 {
                     heading: "General Disclaimer",
                     content: [
-                        "The information provided on the Sewa First Innovation Challenge website is for informational purposes only. While we strive to provide accurate and timely information, we do not guarantee the accuracy, completeness, or reliability of any content on this website.",
-                        "The use of this website and the information contained therein is at your own risk. The Sewa First Innovation Challenge shall not be liable for any damages resulting from the use of this website or the information provided.",
+                        "The information provided on the Seva First Innovation Challenge website is for informational purposes only. While we strive to provide accurate and timely information, we do not guarantee the accuracy, completeness, or reliability of any content on this website.",
+                        "The use of this website and the information contained therein is at your own risk. The Seva First Innovation Challenge shall not be liable for any damages resulting from the use of this website or the information provided.",
                     ],
                 },
                 {
                     heading: "External Links",
                     content: [
-                        "This website may contain links to external websites. The Sewa First Innovation Challenge does not endorse, approve, or assume responsibility for the content of external websites. We are not responsible for the availability, accuracy, or quality of information provided on external links.",
+                        "This website may contain links to external websites. The Seva First Innovation Challenge does not endorse, approve, or assume responsibility for the content of external websites. We are not responsible for the availability, accuracy, or quality of information provided on external links.",
                         "Your access to and use of external websites are at your own risk and subject to the terms and conditions of those websites.",
                     ],
                 },
                 {
                     heading: "Limitation of Liability",
                     content: [
-                        "To the maximum extent permitted by law, the Sewa First Innovation Challenge and its affiliates, officers, employees, and agents shall not be liable for any indirect, incidental, special, consequential, or punitive damages, including but not limited to damages for loss of profits, goodwill, use, data, or other intangible losses.",
-                        "This limitation applies even if the Sewa First Innovation Challenge has been advised of the possibility of such damages.",
+                        "To the maximum extent permitted by law, the Seva First Innovation Challenge and its affiliates, officers, employees, and agents shall not be liable for any indirect, incidental, special, consequential, or punitive damages, including but not limited to damages for loss of profits, goodwill, use, data, or other intangible losses.",
+                        "This limitation applies even if the Seva First Innovation Challenge has been advised of the possibility of such damages.",
                     ],
                 },
                 {
@@ -485,7 +486,7 @@ export const enContent = {
                 {
                     heading: "Third-Party Content",
                     content: [
-                        "This website may include content provided by third parties. We do not control, endorse, or assume responsibility for third-party content. Any views, opinions, or statements expressed in third-party content do not necessarily reflect the views of the Sewa First Innovation Challenge.",
+                        "This website may include content provided by third parties. We do not control, endorse, or assume responsibility for third-party content. Any views, opinions, or statements expressed in third-party content do not necessarily reflect the views of the Seva First Innovation Challenge.",
                     ],
                 },
                 {
@@ -512,7 +513,15 @@ export const enContent = {
     home: {
         heroSlides: [
             {
-                eyebrow: "Sewa First Innovation Challenge",
+                eyebrow: "Seva First Innovation Challenge",
+                title: "Ideas that serve people.",
+                description:
+                    "Join the challenge to turn everyday problems into practical innovations for communities across the Eastern Region.",
+                primaryCTA: "Register Now",
+                secondaryCTA: "View Timeline",
+            },
+            {
+                eyebrow: "Seva First Innovation Challenge",
                 title: "Innovate Locally. Impact Nationally.",
                 description:
                     "Ideas from Eastern India can solve some of India's most pressing everyday problems. Identify a real problem around you and develop a practical solution that can work on the ground.",
@@ -528,7 +537,7 @@ export const enContent = {
                 secondaryCTA: "How to Participate",
             },
             {
-                eyebrow: "17 September - 30 October 2026",
+                eyebrow: challengeDates.display.en,
                 title: "From local problems to pilots and adoption.",
                 description:
                     "Identify a local problem, build a practical solution, show how it can work, explain the impact and take it further.",
@@ -545,7 +554,7 @@ export const enContent = {
             footer: "People · Innovation · Sustainability · Tomorrow",
         },
         quick: [
-            ["Challenge period", "17 September - 30 October 2026"],
+            ["Challenge Open", challengeDates.display.en],
             ["Regional hub", "Kolkata"],
             ["Open to", "West Bengal, Bihar and Jharkhand"],
             ["Need assistance?", "Contact the helpdesk"],
@@ -557,7 +566,7 @@ export const enContent = {
             eyebrow: "ABOUT",
             title: "Ideas are only the beginning",
             description:
-                "Every community has problems that people learn to live with: unsafe roads, poor access to healthcare, water shortages, crop losses, waste, transport gaps, learning difficulties, disaster risks and many others. The Sewa First Innovation Challenge asks young people to look closely at these problems and do something about them.",
+                "Every community has problems that people learn to live with: unsafe roads, poor access to healthcare, water shortages, crop losses, waste, transport gaps, learning difficulties, disaster risks and many others. The Seva First Innovation Challenge asks young people to look closely at these problems and do something about them.",
             bullets: [
                 "Show what the problem is, who it affects and why it matters.",
                 "Explain how the solution can be implemented, what it may cost and how long it may take.",
@@ -705,7 +714,7 @@ export const enContent = {
                 ["Pilot opportunities", "Practical solutions may be connected with institutions, departments, industry or implementation partners."],
                 ["Research support", "Guidance can help participants improve evidence, feasibility and implementation plans."],
                 ["Ecosystem access", "Kolkata serves as the regional hub for bringing ideas from West Bengal, Bihar and Jharkhand together."],
-                ["National recognition", "Strong local solutions can earn visibility through the Sewa First Innovation Challenge platform."],
+                ["National recognition", "Strong local solutions can earn visibility through the Seva First Innovation Challenge platform."],
             ],
         },
         submission: {
@@ -751,7 +760,7 @@ export const enContent = {
                 "Start with the essentials, then review the final Challenge guidelines before you apply.",
         },
         faqItems: [
-            ["What is the Sewa First Innovation Challenge?", "It is a platform for young people to identify real problems around them and develop practical solutions that can be implemented and, where possible, scaled."],
+            ["What is the Seva First Innovation Challenge?", "It is a platform for young people to identify real problems around them and develop practical solutions that can be implemented and, where possible, scaled."],
             ["Who can participate?", "School and college students, ITI and polytechnic students, graduates, young professionals, researchers, early-stage startups, independent innovators and community groups may participate, subject to the final Challenge guidelines."],
             ["Which states are covered by the Eastern Region?", "West Bengal, Bihar and Jharkhand."],
             ["Do I need to have a startup?", "No. You can participate as a student, professional, independent innovator, startup or community group."],
@@ -804,7 +813,7 @@ export const enContent = {
         dashboard: {
             label: "Participant Workspace",
             title: "Participant dashboard",
-            intro: "Track your Sewa First Innovation Challenge application details.",
+            intro: "Track your Seva First Innovation Challenge application details.",
             applicationNumber: "Application Number",
             role: "Role",
             status: "Status",
@@ -838,7 +847,7 @@ export const enContent = {
         stepOf: "Step {current} of {total}",
         complete: "{progress}% complete",
         eligibility:
-            "Participants only from West Bengal, Bihar and Jharkhand are eligible to apply via this portal.",
+            "Only participants from the states of West Bengal, Bihar, and Jharkhand are eligible to apply through this portal.",
         participantCategory: "Participant Category",
         junior: "Junior",
         juniorDescription: "School, ITI and undergraduate.",
@@ -985,7 +994,7 @@ export const enContent = {
             district: "Select your district.",
             state: "Select your state.",
             country: "Country must be India.",
-            pinCode: "Enter a valid PIN code.",
+            pinCode: "Enter a valid 6-digit PIN code.",
             highestEducationalQualification:
                 "Enter your highest educational qualification.",
             lastAttendedEducationalInstitute:

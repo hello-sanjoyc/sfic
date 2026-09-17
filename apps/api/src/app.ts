@@ -114,12 +114,29 @@ export function buildApp() {
   if (postgresConfig) {
     app.register(postgres, postgresConfig);
     app.after(() => {
-      registrationService
-        .ensureVerificationAttemptTable(app.pg)
-        .catch((error) => app.log.error(error));
-      participantService
-        .ensureParticipantLoginTables(app.pg)
-        .catch((error) => app.log.error(error));
+      const setupSchema = async () => {
+        const schemaClient = await app.pg.connect();
+
+        try {
+          await schemaClient.query(
+            "SELECT pg_advisory_lock(hashtext($1))",
+            ["sfic_api_schema_setup"],
+          );
+          await registrationService.ensureVerificationAttemptTable(
+            schemaClient,
+          );
+          await participantService.ensureParticipantLoginTables(schemaClient);
+        } finally {
+          await schemaClient
+            .query("SELECT pg_advisory_unlock(hashtext($1))", [
+              "sfic_api_schema_setup",
+            ])
+            .catch((error) => app.log.error(error));
+          schemaClient.release();
+        }
+      };
+
+      setupSchema().catch((error) => app.log.error(error));
 
       const cleanupIntervalMs = Number(
         process.env.EMAIL_VERIFICATION_CLEANUP_INTERVAL_MS ?? 60_000,

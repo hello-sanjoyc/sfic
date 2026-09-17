@@ -11,12 +11,15 @@ import type {
   VerifyParticipantLoginResult,
 } from "./participant.model.js";
 
-export type DatabasePool = {
-  connect(): Promise<PoolClient>;
+export type DatabaseClient = {
   query<T extends QueryResultRow = QueryResultRow>(
     text: string,
     values?: readonly unknown[],
   ): Promise<{ rows: T[] }>;
+};
+
+export type DatabasePool = DatabaseClient & {
+  connect(): Promise<PoolClient>;
 };
 
 export class ParticipantRuleError extends Error {
@@ -70,7 +73,7 @@ function verificationMaxEmailSendsPerWindow() {
   return Number(process.env.EMAIL_VERIFICATION_MAX_RESENDS_PER_WINDOW ?? 3) + 1;
 }
 
-async function ensureParticipantLoginTables(pg: DatabasePool) {
+async function ensureParticipantLoginTables(pg: DatabaseClient) {
   await pg.query("CREATE EXTENSION IF NOT EXISTS citext");
   await pg.query(`
     CREATE OR REPLACE FUNCTION set_updated_at()

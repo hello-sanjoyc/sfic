@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
-import { Archivo_Black, Ubuntu, Anek_Bangla, Rozha_One, Google_Sans } from "next/font/google";
+import { Archivo_Black, Ubuntu, Anek_Bangla, Tiro_Bangla, Rozha_One, Google_Sans } from "next/font/google";
+import { challengeDates } from "@/lib/challenge-dates";
 import "./globals.css";
 
 const archivoBlack = Archivo_Black({
@@ -26,6 +27,14 @@ const anekBangla = Anek_Bangla({
     weight: ["400", "500", "600", "700"],
 });
 
+const tiroBangla = Tiro_Bangla({
+    display: "swap",
+    preload: true,
+    subsets: ["bengali"],
+    variable: "--font-tiro-bangla",
+    weight: "400",
+});
+
 const rozhaOne = Rozha_One({
     display: "swap",
     preload: true,
@@ -35,6 +44,7 @@ const rozhaOne = Rozha_One({
 });
 
 const googleSans = Google_Sans({
+    adjustFontFallback: false,
     display: "swap",
     preload: true,
     subsets: ["devanagari"],
@@ -52,11 +62,11 @@ export const viewport: Viewport = {
 };
 
 export const metadata: Metadata = {
-    title: "Sewa First Innovation Challenge, Under Sewa Sankalp Abhiyan",
+    title: "Seva First Innovation Challenge, Under Seva Sankalp Abhiyan",
     description:
-        "Join the Sewa First Innovation Challenge 2026. A public innovation challenge for science and technology solutions with real-world impact. Open to participants from Eastern & North-Eastern India.",
+        "Join the Seva First Innovation Challenge 2026. A public innovation challenge for science and technology solutions with real-world impact. Open to participants from Eastern & North-Eastern India.",
     keywords:
-        "innovation challenge, hackathon, startup, Sewa, West Bengal, Eastern India",
+        "innovation challenge, hackathon, startup, Seva, West Bengal, Eastern India",
     authors: [{ name: "Department of Science & Technology and Biotechnology" }],
     creator:
         "Department of Science & Technology and Biotechnology, Government of West Bengal",
@@ -83,24 +93,24 @@ export const metadata: Metadata = {
     openGraph: {
         type: "website",
         url: siteUrl,
-        title: "Sewa First Innovation Challenge 2026",
+        title: "Seva First Innovation Challenge 2026",
         description:
-            "Join the Sewa First Innovation Challenge 2026. Submit innovative solutions to real-world problems. Challenge period: 17 September - 30 October 2026.",
-        siteName: "Sewa First Innovation Challenge",
+            `Join the Seva First Innovation Challenge 2026. Submit innovative solutions to real-world problems. Challenge open: ${challengeDates.display.en}.`,
+        siteName: "Seva First Innovation Challenge",
         images: [
             {
                 url: ogImageUrl,
                 width: 1200,
                 height: 630,
-                alt: "Sewa First Innovation Challenge 2026 - Eastern Region",
+                alt: "Seva First Innovation Challenge 2026 - Eastern Region",
             },
         ],
     },
     twitter: {
         card: "summary_large_image",
-        title: "Sewa First Innovation Challenge 2026",
+        title: "Seva First Innovation Challenge 2026",
         description:
-            "Join the innovation challenge. Challenge period: 17 Sep - 30 Oct 2026. Open to Eastern & North-Eastern India.",
+            `Join the innovation challenge. Challenge open: ${challengeDates.shortDisplay.en}. Open to Eastern & North-Eastern India.`,
         images: [ogImageUrl],
         creator: "@WBGovt",
     },
@@ -109,11 +119,11 @@ export const metadata: Metadata = {
         address: false,
         telephone: false,
     },
-    applicationName: "Sewa First Innovation Challenge",
+    applicationName: "Seva First Innovation Challenge",
     appleWebApp: {
         capable: true,
         statusBarStyle: "black-translucent",
-        title: "Sewa First Innovation Challenge",
+        title: "Seva First Innovation Challenge",
     },
 };
 
@@ -121,7 +131,7 @@ export default function RootLayout({
     children,
 }: Readonly<{ children: React.ReactNode }>) {
     return (
-        <html lang="en" className={`${archivoBlack.variable} ${ubuntu.variable} ${anekBangla.variable} ${rozhaOne.variable} ${googleSans.variable}`}>
+        <html lang="en" className={`${archivoBlack.variable} ${ubuntu.variable} ${anekBangla.variable} ${tiroBangla.variable} ${rozhaOne.variable} ${googleSans.variable}`}>
             <head>
                 <meta name="theme-color" content="#0b1f3a" />
                 <meta name="msapplication-TileColor" content="#ff9933" />

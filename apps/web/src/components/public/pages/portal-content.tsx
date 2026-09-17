@@ -630,7 +630,7 @@ function ContactPage({ locale }: { locale: string }) {
             <p className="rounded-lg border border-slate-200 p-4">
               <strong>Email</strong>
               <br />
-              wbdstbt@gmail.com
+              sficeast@gmail.com
             </p>
             <p className="rounded-lg border border-slate-200 p-4">
               <strong>Office</strong>
@@ -788,7 +788,7 @@ export function PortalContent({
   const page = pages[first] ?? {
     title: labels[first] ?? "Public Portal",
     intro:
-      "Information and resources for the Sewa First Innovation Challenge.",
+      "Information and resources for the Seva First Innovation Challenge.",
     sections: [
       [
         "Information",

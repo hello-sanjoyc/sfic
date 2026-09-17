@@ -192,7 +192,7 @@ const emptyTeamMember: TeamMember = {
 const inputClass =
     "mt-1 w-full rounded-md border border-slate-300 bg-white px-3 py-2.5 text-sm font-normal outline-none transition placeholder:font-normal focus:border-[#000080] focus:ring-2 focus:ring-[#000080]/20";
 const registrationFormStorageKey =
-    "sewa-first-innovation-challenge-registration-form";
+    "seva-first-innovation-challenge-registration-form";
 const maxSupportingDocuments = Number.parseInt(
     process.env.NEXT_PUBLIC_SUPPORTING_DOCUMENT_MAX_FILES ?? "3",
     10,
@@ -751,7 +751,7 @@ function validateField(
         case "country":
             return value === "India" ? "" : messages.country;
         case "pinCode":
-            return /^[0-9]{4,10}$/.test(value) ? "" : messages.pinCode;
+            return /^[0-9]{6}$/.test(value) ? "" : messages.pinCode;
         case "highestEducationalQualification":
             return value ? "" : messages.highestEducationalQualification;
         case "lastAttendedEducationalInstitute":
@@ -1391,7 +1391,7 @@ export function RegistrationProcessForm({
                       : field === "yearOfPassing"
                         ? numericFieldValue(rawValue, 4)
                       : field === "pinCode"
-                        ? numericFieldValue(rawValue, 10)
+                        ? numericFieldValue(rawValue, 6)
                       : isProposalElementField(field)
                         ? rawValue.slice(0, 1000)
                         : rawValue;
@@ -2299,8 +2299,9 @@ export function RegistrationProcessForm({
                                         )}
                                         className={inputClass}
                                         inputMode="numeric"
+                                        maxLength={6}
                                         onChange={updateValue("pinCode")}
-                                        pattern="[0-9]{4,10}"
+                                        pattern="[0-9]{6}"
                                         placeholder={content.placeholders.pinCode}
                                         type="text"
                                         value={values.pinCode}

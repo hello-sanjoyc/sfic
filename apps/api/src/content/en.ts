@@ -70,7 +70,7 @@ export const enContent = {
         fieldRequired: (field: string) => `${field} is required.`,
         fullNameRequired: "fullName is required.",
         participantCategoryRequired: "participantCategory is required.",
-        pinCodeInvalid: "pinCode is invalid.",
+        pinCodeInvalid: "PIN Code must be exactly 6 digits.",
         supportingDocumentMax: (count: number) =>
             `Upload a maximum of ${count} PDF files.`,
         supportingDocumentInvalid: "Uploaded supporting documents are invalid.",
@@ -95,10 +95,10 @@ export const enContent = {
             applicationNumberLabel: "Application Number",
             detailsTitle: "Submitted Details",
             footer:
-                "This email was sent by Sewa First Innovation Challenge. If you did not request this, you can safely ignore it.",
+                "This email was sent by Seva First Innovation Challenge. If you did not request this, you can safely ignore it.",
             greeting: (participantName: string) => `Dear ${participantName},`,
             intro:
-                "Your Sewa First Innovation Challenge application has been submitted successfully.",
+                "Your Seva First Innovation Challenge application has been submitted successfully.",
             preheader: (applicationNumber: string) =>
                 `Your application number is ${applicationNumber}.`,
             subject: (applicationNumber: string) =>
@@ -108,7 +108,7 @@ export const enContent = {
         teamMemberAdded: {
             applicationNumberLabel: "Application Number",
             footer:
-                "This email was sent by Sewa First Innovation Challenge. If this information does not look correct, please contact the Team Lead.",
+                "This email was sent by Seva First Innovation Challenge. If this information does not look correct, please contact the Team Lead.",
             greeting: (participantName: string) => `Dear ${participantName},`,
             intro: (teamLeadName: string, applicationNumber: string) =>
                 `Team Lead ${teamLeadName} has added you as a team member for Application Number ${applicationNumber}.`,
@@ -121,14 +121,14 @@ export const enContent = {
         },
         participantLoginVerification: {
             footer:
-                "This email was sent by Sewa First Innovation Challenge. If you did not request this login code, you can safely ignore it.",
+                "This email was sent by Seva First Innovation Challenge. If you did not request this login code, you can safely ignore it.",
             greeting: (participantName: string) => `Dear ${participantName},`,
             intro:
-                "A login request was made for your Sewa First Innovation Challenge participant dashboard.",
+                "A login request was made for your Seva First Innovation Challenge participant dashboard.",
             preheader:
                 "Use this code to login to your participant dashboard.",
             subject:
-                "Your Sewa First Innovation Challenge participant login code",
+                "Your Seva First Innovation Challenge participant login code",
             title: "Participant login verification",
             verificationCodeLabel: "Verification Code",
             verifyInstruction:
@@ -138,18 +138,17 @@ export const enContent = {
         },
         verification: {
             footer:
-                "This email was sent by Sewa First Innovation Challenge. If you did not request this, you can safely ignore it.",
+                "This email was sent by Seva First Innovation Challenge. If you did not request this, you can safely ignore it.",
             greeting: (participantName: string) => `Dear ${participantName},`,
             intro:
-                "Thank you for starting your registration for the Sewa First Innovation Challenge.",
+                "Thank you for starting your registration for the Seva First Innovation Challenge.",
             preheader:
-                "Use this code to verify your email address and continue your Sewa First Innovation Challenge registration.",
-            subject:
-                "Verify your Sewa First Innovation Challenge email address",
+                "Use this code to verify your email address and continue your Seva First Innovation Challenge registration.",
+            subject: "Verify your email address",
             title: "Verify your email address",
             verificationCodeLabel: "Verification Code",
             verifyInstruction:
-                "Please enter this 6-digit code within {minutes} minutes to continue to Profile Completion.",
+                "Please enter this 6-digit verification code within {minutes} minutes to continue your registration.",
             verifyTextInstruction:
                 "Enter this 6-digit verification code within {minutes} minutes:",
         },

@@ -65,7 +65,7 @@ export function renderEmailTemplate({
     const appName =
         process.env.NEXT_PUBLIC_APP_NAME ??
         process.env.APP_NAME ??
-        "Sewa First Innovation Challenge";
+        "Seva First Innovation Challenge";
     const escapedAppName = escapeHtml(appName);
     const escapedTitle = escapeHtml(title);
     const escapedPreheader = escapeHtml(preheader);

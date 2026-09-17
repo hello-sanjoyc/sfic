@@ -18,17 +18,6 @@ export function Footer({ locale = "en" }: { locale?: string }) {
                 [content.header.nav.contact, "#contact"],
             ],
         },
-        {
-            heading: content.footer.policies,
-            policy: true,
-            links: [
-                [content.footer.privacy, "/privacy-policy"],
-                [content.footer.terms, "/terms-conditions"],
-                [content.footer.ip, "/ip-policy"],
-                [content.footer.accessibility, "/accessibility"],
-                [content.footer.disclaimer, "/disclaimer"],
-            ],
-        },
     ] as const;
     return (
         <footer id="contact" className="mt-16 bg-gradient-to-b from-[#f8fafc] to-[#101213] px-5 pb-0 pt-5 sm:px-8 sm:pb-0 sm:pt-8 lg:px-[60px]">
@@ -56,14 +45,18 @@ export function Footer({ locale = "en" }: { locale?: string }) {
                                 <br />
                                 <a
                                     className="mt-7 inline-block text-lg font-bold text-white underline decoration-[#ff9933] underline-offset-4 hover:text-[#ffd29f]"
-                                    href="mailto:wbdstbt@gmail.com"
+                                    href="mailto:sficeast@gmail.com"
                                 >
-                                    wbdstbt@gmail.com
+                                    sficeast@gmail.com
                                 </a>
                             </address>
                         </div>
                         {groups.map(({ heading, links, policy }) => (
-                            <div id={policy ? "policies" : undefined} key={heading}>
+                            <div
+                                className="lg:col-start-3 lg:justify-self-end"
+                                id={policy ? "policies" : undefined}
+                                key={heading}
+                            >
                                 <h2 className="text-2xl font-bold tracking-tight text-white">
                                     {heading}
                                 </h2>
@@ -97,7 +90,7 @@ export function Footer({ locale = "en" }: { locale?: string }) {
                     <div className="mt-14 flex flex-col gap-7 border-y border-white/15 py-7 sm:flex-row sm:items-center sm:justify-between">
                         <div className="flex items-center gap-4">
                             <Image
-                                src="/images/wb-logo.webp"
+                                src="/images/logo.webp"
                                 alt="Government of West Bengal"
                                 width={64}
                                 height={64}
@@ -115,9 +108,6 @@ export function Footer({ locale = "en" }: { locale?: string }) {
                                 </p>
                             </div>
                         </div>
-                        <p className="max-w-md text-sm leading-6 text-slate-300 sm:text-right">
-                            {content.footer.note}
-                        </p>
                     </div>
 
                     <div className="flex flex-col gap-3 pt-7 text-xs text-slate-400 sm:flex-row sm:items-center sm:justify-between">

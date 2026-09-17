@@ -1,1 +1,1 @@
-export const AUTH_STORAGE_KEY = "sewa-first-innovation-challenge-session";
+export const AUTH_STORAGE_KEY = "seva-first-innovation-challenge-session";

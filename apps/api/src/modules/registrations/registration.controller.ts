@@ -475,7 +475,7 @@ function validateSubmitProposalBody(body: SubmitProposalBody) {
     ),
   };
 
-  if (!/^[0-9]{4,10}$/.test(value.pinCode)) {
+  if (!/^[0-9]{6}$/.test(value.pinCode)) {
     errors.push(validationMessages.pinCodeInvalid);
   }
   if (!/^(19|20)\d{2}$/.test(value.yearOfPassing)) {

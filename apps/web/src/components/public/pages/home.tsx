@@ -6,7 +6,7 @@ export function HomePage() {
         <ScrollAnimations>
             <section className="mx-auto max-w-6xl px-6 py-24 text-center">
                 <p className="mb-4 text-sm font-semibold uppercase tracking-[0.2em] text-indigo-600">
-                    Sewa First Innovation Challenge
+                    Seva First Innovation Challenge
                 </p>
                 <h1 className="mx-auto max-w-3xl text-5xl font-bold tracking-tight text-slate-950">
                     Innovate Locally. Impact Nationally.

@@ -30,7 +30,7 @@ function getMailFrom() {
         process.env.MAIL_FROM_NAME ??
         process.env.NEXT_PUBLIC_APP_NAME ??
         process.env.APP_NAME ??
-        "Sewa First Innovation Challenge";
+        "Seva First Innovation Challenge";
 
     return email ? `"${name}" <${email}>` : "";
 }

@@ -29,6 +29,7 @@ import {
     Wind,
     Parasol,
 } from "lucide-react";
+import { challengeDates } from "@/lib/challenge-dates";
 
 export type HeroSlide = {
     id: string;
@@ -43,8 +44,19 @@ export type HeroSlide = {
 };
 export const heroSlides: HeroSlide[] = [
     {
+        id: "launch",
+        eyebrow: "Seva First Innovation Challenge",
+        title: "Ideas that serve people.",
+        description:
+            "Join the challenge to turn everyday problems into practical innovations for communities across the Eastern Region.",
+        desktopImage: "/images/hero-slider-00.webp",
+        imageAlt: "Seva First Innovation Challenge launch visual",
+        primaryCTA: { label: "Register Now", href: "/en/register" },
+        secondaryCTA: { label: "View Timeline", href: "/en/timeline" },
+    },
+    {
         id: "ai",
-        eyebrow: "Sewa First Innovation Challenge",
+        eyebrow: "Seva First Innovation Challenge",
         title: "Innovate Locally. Impact Nationally.",
         description:
             "Ideas from Eastern India can solve some of India's most pressing everyday problems. Identify a real problem around you and develop a practical solution that can work on the ground.",
@@ -69,7 +81,7 @@ export const heroSlides: HeroSlide[] = [
     },
     {
         id: "solar",
-        eyebrow: "17 September - 30 October 2026",
+        eyebrow: challengeDates.display.en,
         title: "From local problems to pilots and adoption.",
         description:
             "Identify a local problem, build a practical solution, show how it can work, explain the impact and take it further.",
@@ -245,7 +257,7 @@ export const announcements = [
 ];
 export const faqs = [
     [
-        "What is the Sewa First Innovation Challenge?",
+        "What is the Seva First Innovation Challenge?",
         "It is a platform for young people to identify real problems around them and develop practical solutions that can be implemented and, where possible, scaled.",
     ],
     [
@@ -310,8 +322,8 @@ export type KeyFact = {
 };
 export const keyFacts: KeyFact[] = [
     {
-        label: "Challenge period",
-        value: "17 Sep - 30 Oct 2026",
+        label: "Challenge Open",
+        value: challengeDates.shortDisplay.en,
         icon: BadgeIndianRupee,
         tone: "saffron",
     },
@@ -495,7 +507,7 @@ export const benefits: Benefit[] = [
     {
         title: "National recognition",
         description:
-            "Strong local solutions can earn visibility through the Sewa First Innovation Challenge platform.",
+            "Strong local solutions can earn visibility through the Seva First Innovation Challenge platform.",
         icon: Trophy,
     },
 ];

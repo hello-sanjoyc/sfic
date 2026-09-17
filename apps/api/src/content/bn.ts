@@ -72,7 +72,7 @@ export const bnContent = {
         fieldRequired: (field: string) => `${field} প্রয়োজন।`,
         fullNameRequired: "fullName প্রয়োজন।",
         participantCategoryRequired: "participantCategory প্রয়োজন।",
-        pinCodeInvalid: "pinCode সঠিক নয়।",
+        pinCodeInvalid: "পিন কোড ঠিক ৬ সংখ্যার হতে হবে।",
         supportingDocumentMax: (count: number) =>
             `${count}টির বেশি PDF ফাইল আপলোড করবেন না।`,
         supportingDocumentInvalid: "আপলোড করা সহায়ক নথিগুলি সঠিক নয়।",
@@ -97,10 +97,10 @@ export const bnContent = {
             applicationNumberLabel: "আবেদন নম্বর",
             detailsTitle: "জমা দেওয়া তথ্য",
             footer:
-                "এই ইমেলটি Sewa First Innovation Challenge থেকে পাঠানো হয়েছে। আপনি যদি এই অনুরোধ না করে থাকেন, তাহলে ইমেলটি উপেক্ষা করতে পারেন।",
+                "এই ইমেলটি Seva First Innovation Challenge থেকে পাঠানো হয়েছে। আপনি যদি এই অনুরোধ না করে থাকেন, তাহলে ইমেলটি উপেক্ষা করতে পারেন।",
             greeting: (participantName: string) => `প্রিয় ${participantName},`,
             intro:
-                "Sewa First Innovation Challenge-এর জন্য আপনার আবেদন সফলভাবে জমা হয়েছে।",
+                "Seva First Innovation Challenge-এর জন্য আপনার আবেদন সফলভাবে জমা হয়েছে।",
             preheader: (applicationNumber: string) =>
                 `আপনার আবেদন নম্বর ${applicationNumber}।`,
             subject: (applicationNumber: string) =>
@@ -110,7 +110,7 @@ export const bnContent = {
         teamMemberAdded: {
             applicationNumberLabel: "আবেদন নম্বর",
             footer:
-                "এই ইমেলটি Sewa First Innovation Challenge থেকে পাঠানো হয়েছে। তথ্যটি সঠিক না হলে টিম লিডের সঙ্গে যোগাযোগ করুন।",
+                "এই ইমেলটি Seva First Innovation Challenge থেকে পাঠানো হয়েছে। তথ্যটি সঠিক না হলে টিম লিডের সঙ্গে যোগাযোগ করুন।",
             greeting: (participantName: string) => `প্রিয় ${participantName},`,
             intro: (teamLeadName: string, applicationNumber: string) =>
                 `টিম লিড ${teamLeadName} আপনাকে আবেদন নম্বর ${applicationNumber}-এর দলের সদস্য হিসেবে যুক্ত করেছেন।`,
@@ -123,14 +123,14 @@ export const bnContent = {
         },
         participantLoginVerification: {
             footer:
-                "এই ইমেলটি Sewa First Innovation Challenge থেকে পাঠানো হয়েছে। আপনি যদি এই লগইন কোড না চেয়ে থাকেন, তাহলে ইমেলটি উপেক্ষা করতে পারেন।",
+                "এই ইমেলটি Seva First Innovation Challenge থেকে পাঠানো হয়েছে। আপনি যদি এই লগইন কোড না চেয়ে থাকেন, তাহলে ইমেলটি উপেক্ষা করতে পারেন।",
             greeting: (participantName: string) => `প্রিয় ${participantName},`,
             intro:
-                "আপনার Sewa First Innovation Challenge অংশগ্রহণকারী ড্যাশবোর্ডে লগইনের জন্য একটি অনুরোধ করা হয়েছে।",
+                "আপনার Seva First Innovation Challenge অংশগ্রহণকারী ড্যাশবোর্ডে লগইনের জন্য একটি অনুরোধ করা হয়েছে।",
             preheader:
                 "অংশগ্রহণকারী ড্যাশবোর্ডে লগইন করতে এই কোড ব্যবহার করুন।",
             subject:
-                "আপনার Sewa First Innovation Challenge অংশগ্রহণকারী লগইন কোড",
+                "আপনার Seva First Innovation Challenge অংশগ্রহণকারী লগইন কোড",
             title: "অংশগ্রহণকারী লগইন যাচাইকরণ",
             verificationCodeLabel: "যাচাইকরণ কোড",
             verifyInstruction:
@@ -140,14 +140,14 @@ export const bnContent = {
         },
         verification: {
             footer:
-                "এই ইমেলটি Sewa First Innovation Challenge থেকে পাঠানো হয়েছে। আপনি যদি এই অনুরোধ না করে থাকেন, তাহলে ইমেলটি উপেক্ষা করতে পারেন।",
+                "এই ইমেলটি Seva First Innovation Challenge থেকে পাঠানো হয়েছে। আপনি যদি এই অনুরোধ না করে থাকেন, তাহলে ইমেলটি উপেক্ষা করতে পারেন।",
             greeting: (participantName: string) => `প্রিয় ${participantName},`,
             intro:
-                "Sewa First Innovation Challenge-এর নিবন্ধন শুরু করার জন্য ধন্যবাদ।",
+                "Seva First Innovation Challenge-এর নিবন্ধন শুরু করার জন্য ধন্যবাদ।",
             preheader:
-                "Sewa First Innovation Challenge-এর নিবন্ধন চালিয়ে যেতে এই কোড ব্যবহার করে আপনার ইমেল যাচাই করুন।",
+                "Seva First Innovation Challenge-এর নিবন্ধন চালিয়ে যেতে এই কোড ব্যবহার করে আপনার ইমেল যাচাই করুন।",
             subject:
-                "Sewa First Innovation Challenge-এর ইমেল ঠিকানা যাচাই করুন",
+                "Seva First Innovation Challenge-এর ইমেল ঠিকানা যাচাই করুন",
             title: "Verify your email address",
             verificationCodeLabel: "Verification Code",
             verifyInstruction:
