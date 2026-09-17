@@ -252,7 +252,7 @@ export const enContent = {
                     heading: "Contact Us",
                     content: [
                         "If you have questions or comments about this Privacy Policy, please contact us at:",
-                        "Email: privacy@innovation-challenge.gov.in",
+                        "Email: sficeast@gmail.com",
                         "Address: Department of Science & Technology, Government of India",
                     ],
                 },
@@ -363,7 +363,7 @@ export const enContent = {
                 {
                     heading: "Violation of Intellectual Property Rights",
                     content: [
-                        "If you believe that your intellectual property rights have been violated on the Seva First Innovation Challenge website, please contact us immediately at ip@innovation-challenge.gov.in with:",
+                        "If you believe that your intellectual property rights have been violated on the Seva First Innovation Challenge website, please contact us immediately at sficeast@gmail.com with:",
                         "• A detailed description of the infringing content",
                         "• Your contact information",
                         "• A statement under penalty of perjury that you are the copyright owner or authorized representative",
@@ -433,7 +433,7 @@ export const enContent = {
                     content: [
                         "We welcome your feedback on the accessibility of this website. Please contact us if you encounter any barriers to accessibility.",
                         "For Screen Reader Help: Visit our Screen Reader Access Guide at /screen-reader-access",
-                        "Email: accessibility@innovation-challenge.gov.in",
+                        "Email: sficeast@gmail.com",
                         "We will respond to accessibility inquiries within 5 business days.",
                     ],
                 },

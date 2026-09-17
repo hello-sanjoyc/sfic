@@ -93,7 +93,7 @@ const content = {
             {
                 heading: "Reporting Accessibility Issues",
                 content: [
-                    "We are committed to making this website as accessible as possible. If you encounter any accessibility issues or have suggestions for improvement, please contact us at support@innovation-challenge.gov.in with details about the issue and your screen reader.",
+                    "We are committed to making this website as accessible as possible. If you encounter any accessibility issues or have suggestions for improvement, please contact us at sficeast@gmail.com with details about the issue and your screen reader.",
                 ],
             },
             {
@@ -190,7 +190,7 @@ const content = {
             {
                 heading: "एक्सेसिबिलिटी समस्याओं की रिपोर्ट करें",
                 content: [
-                    "हम इस वेबसाइट को यथासंभव सुलभ बनाने के लिए प्रतिबद्ध हैं। यदि आप कोई एक्सेसिबिलिटी समस्या का सामना करते हैं या सुधार के लिए सुझाव हैं, तो कृपया समस्या और आपके स्क्रीन रीडर के विवरण के साथ support@innovation-challenge.gov.in से संपर्क करें।",
+                    "हम इस वेबसाइट को यथासंभव सुलभ बनाने के लिए प्रतिबद्ध हैं। यदि आप कोई एक्सेसिबिलिटी समस्या का सामना करते हैं या सुधार के लिए सुझाव हैं, तो कृपया समस्या और आपके स्क्रीन रीडर के विवरण के साथ sficeast@gmail.com से संपर्क करें।",
                 ],
             },
             {
@@ -287,7 +287,7 @@ const content = {
             {
                 heading: "অ্যাক্সেসযোগ্যতা সমস্যা রিপোর্ট করুন",
                 content: [
-                    "আমরা এই ওয়েবসাইটটিকে যতটা সম্ভব অ্যাক্সেসযোগ্য করতে প্রতিশ্রুতিবদ্ধ। যদি আপনি কোনো অ্যাক্সেসযোগ্যতার সমস্যার সম্মুখীন হন বা উন্নতির জন্য পরামর্শ থাকে তবে অনুগ্রহ করে সমস্যা এবং আপনার স্ক্রীন রিডারের বিবরণ সহ support@innovation-challenge.gov.in এ যোগাযোগ করুন।",
+                    "আমরা এই ওয়েবসাইটটিকে যতটা সম্ভব অ্যাক্সেসযোগ্য করতে প্রতিশ্রুতিবদ্ধ। যদি আপনি কোনো অ্যাক্সেসযোগ্যতার সমস্যার সম্মুখীন হন বা উন্নতির জন্য পরামর্শ থাকে তবে অনুগ্রহ করে সমস্যা এবং আপনার স্ক্রীন রিডারের বিবরণ সহ sficeast@gmail.com এ যোগাযোগ করুন।",
                 ],
             },
             {
@@ -466,10 +466,10 @@ export function ScreenReaderHelp({ locale }: ScreenReaderHelpProps) {
                     </h2>
                     <p className="text-base text-[var(--text-secondary)] leading-relaxed mb-4">
                         {locale === "en"
-                            ? "If you have any questions or need additional assistance, please don't hesitate to reach out to us at support@innovation-challenge.gov.in"
+                            ? "If you have any questions or need additional assistance, please don't hesitate to reach out to us at sficeast@gmail.com"
                             : locale === "hi"
-                              ? "यदि आपके कोई प्रश्न हैं या अतिरिक्त सहायता की आवश्यकता है, तो कृपया हमसे support@innovation-challenge.gov.in पर संपर्क करने में संकोच न करें"
-                              : "যদি আপনার কোনো প্রশ্ন থাকে বা অতিরিक্ত সহায়তার প্রয়োজন হয় তবে অনুগ্রহ করে support@innovation-challenge.gov.in এ আমাদের সাথে যোগাযোগ করতে দ্বিধা করবেন না"}
+                              ? "यदि आपके कोई प्रश्न हैं या अतिरिक्त सहायता की आवश्यकता है, तो कृपया हमसे sficeast@gmail.com पर संपर्क करने में संकोच न करें"
+                              : "যদি আপনার কোনো প্রশ্ন থাকে বা অতিরিक্ত সহায়তার প্রয়োজন হয় তবে অনুগ্রহ করে sficeast@gmail.com এ আমাদের সাথে যোগাযোগ করতে দ্বিধা করবেন না"}
                     </p>
                 </section>
             </main>
