@@ -3,7 +3,7 @@ import { challengeDates } from "@/lib/challenge-dates";
 export const hiContent = {
     common: {
         login: "लॉग इन",
-        applyNow: "अभी आवेदन करें",
+        applyNow: "अभी पंजीकरण करें",
         applicationsOpen: "आवेदन खुले हैं",
         registerNow: "अभी पंजीकरण करें",
         exploreThemes: "विषय देखें",
@@ -727,6 +727,7 @@ export const hiContent = {
                 "ओपन श्रेणी के प्रतिभागियों को कार्यान्वयन का अधिक मजबूत आधार प्रस्तुत करना चाहिए।",
                 "प्रोटोटाइप, प्रूफ ऑफ कॉन्सेप्ट या पायलट का प्रमाण प्रस्ताव को अधिक मजबूत बनाता है।",
             ],
+            detailedInfoLink: "विस्तृत जानकारी देखें/डाउनलोड करें",
             items: [
                 ["समस्या और स्थान", "समस्या क्या है और आपने उसे कहां देखा है?"],
                 ["प्रस्तावित समाधान", "आप क्या बनाना, बदलना या शुरू करना चाहते हैं?"],
@@ -837,9 +838,6 @@ export const hiContent = {
     },
     register: {
         showInfo: "पंजीकरण दिशानिर्देश",
-        title: "आवेदन की जानकारी",
-        details: "पंजीकरण विवरण",
-        closeInfo: "आवेदन की जानकारी बंद करें",
         startRegistration: "पंजीकरण शुरू करें",
         steps: [
             "पंजीकरण",

@@ -3,7 +3,7 @@ import { challengeDates } from "@/lib/challenge-dates";
 export const enContent = {
     common: {
         login: "Login",
-        applyNow: "Apply Now",
+        applyNow: "Register Now",
         applicationsOpen: "Applications open",
         registerNow: "Register Now",
         exploreThemes: "Explore Themes",
@@ -727,6 +727,7 @@ export const enContent = {
                 "Open-category participants should present a stronger implementation case.",
                 "Prototype, proof-of-concept or pilot evidence can add weight to the submission.",
             ],
+            detailedInfoLink: "View/Download Detailed Information",
             items: [
                 ["Problem & Location", "What is the problem, and where have you observed it?"],
                 ["Proposed Solution", "What are you proposing to build, change or introduce?"],
@@ -834,9 +835,6 @@ export const enContent = {
     },
     register: {
         showInfo: "Registration guidelines",
-        title: "Application information",
-        details: "Registration Details",
-        closeInfo: "Close application information",
         startRegistration: "Start Registration",
         steps: [
             "Registration",

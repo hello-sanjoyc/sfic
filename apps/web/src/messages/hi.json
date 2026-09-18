@@ -1,4 +1,4 @@
 {
-  "common": { "skip": "मुख्य सामग्री पर जाएँ", "accessibility": "सुगम्यता", "contrast": "उच्च कंट्रास्ट", "login": "लॉगिन", "apply": "अभी आवेदन करें", "learnMore": "और जानें", "viewAll": "सभी देखें", "readMore": "और पढ़ें", "explore": "जानें" },
+  "common": { "skip": "मुख्य सामग्री पर जाएँ", "accessibility": "सुगम्यता", "contrast": "उच्च कंट्रास्ट", "login": "लॉगिन", "apply": "अभी पंजीकरण करें", "learnMore": "और जानें", "viewAll": "सभी देखें", "readMore": "और पढ़ें", "explore": "जानें" },
   "header": { "department": "विज्ञान और प्रौद्योगिकी विभाग", "challenge": "सेवा फर्स्ट इनोवेशन चैलेंज 2026" }
 }

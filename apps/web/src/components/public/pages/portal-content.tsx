@@ -748,7 +748,7 @@ function DetailPage({
             className="mt-6 block rounded bg-[#ff9933] px-4 py-3 text-center font-bold text-[#071426]"
             href={`/${locale}/register`}
           >
-            Apply now
+            Register now
           </Link>
           <Link
             className="mt-3 block text-center text-sm font-bold text-[#000080]"

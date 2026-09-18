@@ -5,6 +5,7 @@ import {
     ClipboardList,
     CloudRain,
     Diamond,
+    FileText,
     Fish,
     Grid3X3,
     Leaf,
@@ -147,6 +148,13 @@ export function PortalHome({ locale }: { locale: string }) {
     const content = getSiteContent(locale);
     const home = content.home;
     const link = (path: string) => `/${locale}${path}`;
+    const guidelinesPdfByLocale: Record<string, string> = {
+        bn: "/documents/SFIC-Guidelines-BN.pdf",
+        en: "/documents/SFIC-Guidelines-EN.pdf",
+        hi: "/documents/SFIC-Guidelines-HI.pdf",
+    };
+    const guidelinesPdfHref =
+        guidelinesPdfByLocale[locale] ?? guidelinesPdfByLocale.en;
     const slides = heroSlides.map((slide) => ({
         ...slide,
         eyebrow: home.heroSlides.find((item) => item.eyebrow === slide.eyebrow)
@@ -707,6 +715,15 @@ export function PortalHome({ locale }: { locale: string }) {
                                     {home.submission.notes[2]}
                                 </p>
                             </div>
+                            <a
+                                className="mt-5 inline-flex items-center gap-2 rounded-full bg-[#000080] px-5 py-2.5 text-sm font-bold text-white shadow-sm transition hover:bg-[#0b1f3a]"
+                                href={guidelinesPdfHref}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                            >
+                                <FileText size={18} aria-hidden="true" />
+                                {home.submission.detailedInfoLink}
+                            </a>
                         </div>
                         <ol className="contrast-surface divide-y divide-slate-200 overflow-hidden rounded-2xl border border-slate-200 bg-white">
                             {home.submission.items.map(([title, description], index) => (
