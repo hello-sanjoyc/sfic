@@ -833,6 +833,41 @@ export const enContent = {
                 "Please login with your registered email address to access the dashboard.",
         },
     },
+    adminLogin: {
+        title: "Admin login",
+        description:
+            "Access the programme administration workspace using your authorised email address and a 6 digit verification code.",
+        features: [
+            "Email based login",
+            "Verification code required",
+            "Administration dashboard access after verification",
+        ],
+        email: "Email Address",
+        verificationCode: "Verification Code",
+        emailHelp:
+            "Enter the email address assigned to your programme administration account.",
+        codeHelp:
+            "A 6 digit verification code has been generated for {email}.",
+        codeSent:
+            "Verification code sent. Enter the 6 digit code from your email within {minutes} minutes.",
+        codeResent:
+            "Verification code re-sent. Enter the latest 6 digit code from your email.",
+        resendAvailableIn: "Resend available in {time}",
+        resendVerificationCode: "Resend Verification Code",
+        generateCode: "Generate Verification Code",
+        continueToDashboard: "Continue to Dashboard",
+        placeholders: {
+            email: "e.g. admin@example.com",
+            verificationCode: "Enter 6 digit code",
+        },
+        errors: {
+            email: "Enter a valid email address.",
+            verificationCode: "Enter the 6 digit verification code.",
+            requestFailed: "Unable to send verification code. Please try again.",
+            verifyFailed: "Unable to verify login code. Please try again.",
+            resendFailed: "Unable to resend verification code. Please try again.",
+        },
+    },
     register: {
         showInfo: "Registration guidelines",
         startRegistration: "Start Registration",
@@ -998,6 +1033,8 @@ export const enContent = {
             lastAttendedEducationalInstitute:
                 "Enter your last attended educational institute.",
             yearOfPassing: "Enter a valid 4 digit year of passing.",
+            yearOfPassingAgeGap:
+                "Year of Passing must be at least 12 years after Date of Birth.",
             instituteName: "Enter your present organisation name.",
             instituteType: "Select your organisation type.",
             organisationType: "Enter the organisation type.",

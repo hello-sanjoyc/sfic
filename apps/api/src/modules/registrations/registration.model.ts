@@ -70,6 +70,7 @@ export type SupportingDocumentInput = {
 export type SubmitProposalInput = {
   address: string;
   beneficiaries: string;
+  challengeCategoryId: number;
   city: string;
   costFunding: string;
   districtId: number;

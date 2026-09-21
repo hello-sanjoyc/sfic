@@ -13,6 +13,7 @@ export const bnContent = {
         emailVerified: "ইমেল ঠিকানা সফলভাবে যাচাই হয়েছে।",
         healthOk: "API স্বাভাবিকভাবে কাজ করছে।",
         healthUnavailable: "API বর্তমানে উপলভ্য নয়।",
+        invalidChallengeCategory: "চ্যালেঞ্জ বিভাগ সঠিক নয়।",
         invalidDistrictForState: "নির্বাচিত রাজ্যের জন্য জেলা সঠিক নয়।",
         invalidFileUpload: "আপলোড করা সহায়ক নথিগুলি সঠিক নয়।",
         invalidInstituteTypeForParticipantCategory:
@@ -26,6 +27,15 @@ export const bnContent = {
         notFound: "চাওয়া তথ্য পাওয়া যায়নি।",
         noActiveChallenge: "কোনও সক্রিয় চ্যালেঞ্জ কনফিগার করা নেই।",
         participantNotFound: "অংশগ্রহণকারীর তথ্য পাওয়া যায়নি।",
+        userNotFound: "ব্যবহারকারীর তথ্য পাওয়া যায়নি।",
+        adminDashboardCountsFetched:
+            "অ্যাডমিন ড্যাশবোর্ডের সংখ্যা সফলভাবে পাওয়া গেছে।",
+        adminLoginCodeSent:
+            "অ্যাডমিন লগইনের যাচাইকরণ ইমেল পাঠানো হয়েছে।",
+        adminLoginUnable:
+            "অ্যাডমিন লগইন সম্পন্ন করা যায়নি।",
+        adminLoginVerified:
+            "অ্যাডমিন লগইন সফলভাবে যাচাই হয়েছে।",
         participantCategoriesFetched:
             "অংশগ্রহণকারী বিভাগগুলি সফলভাবে পাওয়া গেছে।",
         participantCategoryInstituteTypesFetched:
@@ -91,6 +101,8 @@ export const bnContent = {
             "দলগতভাবে অংশ নিতে অন্তত একজন অতিরিক্ত দলীয় সদস্য প্রয়োজন।",
         validEmailRequired: "একটি বৈধ ইমেল ঠিকানা দিন।",
         validMobileRequired: "একটি বৈধ ১০ সংখ্যার মোবাইল নম্বর দিন।",
+        yearOfPassingAgeGap:
+            "উত্তীর্ণ হওয়ার বছর জন্ম তারিখের অন্তত ১২ বছর পর হতে হবে।",
     },
     emails: {
         applicationSubmitted: {
@@ -132,6 +144,23 @@ export const bnContent = {
             subject:
                 "আপনার Seva First Innovation Challenge অংশগ্রহণকারী লগইন কোড",
             title: "অংশগ্রহণকারী লগইন যাচাইকরণ",
+            verificationCodeLabel: "যাচাইকরণ কোড",
+            verifyInstruction:
+                "ড্যাশবোর্ডে যেতে {minutes} মিনিটের মধ্যে এই ৬ সংখ্যার কোডটি লিখুন।",
+            verifyTextInstruction:
+                "{minutes} মিনিটের মধ্যে এই ৬ সংখ্যার যাচাইকরণ কোডটি লিখুন:",
+        },
+        adminLoginVerification: {
+            footer:
+                "এই ইমেলটি Seva First Innovation Challenge থেকে পাঠানো হয়েছে। আপনি যদি এই অ্যাডমিন লগইন কোড না চেয়ে থাকেন, তাহলে ইমেলটি উপেক্ষা করতে পারেন।",
+            greeting: (participantName: string) => `প্রিয় ${participantName},`,
+            intro:
+                "আপনার Seva First Innovation Challenge অ্যাডমিন ড্যাশবোর্ডে লগইনের জন্য একটি অনুরোধ করা হয়েছে।",
+            preheader:
+                "অ্যাডমিন ড্যাশবোর্ডে লগইন করতে এই কোড ব্যবহার করুন।",
+            subject:
+                "আপনার Seva First Innovation Challenge অ্যাডমিন লগইন কোড",
+            title: "অ্যাডমিন লগইন যাচাইকরণ",
             verificationCodeLabel: "যাচাইকরণ কোড",
             verifyInstruction:
                 "ড্যাশবোর্ডে যেতে {minutes} মিনিটের মধ্যে এই ৬ সংখ্যার কোডটি লিখুন।",

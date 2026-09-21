@@ -28,11 +28,13 @@ TRUNCATE TABLE
     public.application_form_saves,
     public.participant_email_verification_tokens,
     public.participant_login_verification_tokens,
+    public.user_login_verification_tokens,
     public.application_team_members,
     public.participant_applications,
     public.participants,
     public.participant_email_verification_attempts,
     public.participant_login_verification_attempts,
+    public.user_login_verification_attempts,
     public.application_number_sequences
     RESTART IDENTITY CASCADE;
 

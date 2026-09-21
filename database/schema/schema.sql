@@ -322,12 +322,19 @@ CREATE SEQUENCE public.challenges_id_seq
 
 ALTER SEQUENCE public.challenges_id_seq OWNED BY public.challenges.id;
 
+-- user_roles ------------------------------------------------------------
+
+CREATE TABLE public.user_roles (
+    role character varying(20) NOT NULL,
+    is_active boolean DEFAULT true NOT NULL
+);
+
 -- participants -----------------------------------------------------------
 
 CREATE TABLE public.participants (
     id bigint NOT NULL,
     full_name character varying(200) NOT NULL,
-    email public.citext NOT NULL,
+    email character varying(200) NOT NULL,
     mobile character varying(20) NOT NULL,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
     updated_at timestamp with time zone DEFAULT now() NOT NULL,
@@ -346,6 +353,28 @@ CREATE SEQUENCE public.participants_id_seq
     CACHE 1;
 
 ALTER SEQUENCE public.participants_id_seq OWNED BY public.participants.id;
+
+-- users -----------------------------------------------------------------
+
+CREATE TABLE public.users (
+    id bigint NOT NULL,
+    fullname character varying(200) NOT NULL,
+    email character varying(200) NOT NULL,
+    mobile character varying(20) NOT NULL,
+    role character varying(20) NOT NULL,
+    is_active boolean DEFAULT true NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL
+);
+
+CREATE SEQUENCE public.users_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+ALTER SEQUENCE public.users_id_seq OWNED BY public.users.id;
 
 -- participant_applications -----------------------------------------------
 
@@ -418,7 +447,7 @@ CREATE TABLE public.application_team_members (
     application_id bigint NOT NULL,
     participant_id bigint,
     full_name character varying(200) NOT NULL,
-    email public.citext NOT NULL,
+    email character varying(200) NOT NULL,
     mobile character varying(20) NOT NULL,
     is_applicant boolean DEFAULT false NOT NULL,
     sort_order integer DEFAULT 0 NOT NULL,
@@ -491,7 +520,7 @@ ALTER SEQUENCE public.application_form_saves_id_seq OWNED BY public.application_
 
 CREATE TABLE public.participant_email_verification_attempts (
     id bigint NOT NULL,
-    email public.citext NOT NULL,
+    email character varying(200) NOT NULL,
     mobile character varying(20) NOT NULL,
     first_requested_at timestamp with time zone DEFAULT now() NOT NULL,
     last_sent_at timestamp with time zone,
@@ -535,7 +564,7 @@ ALTER SEQUENCE public.participant_email_verification_tokens_id_seq OWNED BY publ
 
 CREATE TABLE public.participant_login_verification_attempts (
     id bigint NOT NULL,
-    email public.citext NOT NULL,
+    email character varying(200) NOT NULL,
     first_requested_at timestamp with time zone DEFAULT now() NOT NULL,
     last_sent_at timestamp with time zone,
     send_count integer DEFAULT 0 NOT NULL,
@@ -559,7 +588,7 @@ CREATE TABLE public.participant_login_verification_tokens (
     id bigint NOT NULL,
     application_id bigint NOT NULL,
     member_id bigint NOT NULL,
-    email public.citext NOT NULL,
+    email character varying(200) NOT NULL,
     token_hash character varying(128) NOT NULL,
     expires_at timestamp with time zone NOT NULL,
     consumed_at timestamp with time zone,
@@ -575,6 +604,49 @@ CREATE SEQUENCE public.participant_login_verification_tokens_id_seq
 
 ALTER SEQUENCE public.participant_login_verification_tokens_id_seq OWNED BY public.participant_login_verification_tokens.id;
 
+-- user_login_verification_attempts ------------------------------------------
+
+CREATE TABLE public.user_login_verification_attempts (
+    id bigint NOT NULL,
+    email character varying(200) NOT NULL,
+    first_requested_at timestamp with time zone DEFAULT now() NOT NULL,
+    last_sent_at timestamp with time zone,
+    send_count integer DEFAULT 0 NOT NULL,
+    locked_until timestamp with time zone,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL
+);
+
+CREATE SEQUENCE public.user_login_verification_attempts_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+ALTER SEQUENCE public.user_login_verification_attempts_id_seq OWNED BY public.user_login_verification_attempts.id;
+
+-- user_login_verification_tokens --------------------------------------------
+
+CREATE TABLE public.user_login_verification_tokens (
+    id bigint NOT NULL,
+    user_id bigint NOT NULL,
+    email character varying(200) NOT NULL,
+    token_hash character varying(128) NOT NULL,
+    expires_at timestamp with time zone NOT NULL,
+    consumed_at timestamp with time zone,
+    created_at timestamp with time zone DEFAULT now() NOT NULL
+);
+
+CREATE SEQUENCE public.user_login_verification_tokens_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+ALTER SEQUENCE public.user_login_verification_tokens_id_seq OWNED BY public.user_login_verification_tokens.id;
+
 -- ============================================================================
 -- DEFAULT COLUMN VALUES (id SERIAL wiring)
 -- ============================================================================
@@ -587,6 +659,7 @@ ALTER TABLE ONLY public.participant_category_institute_types ALTER COLUMN id SET
 ALTER TABLE ONLY public.challenge_categories ALTER COLUMN id SET DEFAULT nextval('public.challenge_categories_id_seq'::regclass);
 ALTER TABLE ONLY public.challenges ALTER COLUMN id SET DEFAULT nextval('public.challenges_id_seq'::regclass);
 ALTER TABLE ONLY public.participants ALTER COLUMN id SET DEFAULT nextval('public.participants_id_seq'::regclass);
+ALTER TABLE ONLY public.users ALTER COLUMN id SET DEFAULT nextval('public.users_id_seq'::regclass);
 ALTER TABLE ONLY public.participant_applications ALTER COLUMN id SET DEFAULT nextval('public.participant_applications_id_seq'::regclass);
 ALTER TABLE ONLY public.application_team_members ALTER COLUMN id SET DEFAULT nextval('public.application_team_members_id_seq'::regclass);
 ALTER TABLE ONLY public.application_documents ALTER COLUMN id SET DEFAULT nextval('public.application_documents_id_seq'::regclass);
@@ -595,6 +668,8 @@ ALTER TABLE ONLY public.participant_email_verification_attempts ALTER COLUMN id 
 ALTER TABLE ONLY public.participant_email_verification_tokens ALTER COLUMN id SET DEFAULT nextval('public.participant_email_verification_tokens_id_seq'::regclass);
 ALTER TABLE ONLY public.participant_login_verification_attempts ALTER COLUMN id SET DEFAULT nextval('public.participant_login_verification_attempts_id_seq'::regclass);
 ALTER TABLE ONLY public.participant_login_verification_tokens ALTER COLUMN id SET DEFAULT nextval('public.participant_login_verification_tokens_id_seq'::regclass);
+ALTER TABLE ONLY public.user_login_verification_attempts ALTER COLUMN id SET DEFAULT nextval('public.user_login_verification_attempts_id_seq'::regclass);
+ALTER TABLE ONLY public.user_login_verification_tokens ALTER COLUMN id SET DEFAULT nextval('public.user_login_verification_tokens_id_seq'::regclass);
 
 -- ============================================================================
 -- PRIMARY KEY / UNIQUE CONSTRAINTS
@@ -635,12 +710,22 @@ ALTER TABLE ONLY public.challenges
 ALTER TABLE ONLY public.challenges
     ADD CONSTRAINT challenges_code_key UNIQUE (code);
 
+ALTER TABLE ONLY public.user_roles
+    ADD CONSTRAINT user_roles_pkey PRIMARY KEY (role);
+
 ALTER TABLE ONLY public.participants
     ADD CONSTRAINT participants_pkey PRIMARY KEY (id);
 ALTER TABLE ONLY public.participants
     ADD CONSTRAINT uq_participants_email UNIQUE (email);
 ALTER TABLE ONLY public.participants
     ADD CONSTRAINT uq_participants_mobile UNIQUE (mobile);
+
+ALTER TABLE ONLY public.users
+    ADD CONSTRAINT users_pkey PRIMARY KEY (id);
+ALTER TABLE ONLY public.users
+    ADD CONSTRAINT uq_users_email UNIQUE (email);
+ALTER TABLE ONLY public.users
+    ADD CONSTRAINT uq_users_mobile UNIQUE (mobile);
 
 ALTER TABLE ONLY public.participant_applications
     ADD CONSTRAINT participant_applications_pkey PRIMARY KEY (id);
@@ -685,6 +770,16 @@ ALTER TABLE ONLY public.participant_login_verification_tokens
 ALTER TABLE ONLY public.participant_login_verification_tokens
     ADD CONSTRAINT participant_login_verification_tokens_token_hash_key UNIQUE (token_hash);
 
+ALTER TABLE ONLY public.user_login_verification_attempts
+    ADD CONSTRAINT user_login_verification_attempts_pkey PRIMARY KEY (id);
+ALTER TABLE ONLY public.user_login_verification_attempts
+    ADD CONSTRAINT user_login_verification_attempts_email_key UNIQUE (email);
+
+ALTER TABLE ONLY public.user_login_verification_tokens
+    ADD CONSTRAINT user_login_verification_tokens_pkey PRIMARY KEY (id);
+ALTER TABLE ONLY public.user_login_verification_tokens
+    ADD CONSTRAINT user_login_verification_tokens_token_hash_key UNIQUE (token_hash);
+
 -- ============================================================================
 -- FOREIGN KEY CONSTRAINTS
 -- ============================================================================
@@ -696,6 +791,9 @@ ALTER TABLE ONLY public.participant_category_institute_types
     ADD CONSTRAINT fk_pc_institute_category FOREIGN KEY (participant_category_id) REFERENCES public.participant_categories(id) ON UPDATE CASCADE ON DELETE CASCADE;
 ALTER TABLE ONLY public.participant_category_institute_types
     ADD CONSTRAINT fk_pc_institute_type FOREIGN KEY (institute_type_id) REFERENCES public.institute_types(id) ON UPDATE CASCADE ON DELETE CASCADE;
+
+ALTER TABLE ONLY public.users
+    ADD CONSTRAINT fk_users_role FOREIGN KEY (role) REFERENCES public.user_roles(role) ON UPDATE CASCADE ON DELETE RESTRICT;
 
 ALTER TABLE ONLY public.participant_applications
     ADD CONSTRAINT fk_applications_challenge FOREIGN KEY (challenge_id) REFERENCES public.challenges(id) ON UPDATE CASCADE ON DELETE RESTRICT;
@@ -739,6 +837,9 @@ ALTER TABLE ONLY public.participant_login_verification_tokens
 ALTER TABLE ONLY public.participant_login_verification_tokens
     ADD CONSTRAINT fk_participant_login_tokens_member FOREIGN KEY (member_id) REFERENCES public.application_team_members(id) ON UPDATE CASCADE ON DELETE CASCADE;
 
+ALTER TABLE ONLY public.user_login_verification_tokens
+    ADD CONSTRAINT fk_user_login_tokens_user FOREIGN KEY (user_id) REFERENCES public.users(id) ON UPDATE CASCADE ON DELETE CASCADE;
+
 -- ============================================================================
 -- INDEXES
 -- ============================================================================
@@ -752,6 +853,8 @@ CREATE INDEX idx_districts_state_id ON public.districts USING btree (state_id);
 
 CREATE INDEX idx_pc_institute_category_id ON public.participant_category_institute_types USING btree (participant_category_id);
 CREATE INDEX idx_pc_institute_type_id ON public.participant_category_institute_types USING btree (institute_type_id);
+
+CREATE INDEX idx_users_role ON public.users USING btree (role);
 
 CREATE INDEX idx_applications_challenge_id ON public.participant_applications USING btree (challenge_id);
 CREATE INDEX idx_applications_participant_id ON public.participant_applications USING btree (participant_id);
@@ -780,17 +883,24 @@ CREATE INDEX idx_participant_login_attempts_locked_until ON public.participant_l
 CREATE INDEX idx_participant_login_tokens_active ON public.participant_login_verification_tokens USING btree (token_hash, expires_at) WHERE (consumed_at IS NULL);
 CREATE INDEX idx_participant_login_tokens_email ON public.participant_login_verification_tokens USING btree (email);
 
+CREATE INDEX idx_user_login_attempts_locked_until ON public.user_login_verification_attempts USING btree (locked_until);
+
+CREATE INDEX idx_user_login_tokens_active ON public.user_login_verification_tokens USING btree (token_hash, expires_at) WHERE (consumed_at IS NULL);
+CREATE INDEX idx_user_login_tokens_email ON public.user_login_verification_tokens USING btree (email);
+
 -- ============================================================================
 -- TRIGGERS
 -- ============================================================================
 
 CREATE TRIGGER trg_challenges_updated_at BEFORE UPDATE ON public.challenges FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
 CREATE TRIGGER trg_participants_updated_at BEFORE UPDATE ON public.participants FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
+CREATE TRIGGER trg_users_updated_at BEFORE UPDATE ON public.users FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
 CREATE TRIGGER trg_participant_applications_updated_at BEFORE UPDATE ON public.participant_applications FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
 CREATE TRIGGER trg_application_team_members_updated_at BEFORE UPDATE ON public.application_team_members FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
 CREATE TRIGGER trg_application_documents_updated_at BEFORE UPDATE ON public.application_documents FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
 CREATE TRIGGER trg_email_verification_attempts_updated_at BEFORE UPDATE ON public.participant_email_verification_attempts FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
 CREATE TRIGGER trg_participant_login_attempts_updated_at BEFORE UPDATE ON public.participant_login_verification_attempts FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
+CREATE TRIGGER trg_user_login_attempts_updated_at BEFORE UPDATE ON public.user_login_verification_attempts FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
 
 CREATE CONSTRAINT TRIGGER trg_validate_application_team_lead AFTER INSERT OR UPDATE OF team_lead_team_member_id ON public.participant_applications DEFERRABLE INITIALLY DEFERRED FOR EACH ROW EXECUTE FUNCTION public.validate_application_team_lead();
 CREATE CONSTRAINT TRIGGER trg_validate_application_profile_references AFTER INSERT OR UPDATE OF state_id, district_id, participant_category_id, institute_type_id ON public.participant_applications DEFERRABLE INITIALLY DEFERRED FOR EACH ROW EXECUTE FUNCTION public.validate_application_profile_references();

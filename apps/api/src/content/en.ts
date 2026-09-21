@@ -13,6 +13,7 @@ export const enContent = {
         emailVerified: "Email verified successfully.",
         healthOk: "API is healthy.",
         healthUnavailable: "API is unavailable.",
+        invalidChallengeCategory: "Invalid challenge category.",
         invalidDistrictForState: "Invalid district for selected state.",
         invalidFileUpload: "Uploaded supporting documents are invalid.",
         invalidInstituteTypeForParticipantCategory:
@@ -26,6 +27,13 @@ export const enContent = {
         notFound: "Requested resource was not found.",
         noActiveChallenge: "No active challenge is configured.",
         participantNotFound: "Participant was not found.",
+        userNotFound: "User was not found.",
+        adminDashboardCountsFetched:
+            "Admin dashboard counts fetched successfully.",
+        adminLoginCodeSent:
+            "Admin login verification email has been sent.",
+        adminLoginUnable: "Unable to complete admin login.",
+        adminLoginVerified: "Admin login verified successfully.",
         participantCategoriesFetched:
             "Participant categories fetched successfully.",
         participantCategoryInstituteTypesFetched:
@@ -89,6 +97,8 @@ export const enContent = {
             "At least one team member is required for team participation.",
         validEmailRequired: "A valid email is required.",
         validMobileRequired: "A valid 10-digit mobile number is required.",
+        yearOfPassingAgeGap:
+            "Year of Passing must be at least 12 years after Date of Birth.",
     },
     emails: {
         applicationSubmitted: {
@@ -130,6 +140,23 @@ export const enContent = {
             subject:
                 "Your Seva First Innovation Challenge participant login code",
             title: "Participant login verification",
+            verificationCodeLabel: "Verification Code",
+            verifyInstruction:
+                "Please enter this 6-digit code within {minutes} minutes to continue to your dashboard.",
+            verifyTextInstruction:
+                "Enter this 6-digit verification code within {minutes} minutes:",
+        },
+        adminLoginVerification: {
+            footer:
+                "This email was sent by Seva First Innovation Challenge. If you did not request this admin login code, you can safely ignore it.",
+            greeting: (participantName: string) => `Dear ${participantName},`,
+            intro:
+                "A login request was made for your Seva First Innovation Challenge admin dashboard.",
+            preheader:
+                "Use this code to login to your admin dashboard.",
+            subject:
+                "Your Seva First Innovation Challenge admin login code",
+            title: "Admin login verification",
             verificationCodeLabel: "Verification Code",
             verifyInstruction:
                 "Please enter this 6-digit code within {minutes} minutes to continue to your dashboard.",

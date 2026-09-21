@@ -1,55 +1,56 @@
 import type { Metadata, Viewport } from "next";
-import { Archivo_Black, Ubuntu, Anek_Bangla, Tiro_Bangla, Rozha_One, Google_Sans } from "next/font/google";
+import localFont from "next/font/local";
 import { challengeDates } from "@/lib/challenge-dates";
 import "./globals.css";
 
-const archivoBlack = Archivo_Black({
+const archivoBlack = localFont({
+    src: "../fonts/ArchivoBlack-Regular.ttf",
     display: "swap",
-    preload: true,
-    subsets: ["latin"],
     variable: "--font-archivo-black",
     weight: "400",
 });
 
-const ubuntu = Ubuntu({
+const ubuntu = localFont({
+    src: [
+        { path: "../fonts/Ubuntu-Light.ttf", weight: "300", style: "normal" },
+        { path: "../fonts/Ubuntu-Regular.ttf", weight: "400", style: "normal" },
+        { path: "../fonts/Ubuntu-Medium.ttf", weight: "500", style: "normal" },
+        { path: "../fonts/Ubuntu-Bold.ttf", weight: "700", style: "normal" },
+    ],
     display: "swap",
-    preload: true,
-    subsets: ["latin"],
     variable: "--font-ubuntu",
-    weight: ["300", "400", "500", "700"],
 });
 
-const anekBangla = Anek_Bangla({
+const anekBangla = localFont({
+    // Note: If you downloaded a variable font file from Google, point directly to it.
+    // Otherwise, configure multiple weights in an array like Ubuntu above.
+    src: "../fonts/AnekBangla.ttf",
     display: "swap",
-    preload: true,
-    subsets: ["bengali"],
     variable: "--font-anek-bangla",
-    weight: ["400", "500", "600", "700"],
 });
 
-const tiroBangla = Tiro_Bangla({
+const tiroBangla = localFont({
+    src: "../fonts/TiroBangla-Regular.ttf",
     display: "swap",
-    preload: true,
-    subsets: ["bengali"],
     variable: "--font-tiro-bangla",
     weight: "400",
 });
 
-const rozhaOne = Rozha_One({
+const rozhaOne = localFont({
+    src: "../fonts/RozhaOne-Regular.ttf",
     display: "swap",
-    preload: true,
-    subsets: ["devanagari"],
     variable: "--font-rozha-one",
     weight: "400",
 });
 
-const googleSans = Google_Sans({
-    adjustFontFallback: false,
+const googleSans = localFont({
+    src: [
+        { path: "../fonts/GoogleSans-Regular.ttf", weight: "400", style: "normal" },
+        { path: "../fonts/GoogleSans-Medium.ttf", weight: "500", style: "normal" },
+        { path: "../fonts/GoogleSans-Bold.ttf", weight: "700", style: "normal" },
+    ],
     display: "swap",
-    preload: true,
-    subsets: ["devanagari"],
     variable: "--font-google-sans",
-    weight: ["400", "500", "700"],
 });
 
 const siteUrl = process.env.NEXT_PUBLIC_APP_URL || "https://sfic.wb.gov.in";

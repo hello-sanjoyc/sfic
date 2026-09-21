@@ -1,5 +1,5 @@
 import { NextIntlClientProvider } from "next-intl";
-import { Noto_Serif_Devanagari, Tiro_Bangla } from "next/font/google";
+import localFont from "next/font/local";
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import { Footer } from "@/components/public/common/footer";
@@ -11,24 +11,23 @@ import { Providers } from "@/components/providers";
 import { locales } from "@/i18n/locales";
 import { getSiteContent } from "@/content";
 
-const tiroBangla = Tiro_Bangla({
+const tiroBangla = localFont({
+    src: "../../fonts/TiroBangla-Regular.ttf",
     display: "swap",
-    preload: false,
-    subsets: ["bengali"],
     variable: "--font-tiro-bangla",
     weight: "400",
 });
 
-const notoSerifDevanagari = Noto_Serif_Devanagari({
+const notoSerifDevanagari = localFont({
+    src: "../../fonts/NotoSerifDevanagari.ttf",
     display: "swap",
-    preload: false,
-    subsets: ["devanagari"],
     variable: "--font-noto-serif-devanagari",
 });
 
 export function generateStaticParams() {
     return locales.map((locale) => ({ locale }));
 }
+
 export async function generateMetadata({
     params,
 }: {
@@ -75,6 +74,7 @@ export async function generateMetadata({
         },
     };
 }
+
 export default async function LocaleLayout({
     children,
     params,

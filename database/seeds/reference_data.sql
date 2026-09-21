@@ -318,5 +318,11 @@ INSERT INTO public.challenges VALUES (2, 'SFIC-2026', 'Seva First Innovation Cha
 
 SELECT setval('public.challenges_id_seq', GREATEST((SELECT MAX(id) FROM public.challenges), 1));
 
+-- user_roles ------------------------------------------------------------
+
+INSERT INTO public.user_roles VALUES ('SUPERADMIN') ON CONFLICT (role) DO NOTHING;
+INSERT INTO public.user_roles VALUES ('ADMIN') ON CONFLICT (role) DO NOTHING;
+INSERT INTO public.user_roles VALUES ('JURY') ON CONFLICT (role) DO NOTHING;
+INSERT INTO public.user_roles VALUES ('HELPDESK') ON CONFLICT (role) DO NOTHING;
 
 COMMIT;

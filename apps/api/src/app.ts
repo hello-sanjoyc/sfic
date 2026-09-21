@@ -3,6 +3,8 @@ import multipart from "@fastify/multipart";
 import postgres from "@fastify/postgres";
 import Fastify from "fastify";
 import type { PoolConfig } from "pg";
+import { adminRoutes } from "./modules/admin/index.js";
+import { adminService } from "./modules/admin/admin.service.js";
 import { sendError, sendSuccess } from "./modules/common/api-response.js";
 import { commonRoutes } from "./modules/common/index.js";
 import { participantRoutes } from "./modules/participants/index.js";
@@ -126,6 +128,7 @@ export function buildApp() {
             schemaClient,
           );
           await participantService.ensureParticipantLoginTables(schemaClient);
+          await adminService.ensureAdminLoginTables(schemaClient);
         } finally {
           await schemaClient
             .query("SELECT pg_advisory_unlock(hashtext($1))", [
@@ -200,6 +203,7 @@ export function buildApp() {
     }),
   );
   app.register(commonRoutes, { prefix: "/api/v1/common" });
+  app.register(adminRoutes, { prefix: "/api/v1/admin" });
   app.register(participantRoutes, { prefix: "/api/v1/participants" });
   app.register(registrationRoutes, { prefix: "/api/v1/registrations" });
 

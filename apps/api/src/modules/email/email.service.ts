@@ -181,6 +181,46 @@ async function sendParticipantLoginVerificationEmail(input: {
     });
 }
 
+async function sendAdminLoginVerificationEmail(input: {
+    adminEmail: string;
+    adminName: string;
+    code: string;
+    language: string;
+}) {
+    const emailText = getApiContent("en").emails.adminLoginVerification;
+    const ttlMinutes = emailVerificationTokenTtlMinutes();
+    const html = renderVerificationEmail({
+        code: input.code,
+        language: "en",
+        participantName: input.adminName,
+        text: {
+            ...emailText,
+            verifyInstruction: templateMessage(emailText.verifyInstruction, {
+                minutes: ttlMinutes,
+            }),
+            verifyTextInstruction: templateMessage(
+                emailText.verifyTextInstruction,
+                { minutes: ttlMinutes },
+            ),
+        },
+    });
+
+    return sendEmail({
+        html,
+        subject: emailText.subject,
+        text: [
+            emailText.greeting(input.adminName),
+            "",
+            emailText.intro,
+            templateMessage(emailText.verifyTextInstruction, {
+                minutes: ttlMinutes,
+            }),
+            input.code,
+        ].join("\n"),
+        to: input.adminEmail,
+    });
+}
+
 async function sendApplicationSubmittedEmail(input: {
     applicationNumber: string;
     details: Array<{ label: string; value?: string }>;
@@ -247,6 +287,7 @@ async function sendTeamMemberAddedEmail(input: {
 }
 
 export const emailService = {
+    sendAdminLoginVerificationEmail,
     sendApplicationSubmittedEmail,
     sendEmail,
     sendParticipantLoginVerificationEmail,

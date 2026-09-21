@@ -12,7 +12,6 @@ import { usePathname, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { getSiteContent } from "@/content";
 import { apiClient, endpoints } from "@/lib/api";
-import { themes } from "@/mocks/public";
 
 const steps = [
     "Registration",
@@ -48,6 +47,7 @@ type FormValues = {
     organisationType: string;
     otherOrganisationType: string;
     yearOfPassing: string;
+    challengeCategoryId: string;
     theme: string;
     problemLocation: string;
     proposedSolution: string;
@@ -130,6 +130,7 @@ type ValidationLookups = {
     districts: DistrictOption[];
     instituteTypes: LookupOption[];
     states: LookupOption[];
+    challengeCategories: LookupOption[];
 };
 
 type FieldName = keyof FormValues | "supportingDocuments";
@@ -168,6 +169,7 @@ const initialValues: FormValues = {
     organisationType: "",
     otherOrganisationType: "",
     yearOfPassing: "",
+    challengeCategoryId: "",
     theme: "",
     problemLocation: "",
     proposedSolution: "",
@@ -600,7 +602,7 @@ const stepFields: Record<number, FieldName[]> = {
         "organisationType",
         "participationMode",
     ],
-    2: ["theme", ...proposalElementFields, "supportingDocuments"],
+    2: ["challengeCategoryId", ...proposalElementFields, "supportingDocuments"],
 };
 const multilingualNamePattern = /^[\p{L}\p{M} ]{2,}$/u;
 const nonMultilingualNameCharacters = /[^\p{L}\p{M} ]/gu;
@@ -700,6 +702,16 @@ function calculateAgeOnClosingDate(dateOfBirth: string) {
     return age;
 }
 
+function isYearOfPassingAtLeast12YearsAfterDateOfBirth(
+    yearOfPassing: string,
+    dateOfBirth: string,
+) {
+    const birthDate = parseDateOfBirth(dateOfBirth);
+    if (!birthDate) return true;
+
+    return Number(yearOfPassing) >= birthDate.getUTCFullYear() + 12;
+}
+
 function validateField(
     field: FieldName,
     values: FormValues,
@@ -757,7 +769,13 @@ function validateField(
         case "lastAttendedEducationalInstitute":
             return value ? "" : messages.lastAttendedEducationalInstitute;
         case "yearOfPassing":
-            return /^(19|20)\d{2}$/.test(value) ? "" : messages.yearOfPassing;
+            if (!/^(19|20)\d{2}$/.test(value)) return messages.yearOfPassing;
+            return isYearOfPassingAtLeast12YearsAfterDateOfBirth(
+                value,
+                values.dateOfBirth,
+            )
+                ? ""
+                : messages.yearOfPassingAgeGap;
         case "organisationName":
             return value ? "" : messages.instituteName;
         case "organisationType":
@@ -768,8 +786,11 @@ function validateField(
             return values.organisationType !== "Other" || value
                 ? ""
                 : messages.organisationType;
+        case "challengeCategoryId":
         case "theme":
-            return value ? "" : messages.challengeCategory;
+            return getOptionById(lookups.challengeCategories, value)
+                ? ""
+                : messages.challengeCategory;
         case "problemLocation":
         case "proposedSolution":
         case "technologyMethod":
@@ -986,10 +1007,6 @@ export function RegistrationProcessForm({
     const content = siteContent.register;
     const validationMessages = content.errors;
     const localizedSteps = content.steps;
-    const localizedThemes = themes.map((theme, index) => ({
-        ...theme,
-        title: siteContent.home.themes.items[index]?.[0] ?? theme.title,
-    }));
     const localizedProposalElements = proposalElements.map((element, index) => ({
         ...element,
         label: content.proposalElements[index]?.[0] ?? element.label,
@@ -1030,9 +1047,14 @@ export function RegistrationProcessForm({
     const [instituteTypeOptions, setInstituteTypeOptions] = useState<
         LookupOption[]
     >([]);
+    const [challengeCategoryOptions, setChallengeCategoryOptions] = useState<
+        LookupOption[]
+    >([]);
     const [stateLookupError, setStateLookupError] = useState("");
     const [districtLookupError, setDistrictLookupError] = useState("");
     const [instituteTypeLookupError, setInstituteTypeLookupError] =
+        useState("");
+    const [challengeCategoryLookupError, setChallengeCategoryLookupError] =
         useState("");
     const formRef = useRef<HTMLDivElement>(null);
     const districtRequestIdRef = useRef(0);
@@ -1042,8 +1064,14 @@ export function RegistrationProcessForm({
             districts: districtOptions,
             instituteTypes: instituteTypeOptions,
             states: stateOptions,
+            challengeCategories: challengeCategoryOptions,
         }),
-        [districtOptions, instituteTypeOptions, stateOptions],
+        [
+            challengeCategoryOptions,
+            districtOptions,
+            instituteTypeOptions,
+            stateOptions,
+        ],
     );
 
     const progress = useMemo(
@@ -1135,6 +1163,30 @@ export function RegistrationProcessForm({
             isMounted = false;
         };
     }, [validationMessages.state]);
+
+    useEffect(() => {
+        let isMounted = true;
+
+        apiClient
+            .get<LookupOption[]>(endpoints.common.challengeCategories)
+            .then((challengeCategories) => {
+                if (!isMounted) return;
+                setChallengeCategoryOptions(challengeCategories);
+                setChallengeCategoryLookupError("");
+            })
+            .catch(() => {
+                if (isMounted) {
+                    setChallengeCategoryOptions([]);
+                    setChallengeCategoryLookupError(
+                        validationMessages.challengeCategory,
+                    );
+                }
+            });
+
+        return () => {
+            isMounted = false;
+        };
+    }, [validationMessages.challengeCategory]);
 
     useEffect(() => {
         if (!values.participantCategory) {
@@ -1449,6 +1501,22 @@ export function RegistrationProcessForm({
         }));
     };
 
+    const updateChallengeCategory = (
+        event: React.ChangeEvent<HTMLSelectElement>,
+    ) => {
+        const challengeCategoryId = event.target.value;
+        const challengeCategory = getOptionById(
+            challengeCategoryOptions,
+            challengeCategoryId,
+        );
+
+        setValues((current) => ({
+            ...current,
+            challengeCategoryId,
+            theme: challengeCategory?.name.en ?? "",
+        }));
+    };
+
     const selectParticipantCategory = (participantCategory: string) => {
         setValues((current) => ({
             ...current,
@@ -1724,6 +1792,7 @@ export function RegistrationProcessForm({
                 teamMembers:
                     values.participationMode === "Team" ? teamMembers : [],
                 technologyMethod: values.technologyMethod,
+                challengeCategoryId: Number(values.challengeCategoryId),
                 theme: values.theme,
                 videoUrl: values.videoUrl,
                 yearOfPassing: values.yearOfPassing,
@@ -2694,22 +2763,35 @@ export function RegistrationProcessForm({
                                     {content.challengeCategory}
                                     <select
                                         aria-invalid={Boolean(
-                                            currentErrors.theme,
+                                            currentErrors.challengeCategoryId,
                                         )}
                                         className={inputClass}
-                                        onChange={updateValue("theme")}
-                                        value={values.theme}
+                                        onChange={updateChallengeCategory}
+                                        value={values.challengeCategoryId}
                                     >
                                         <option value="">
                                             {content.challengeCategory}
                                         </option>
-                                        {localizedThemes.map((theme) => (
-                                            <option key={theme.slug}>
-                                                {theme.title}
+                                        {challengeCategoryOptions.map((category) => (
+                                            <option
+                                                key={category.id}
+                                                value={category.id}
+                                            >
+                                                {getLocalizedLookupName(
+                                                    category.name,
+                                                    lookupLocale,
+                                                )}
                                             </option>
                                         ))}
                                     </select>
-                                    <FieldError message={currentErrors.theme} />
+                                    <FieldError
+                                        message={
+                                            currentErrors.challengeCategoryId
+                                        }
+                                    />
+                                    <FieldError
+                                        message={challengeCategoryLookupError}
+                                    />
                                 </label>
                                 <div className="md:col-span-2">
                                     <div className="rounded-lg border border-orange-200 bg-orange-50/50 p-4">

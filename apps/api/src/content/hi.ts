@@ -13,6 +13,7 @@ export const hiContent = {
         emailVerified: "ईमेल पता सफलतापूर्वक सत्यापित हो गया है।",
         healthOk: "API सामान्य रूप से काम कर रहा है।",
         healthUnavailable: "API इस समय उपलब्ध नहीं है।",
+        invalidChallengeCategory: "चैलेंज श्रेणी मान्य नहीं है।",
         invalidDistrictForState: "चुने गए राज्य के लिए जिला मान्य नहीं है।",
         invalidFileUpload: "अपलोड किए गए सहायक दस्तावेज मान्य नहीं हैं।",
         invalidInstituteTypeForParticipantCategory:
@@ -26,6 +27,14 @@ export const hiContent = {
         notFound: "मांगी गई जानकारी नहीं मिली।",
         noActiveChallenge: "कोई सक्रिय चैलेंज कॉन्फ़िगर नहीं है।",
         participantNotFound: "प्रतिभागी की जानकारी नहीं मिली।",
+        userNotFound: "उपयोगकर्ता की जानकारी नहीं मिली।",
+        adminDashboardCountsFetched:
+            "एडमिन डैशबोर्ड काउंट सफलतापूर्वक प्राप्त हो गए हैं।",
+        adminLoginCodeSent:
+            "एडमिन लॉगिन सत्यापन ईमेल भेज दिया गया है।",
+        adminLoginUnable: "एडमिन लॉगिन पूरा नहीं किया जा सका।",
+        adminLoginVerified:
+            "एडमिन लॉगिन सफलतापूर्वक सत्यापित हो गया है।",
         participantCategoriesFetched:
             "प्रतिभागी श्रेणियां सफलतापूर्वक प्राप्त हो गई हैं।",
         participantCategoryInstituteTypesFetched:
@@ -90,6 +99,8 @@ export const hiContent = {
             "टीम के रूप में भाग लेने के लिए कम से कम एक अतिरिक्त सदस्य आवश्यक है।",
         validEmailRequired: "एक मान्य ईमेल पता दर्ज करें।",
         validMobileRequired: "एक मान्य 10 अंकों का मोबाइल नंबर दर्ज करें।",
+        yearOfPassingAgeGap:
+            "उत्तीर्ण होने का वर्ष जन्म तिथि से कम से कम 12 वर्ष बाद होना चाहिए।",
     },
     emails: {
         applicationSubmitted: {
@@ -131,6 +142,23 @@ export const hiContent = {
             subject:
                 "आपका Seva First Innovation Challenge प्रतिभागी लॉगिन कोड",
             title: "प्रतिभागी लॉगिन सत्यापन",
+            verificationCodeLabel: "सत्यापन कोड",
+            verifyInstruction:
+                "डैशबोर्ड पर जाने के लिए {minutes} मिनट के भीतर यह 6 अंकों का कोड दर्ज करें।",
+            verifyTextInstruction:
+                "{minutes} मिनट के भीतर यह 6 अंकों का सत्यापन कोड दर्ज करें:",
+        },
+        adminLoginVerification: {
+            footer:
+                "यह ईमेल Seva First Innovation Challenge की ओर से भेजा गया है। यदि आपने यह एडमिन लॉगिन कोड नहीं मांगा है, तो आप इस ईमेल को नज़रअंदाज़ कर सकते हैं।",
+            greeting: (participantName: string) => `प्रिय ${participantName},`,
+            intro:
+                "आपके Seva First Innovation Challenge एडमिन डैशबोर्ड में लॉगिन के लिए अनुरोध किया गया है।",
+            preheader:
+                "एडमिन डैशबोर्ड में लॉगिन करने के लिए इस कोड का उपयोग करें।",
+            subject:
+                "आपका Seva First Innovation Challenge एडमिन लॉगिन कोड",
+            title: "एडमिन लॉगिन सत्यापन",
             verificationCodeLabel: "सत्यापन कोड",
             verifyInstruction:
                 "डैशबोर्ड पर जाने के लिए {minutes} मिनट के भीतर यह 6 अंकों का कोड दर्ज करें।",

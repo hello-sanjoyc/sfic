@@ -14,6 +14,7 @@ export type ApiContent = {
         emailVerified: string;
         healthOk: string;
         healthUnavailable: string;
+        invalidChallengeCategory: string;
         invalidDistrictForState: string;
         invalidFileUpload: string;
         invalidInstituteTypeForParticipantCategory: string;
@@ -26,6 +27,11 @@ export type ApiContent = {
         notFound: string;
         noActiveChallenge: string;
         participantNotFound: string;
+        userNotFound: string;
+        adminDashboardCountsFetched: string;
+        adminLoginCodeSent: string;
+        adminLoginUnable: string;
+        adminLoginVerified: string;
         participantCategoriesFetched: string;
         participantCategoryInstituteTypesFetched: string;
         participantLoginCodeSent: string;
@@ -75,6 +81,7 @@ export type ApiContent = {
         teamMemberRequired: string;
         validEmailRequired: string;
         validMobileRequired: string;
+        yearOfPassingAgeGap: string;
     };
     emails: {
         applicationSubmitted: {
@@ -98,6 +105,17 @@ export type ApiContent = {
             title: string;
         };
         participantLoginVerification: {
+            footer: string;
+            greeting: (participantName: string) => string;
+            intro: string;
+            preheader: string;
+            subject: string;
+            title: string;
+            verificationCodeLabel: string;
+            verifyInstruction: string;
+            verifyTextInstruction: string;
+        };
+        adminLoginVerification: {
             footer: string;
             greeting: (participantName: string) => string;
             intro: string;

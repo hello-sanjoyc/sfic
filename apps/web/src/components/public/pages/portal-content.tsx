@@ -331,12 +331,16 @@ function StandardPage({
             <h2 className="text-2xl font-bold text-[#0b1f3a]">{heading}</h2>
             <p className="mt-3 max-w-3xl leading-7 text-slate-600">{text}</p>
           </div>
-          {page === pages.login && index === 0 && (
+          {page === pages.login && (index === 0 || index === 2) && (
             <Link
               className="inline-flex shrink-0 items-center justify-center rounded-md bg-[#0b1f3a] px-5 py-3 text-sm font-bold text-white transition hover:bg-[#000080]"
-              href={`/${locale}/participants/login`}
+              href={
+                index === 0
+                  ? `/${locale}/participants/login`
+                  : `/${locale}/admin/login`
+              }
             >
-              Open Participant Login
+              {index === 0 ? "Open Participant Login" : "Open Admin Login"}
               <ArrowRight className="ml-2" size={16} />
             </Link>
           )}
