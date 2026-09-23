@@ -200,7 +200,7 @@ const maxSupportingDocuments = Number.parseInt(
     10,
 );
 const maxSupportingDocumentSizeMb = Number.parseInt(
-    process.env.NEXT_PUBLIC_SUPPORTING_DOCUMENT_MAX_SIZE_MB ?? "2",
+    process.env.NEXT_PUBLIC_SUPPORTING_DOCUMENT_MAX_SIZE_MB ?? "5",
     10,
 );
 const maxSupportingDocumentSizeBytes =
@@ -277,7 +277,9 @@ function normalizeLocalizedDigits(value: string) {
 }
 
 function numericFieldValue(value: string, maxLength: number) {
-    return normalizeLocalizedDigits(value).replace(/\D/g, "").slice(0, maxLength);
+    return normalizeLocalizedDigits(value)
+        .replace(/\D/g, "")
+        .slice(0, maxLength);
 }
 
 function getOptionById<T extends LookupOption>(options: T[], id: string) {
@@ -606,10 +608,11 @@ const stepFields: Record<number, FieldName[]> = {
 };
 const multilingualNamePattern = /^[\p{L}\p{M} ]{2,}$/u;
 const nonMultilingualNameCharacters = /[^\p{L}\p{M} ]/gu;
-const dateOfBirthPattern =
-    /^(0[1-9]|[12][0-9]|3[01])-(0[1-9]|1[0-2])-\d{4}$/;
+const dateOfBirthPattern = /^(0[1-9]|[12][0-9]|3[01])-(0[1-9]|1[0-2])-\d{4}$/;
 const genderOptions = ["Male", "Female", "Others"] as const;
-type ValidationMessages = ReturnType<typeof getSiteContent>["register"]["errors"];
+type ValidationMessages = ReturnType<
+    typeof getSiteContent
+>["register"]["errors"];
 
 function messageTemplate(
     message: string,
@@ -624,8 +627,11 @@ function messageTemplate(
 
 function dateOfBirthFieldValue(value: string) {
     const digits = numericFieldValue(value, 8);
-    const parts = [digits.slice(0, 2), digits.slice(2, 4), digits.slice(4, 8)]
-        .filter(Boolean);
+    const parts = [
+        digits.slice(0, 2),
+        digits.slice(2, 4),
+        digits.slice(4, 8),
+    ].filter(Boolean);
 
     return parts.join("-");
 }
@@ -691,7 +697,8 @@ function calculateAgeOnClosingDate(dateOfBirth: string) {
     const birthDate = parseDateOfBirth(dateOfBirth);
     if (!birthDate) return null;
 
-    let age = applicationClosingDate.getUTCFullYear() - birthDate.getUTCFullYear();
+    let age =
+        applicationClosingDate.getUTCFullYear() - birthDate.getUTCFullYear();
     const hasBirthdayPassed =
         applicationClosingDate.getUTCMonth() > birthDate.getUTCMonth() ||
         (applicationClosingDate.getUTCMonth() === birthDate.getUTCMonth() &&
@@ -731,7 +738,9 @@ function validateField(
                 ? ""
                 : messages.dateOfBirth;
         case "gender":
-            return genderOptions.includes(value as (typeof genderOptions)[number])
+            return genderOptions.includes(
+                value as (typeof genderOptions)[number],
+            )
                 ? ""
                 : messages.gender;
         case "participantCategory":
@@ -745,7 +754,9 @@ function validateField(
                 ? ""
                 : messages.participationMode;
         case "email":
-            return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value) ? "" : messages.email;
+            return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)
+                ? ""
+                : messages.email;
         case "mobile":
             return /^[0-9]{10}$/.test(value) ? "" : messages.mobile;
         case "address":
@@ -779,7 +790,9 @@ function validateField(
         case "organisationName":
             return value ? "" : messages.instituteName;
         case "organisationType":
-            return lookups.instituteTypes.some((option) => option.name.en === value)
+            return lookups.instituteTypes.some(
+                (option) => option.name.en === value,
+            )
                 ? ""
                 : messages.instituteType;
         case "otherOrganisationType":
@@ -869,8 +882,7 @@ function validateTeamMembers(
             errors.email = messages.teamLeadEmailMatch;
         } else if (
             teamMembers.filter(
-                (teamMember) =>
-                    teamMember.email.trim().toLowerCase() === email,
+                (teamMember) => teamMember.email.trim().toLowerCase() === email,
             ).length > 1
         ) {
             errors.email = messages.teamEmailUnique;
@@ -1007,11 +1019,13 @@ export function RegistrationProcessForm({
     const content = siteContent.register;
     const validationMessages = content.errors;
     const localizedSteps = content.steps;
-    const localizedProposalElements = proposalElements.map((element, index) => ({
-        ...element,
-        label: content.proposalElements[index]?.[0] ?? element.label,
-        guidance: content.proposalElements[index]?.[1] ?? element.guidance,
-    }));
+    const localizedProposalElements = proposalElements.map(
+        (element, index) => ({
+            ...element,
+            label: content.proposalElements[index]?.[0] ?? element.label,
+            guidance: content.proposalElements[index]?.[1] ?? element.guidance,
+        }),
+    );
     const [isOpen, setIsOpen] = useState(startOpen);
     const [hasRestoredForm, setHasRestoredForm] = useState(false);
     const [step, setStep] = useState(0);
@@ -1036,14 +1050,15 @@ export function RegistrationProcessForm({
     const [isSubmittingRegistration, setIsSubmittingRegistration] =
         useState(false);
     const [isSubmittingProposal, setIsSubmittingProposal] = useState(false);
-    const [registrationSubmitError, setRegistrationSubmitError] =
-        useState("");
+    const [registrationSubmitError, setRegistrationSubmitError] = useState("");
     const [proposalSubmitError, setProposalSubmitError] = useState("");
     const [verificationMessage, setVerificationMessage] = useState("");
     const [resendAvailableAt, setResendAvailableAt] = useState(0);
     const [currentTime, setCurrentTime] = useState(() => Date.now());
     const [stateOptions, setStateOptions] = useState<LookupOption[]>([]);
-    const [districtOptions, setDistrictOptions] = useState<DistrictOption[]>([]);
+    const [districtOptions, setDistrictOptions] = useState<DistrictOption[]>(
+        [],
+    );
     const [instituteTypeOptions, setInstituteTypeOptions] = useState<
         LookupOption[]
     >([]);
@@ -1130,7 +1145,9 @@ export function RegistrationProcessForm({
     const hasTeamMemberErrors = teamMemberErrors.some(
         (errors) => Object.keys(errors).length > 0,
     );
-    const hasSubmittedRegistrationStep = Boolean(applicationId || participantId);
+    const hasSubmittedRegistrationStep = Boolean(
+        applicationId || participantId,
+    );
     const resendRemainingMs = Math.max(resendAvailableAt - currentTime, 0);
     const isResendLocked = resendRemainingMs > 0;
     const canContinue =
@@ -1438,15 +1455,15 @@ export function RegistrationProcessForm({
                     ? rawValue.replace(nonMultilingualNameCharacters, "")
                     : field === "dateOfBirth"
                       ? dateOfBirthFieldValue(rawValue)
-                    : field === "mobile"
-                      ? numericFieldValue(rawValue, 10)
-                      : field === "yearOfPassing"
-                        ? numericFieldValue(rawValue, 4)
-                      : field === "pinCode"
-                        ? numericFieldValue(rawValue, 6)
-                      : isProposalElementField(field)
-                        ? rawValue.slice(0, 1000)
-                        : rawValue;
+                      : field === "mobile"
+                        ? numericFieldValue(rawValue, 10)
+                        : field === "yearOfPassing"
+                          ? numericFieldValue(rawValue, 4)
+                          : field === "pinCode"
+                            ? numericFieldValue(rawValue, 6)
+                            : isProposalElementField(field)
+                              ? rawValue.slice(0, 1000)
+                              : rawValue;
 
             setValues((current) => ({
                 ...current,
@@ -1543,7 +1560,9 @@ export function RegistrationProcessForm({
             participationMode: "Team",
         }));
         setTeamMembers((current) =>
-            current.length >= 4 ? current : [...current, { ...emptyTeamMember }],
+            current.length >= 4
+                ? current
+                : [...current, { ...emptyTeamMember }],
         );
     };
 
@@ -1575,7 +1594,9 @@ export function RegistrationProcessForm({
 
     const submitRegistrationStep = async () => {
         if (hasSubmittedRegistrationStep) {
-            setRegistrationSubmitError(validationMessages.duplicateRegistration);
+            setRegistrationSubmitError(
+                validationMessages.duplicateRegistration,
+            );
             return;
         }
 
@@ -1715,16 +1736,16 @@ export function RegistrationProcessForm({
 
         try {
             await apiClient.post<CreateRegistrationResponse>(
-                endpoints.registrations.resendVerification(String(applicationId)),
+                endpoints.registrations.resendVerification(
+                    String(applicationId),
+                ),
                 { language: lookupLocale },
             );
 
             setVerificationCode("");
             setCurrentTime(Date.now());
             setResendAvailableAt(Date.now() + verificationResendIntervalMs);
-            setVerificationMessage(
-                content.verificationCodeResent,
-            );
+            setVerificationMessage(content.verificationCodeResent);
         } catch (error) {
             const message =
                 error instanceof Error
@@ -1737,16 +1758,12 @@ export function RegistrationProcessForm({
                 setApplicationNumber("");
                 setVerificationCode("");
                 setResendAvailableAt(0);
-                setVerificationMessage(
-                    content.verificationCodePreviousExpired,
-                );
+                setVerificationMessage(content.verificationCodePreviousExpired);
                 setRegistrationSubmitError("");
                 return;
             }
 
-            setRegistrationSubmitError(
-                message,
-            );
+            setRegistrationSubmitError(message);
         } finally {
             setIsSubmittingRegistration(false);
         }
@@ -2070,7 +2087,9 @@ export function RegistrationProcessForm({
                                         className={inputClass}
                                         disabled={hasSubmittedRegistrationStep}
                                         onChange={updateValue("fullName")}
-                                        placeholder={content.placeholders.fullName}
+                                        placeholder={
+                                            content.placeholders.fullName
+                                        }
                                         type="text"
                                         value={values.fullName}
                                     />
@@ -2090,7 +2109,9 @@ export function RegistrationProcessForm({
                                         maxLength={10}
                                         onChange={updateValue("mobile")}
                                         pattern="[0-9]{10}"
-                                        placeholder={content.placeholders.mobile}
+                                        placeholder={
+                                            content.placeholders.mobile
+                                        }
                                         type="text"
                                         value={values.mobile}
                                     />
@@ -2208,10 +2229,7 @@ export function RegistrationProcessForm({
                                                     {content.gender}
                                                 </option>
                                                 <option value="Male">
-                                                    {
-                                                        content.genderOptions
-                                                            .male
-                                                    }
+                                                    {content.genderOptions.male}
                                                 </option>
                                                 <option value="Female">
                                                     {
@@ -2307,7 +2325,9 @@ export function RegistrationProcessForm({
                                         onChange={updateState}
                                         value={values.stateId}
                                     >
-                                        <option value="">{content.state}</option>
+                                        <option value="">
+                                            {content.state}
+                                        </option>
                                         {stateOptions.map((state) => (
                                             <option
                                                 key={state.id}
@@ -2382,7 +2402,9 @@ export function RegistrationProcessForm({
                                         maxLength={6}
                                         onChange={updateValue("pinCode")}
                                         pattern="[0-9]{6}"
-                                        placeholder={content.placeholders.pinCode}
+                                        placeholder={
+                                            content.placeholders.pinCode
+                                        }
                                         type="text"
                                         value={values.pinCode}
                                     />
@@ -2398,7 +2420,9 @@ export function RegistrationProcessForm({
                                         )}
                                         className={inputClass}
                                         onChange={updateValue("address")}
-                                        placeholder={content.placeholders.address}
+                                        placeholder={
+                                            content.placeholders.address
+                                        }
                                         rows={3}
                                         value={values.address}
                                     />
@@ -2487,7 +2511,9 @@ export function RegistrationProcessForm({
                                         onChange={updateValue(
                                             "organisationName",
                                         )}
-                                        placeholder={content.placeholders.instituteName}
+                                        placeholder={
+                                            content.placeholders.instituteName
+                                        }
                                         type="text"
                                         value={values.organisationName}
                                     />
@@ -2617,7 +2643,9 @@ export function RegistrationProcessForm({
                                                             >
                                                                 <div className="mb-3 flex items-center justify-between gap-3">
                                                                     <p className="font-bold text-[#0b1f3a]">
-                                                                        {content.teamMember}{" "}
+                                                                        {
+                                                                            content.teamMember
+                                                                        }{" "}
                                                                         {index +
                                                                             2}
                                                                     </p>
@@ -2640,7 +2668,9 @@ export function RegistrationProcessForm({
                                                                 </div>
                                                                 <div className="grid gap-4 md:grid-cols-3">
                                                                     <label className="text-sm font-bold text-slate-700">
-                                                                        {content.fullName}
+                                                                        {
+                                                                            content.fullName
+                                                                        }
                                                                         <input
                                                                             aria-invalid={Boolean(
                                                                                 teamMemberErrors[
@@ -2675,7 +2705,9 @@ export function RegistrationProcessForm({
                                                                         />
                                                                     </label>
                                                                     <label className="text-sm font-bold text-slate-700">
-                                                                        {content.email}
+                                                                        {
+                                                                            content.email
+                                                                        }
                                                                         <input
                                                                             aria-invalid={Boolean(
                                                                                 teamMemberErrors[
@@ -2710,7 +2742,9 @@ export function RegistrationProcessForm({
                                                                         />
                                                                     </label>
                                                                     <label className="text-sm font-bold text-slate-700">
-                                                                        {content.phoneNumber}
+                                                                        {
+                                                                            content.phoneNumber
+                                                                        }
                                                                         <input
                                                                             aria-invalid={Boolean(
                                                                                 teamMemberErrors[
@@ -2788,17 +2822,19 @@ export function RegistrationProcessForm({
                                         <option value="">
                                             {content.challengeCategory}
                                         </option>
-                                        {challengeCategoryOptions.map((category) => (
-                                            <option
-                                                key={category.id}
-                                                value={category.id}
-                                            >
-                                                {getLocalizedLookupName(
-                                                    category.name,
-                                                    lookupLocale,
-                                                )}
-                                            </option>
-                                        ))}
+                                        {challengeCategoryOptions.map(
+                                            (category) => (
+                                                <option
+                                                    key={category.id}
+                                                    value={category.id}
+                                                >
+                                                    {getLocalizedLookupName(
+                                                        category.name,
+                                                        lookupLocale,
+                                                    )}
+                                                </option>
+                                            ),
+                                        )}
                                     </select>
                                     <FieldError
                                         message={
@@ -3024,10 +3060,13 @@ export function RegistrationProcessForm({
                                                 currentErrors.supportingDocuments}
                                         </span>
                                         <span className="ml-auto shrink-0 text-right text-xs text-slate-500">
-                                            {messageTemplate(content.uploadHint, {
-                                                count: maxSupportingDocuments,
-                                                size: maxSupportingDocumentSizeMb,
-                                            })}
+                                            {messageTemplate(
+                                                content.uploadHint,
+                                                {
+                                                    count: maxSupportingDocuments,
+                                                    size: maxSupportingDocumentSizeMb,
+                                                },
+                                            )}
                                         </span>
                                     </div>
                                     {selectedSupportingDocuments.length > 0 && (
