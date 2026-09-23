@@ -4,7 +4,6 @@ import {
   ArrowLeft,
   Edit,
   Plus,
-  Power,
   RotateCcw,
   Save,
   Search,
@@ -18,6 +17,7 @@ import { endpoints } from "@/lib/endpoints";
 
 type ResourceKey =
   | "challenge-categories"
+  | "configuration"
   | "districts"
   | "institute-types"
   | "participant-categories"
@@ -51,7 +51,18 @@ type UserRoleSetting = {
   role: string;
 };
 
+type ConfigurationSetting = {
+  createdAt?: string;
+  description: string | null;
+  isActive: boolean;
+  key: string;
+  type: "boolean" | "integer" | "string" | "timestamp";
+  updatedAt?: string;
+  value: string;
+};
+
 type SettingItem =
+  | ConfigurationSetting
   | DistrictSetting
   | NamedSetting
   | ParticipantCategorySetting
@@ -59,13 +70,17 @@ type SettingItem =
 
 type SettingFormValues = {
   code: string;
+  description: string;
   isActive: boolean;
+  key: string;
   nameBn: string;
   nameEn: string;
   nameHi: string;
   role: string;
   sortOrder: string;
   stateId: string;
+  type: ConfigurationSetting["type"];
+  value: string;
 };
 
 type ResourceConfig = {
@@ -79,6 +94,7 @@ type ResourceConfig = {
   path: string;
   title: string;
   usesCode?: boolean;
+  usesConfiguration?: boolean;
   usesNames?: boolean;
   usesSortOrder?: boolean;
   usesState?: boolean;
@@ -87,13 +103,17 @@ type ResourceConfig = {
 
 const emptyForm: SettingFormValues = {
   code: "",
+  description: "",
   isActive: true,
+  key: "",
   nameBn: "",
   nameEn: "",
   nameHi: "",
   role: "",
   sortOrder: "0",
   stateId: "",
+  type: "string",
+  value: "",
 };
 
 const resourceConfigs: Record<ResourceKey, ResourceConfig> = {
@@ -109,6 +129,18 @@ const resourceConfigs: Record<ResourceKey, ResourceConfig> = {
     title: "Challenge Categories",
     usesNames: true,
     usesSortOrder: true,
+  },
+  configuration: {
+    collectionKey: "configurations",
+    detailKey: "configuration",
+    endpoint: endpoints.admin.settings.configurations,
+    formTitle: "Configuration",
+    itemEndpoint: (key) => endpoints.admin.settings.configuration(String(key)),
+    key: "configuration",
+    listTitle: "Configurations",
+    path: "/admin/settings/configuration",
+    title: "Configuration",
+    usesConfiguration: true,
   },
   districts: {
     collectionKey: "districts",
@@ -176,19 +208,25 @@ const resourceConfigs: Record<ResourceKey, ResourceConfig> = {
   },
 };
 
+function isConfiguration(item: SettingItem): item is ConfigurationSetting {
+  return "key" in item && "value" in item && "type" in item;
+}
+
 function isUserRole(item: SettingItem): item is UserRoleSetting {
   return "role" in item;
 }
 
 function isNamedSetting(item: SettingItem): item is NamedSetting {
-  return !isUserRole(item);
+  return !isUserRole(item) && !isConfiguration(item);
 }
 
 function itemId(item: SettingItem) {
+  if (isConfiguration(item)) return item.key;
   return isUserRole(item) ? item.role : item.id;
 }
 
 function itemName(item: SettingItem) {
+  if (isConfiguration(item)) return item.key;
   return isUserRole(item) ? item.role : item.name.en;
 }
 
@@ -208,6 +246,17 @@ function formatDate(value?: string) {
 }
 
 function toFormValues(item: SettingItem): SettingFormValues {
+  if (isConfiguration(item)) {
+    return {
+      ...emptyForm,
+      description: item.description ?? "",
+      isActive: item.isActive,
+      key: item.key,
+      type: item.type,
+      value: item.value,
+    };
+  }
+
   if (isUserRole(item)) {
     return {
       ...emptyForm,
@@ -217,6 +266,7 @@ function toFormValues(item: SettingItem): SettingFormValues {
   }
 
   return {
+    ...emptyForm,
     code: "code" in item ? item.code : "",
     isActive: item.isActive,
     nameBn: item.name.bn,
@@ -229,6 +279,16 @@ function toFormValues(item: SettingItem): SettingFormValues {
 }
 
 function toPayload(config: ResourceConfig, values: SettingFormValues) {
+  if (config.usesConfiguration) {
+    return {
+      description: values.description,
+      isActive: values.isActive,
+      key: values.key,
+      type: values.type,
+      value: values.value,
+    };
+  }
+
   if (config.usesRole) {
     return {
       isActive: values.isActive,
@@ -260,8 +320,8 @@ function getDetail(body: unknown, config: ResourceConfig): SettingItem | null {
 }
 
 function stateName(states: SettingItem[], stateId: number) {
-  const state = states.find((item) => !isUserRole(item) && item.id === stateId);
-  return state && !isUserRole(state) ? state.name.en : `State #${stateId}`;
+  const state = states.find((item) => isNamedSetting(item) && item.id === stateId);
+  return state && isNamedSetting(state) ? state.name.en : `State #${stateId}`;
 }
 
 export function AdminSettingsResourceListPage({
@@ -282,6 +342,8 @@ export function AdminSettingsResourceListPage({
         if (!effectiveQuery) return true;
         const text = isUserRole(item)
           ? item.role
+          : isConfiguration(item)
+            ? `${item.key} ${item.value} ${item.type} ${item.description ?? ""}`
           : `${item.name.en} ${item.name.bn} ${item.name.hi} ${
               "code" in item ? item.code : ""
             }`;
@@ -289,6 +351,15 @@ export function AdminSettingsResourceListPage({
       }),
     [effectiveQuery, items],
   );
+  const tableColumnCount =
+    1 +
+    (config.usesCode ? 1 : 0) +
+    (config.usesConfiguration ? 3 : 0) +
+    (config.usesState ? 1 : 0) +
+    (config.usesSortOrder ? 1 : 0) +
+    1 +
+    (config.usesConfiguration ? 0 : 1) +
+    1;
 
   const loadItems = () => {
     setIsLoading(true);
@@ -316,21 +387,6 @@ export function AdminSettingsResourceListPage({
   };
 
   useEffect(loadItems, [config]);
-
-  const deactivate = (item: SettingItem) => {
-    const name = itemName(item);
-    if (!window.confirm(`Mark "${name}" as inactive?`)) return;
-
-    setErrorMessage("");
-    void apiClient
-      .delete(config.itemEndpoint(itemId(item)))
-      .then(loadItems)
-      .catch((error) => {
-        setErrorMessage(
-          error instanceof Error ? error.message : `${config.formTitle} could not be updated.`,
-        );
-      });
-  };
 
   return (
     <AdminShell eyebrow="Master data and access configuration" title={config.title}>
@@ -373,26 +429,35 @@ export function AdminSettingsResourceListPage({
           <table className="w-full min-w-[58rem] border-collapse text-left text-sm">
             <thead className="bg-slate-50 text-xs font-bold uppercase text-slate-500">
               <tr>
-                <th className="px-4 py-3">Name / Role</th>
+                <th className="px-4 py-3">
+                  {config.usesConfiguration ? "Key" : "Name / Role"}
+                </th>
                 {config.usesCode && <th className="px-4 py-3">Code</th>}
+                {config.usesConfiguration && <th className="px-4 py-3">Type</th>}
+                {config.usesConfiguration && <th className="px-4 py-3">Value</th>}
+                {config.usesConfiguration && (
+                  <th className="px-4 py-3">Description</th>
+                )}
                 {config.usesState && <th className="px-4 py-3">State</th>}
                 {config.usesSortOrder && <th className="px-4 py-3">Sort</th>}
                 <th className="px-4 py-3">Status</th>
-                <th className="px-4 py-3">Updated</th>
+                {!config.usesConfiguration && (
+                  <th className="px-4 py-3">Updated</th>
+                )}
                 <th className="px-4 py-3">Action</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
               {isLoading && (
                 <tr>
-                  <td className="px-4 py-8 text-center font-semibold text-slate-500" colSpan={7}>
+                  <td className="px-4 py-8 text-center font-semibold text-slate-500" colSpan={tableColumnCount}>
                     Loading {config.title.toLowerCase()}...
                   </td>
                 </tr>
               )}
               {!isLoading && errorMessage && (
                 <tr>
-                  <td className="px-4 py-8 text-center font-semibold text-rose-600" colSpan={7}>
+                  <td className="px-4 py-8 text-center font-semibold text-rose-600" colSpan={tableColumnCount}>
                     {errorMessage}
                   </td>
                 </tr>
@@ -401,7 +466,7 @@ export function AdminSettingsResourceListPage({
                 <tr key={String(itemId(item))}>
                   <td className="px-4 py-3">
                     <p className="font-bold text-[#0b1f3a]">{itemName(item)}</p>
-                    {!isUserRole(item) && (
+                    {!isUserRole(item) && !isConfiguration(item) && (
                       <p className="mt-1 text-xs text-slate-500">
                         {item.name.bn} / {item.name.hi}
                       </p>
@@ -412,6 +477,25 @@ export function AdminSettingsResourceListPage({
                       {"code" in item ? item.code : "-"}
                     </td>
                   )}
+                  {config.usesConfiguration && (
+                    <td className="px-4 py-3 text-slate-600">
+                      {isConfiguration(item) ? item.type : "-"}
+                    </td>
+                  )}
+                  {config.usesConfiguration && (
+                    <td className="max-w-72 px-4 py-3 text-slate-600">
+                      <span className="line-clamp-2 break-words">
+                        {isConfiguration(item) ? item.value : "-"}
+                      </span>
+                    </td>
+                  )}
+                  {config.usesConfiguration && (
+                    <td className="max-w-80 px-4 py-3 text-slate-600">
+                      <span className="line-clamp-2 break-words">
+                        {isConfiguration(item) ? item.description || "-" : "-"}
+                      </span>
+                    </td>
+                  )}
                   {config.usesState && (
                     <td className="px-4 py-3 text-slate-600">
                       {"stateId" in item ? stateName(states, item.stateId) : "-"}
@@ -419,7 +503,7 @@ export function AdminSettingsResourceListPage({
                   )}
                   {config.usesSortOrder && (
                     <td className="px-4 py-3 text-slate-600">
-                      {!isUserRole(item) ? item.sortOrder ?? 0 : "-"}
+                      {isNamedSetting(item) ? item.sortOrder ?? 0 : "-"}
                     </td>
                   )}
                   <td className="px-4 py-3">
@@ -427,34 +511,25 @@ export function AdminSettingsResourceListPage({
                       {item.isActive ? "Active" : "Inactive"}
                     </span>
                   </td>
-                  <td className="px-4 py-3 text-slate-600">
-                    {isUserRole(item) ? "-" : formatDate(item.updatedAt)}
-                  </td>
+                  {!config.usesConfiguration && (
+                    <td className="px-4 py-3 text-slate-600">
+                      {isUserRole(item) ? "-" : formatDate(item.updatedAt)}
+                    </td>
+                  )}
                   <td className="px-4 py-3">
-                    <div className="flex items-center gap-2">
-                      <Link
-                        aria-label={`Edit ${itemName(item)}`}
-                        className="grid h-9 w-9 place-items-center rounded-lg border border-slate-200 text-blue-600 hover:bg-blue-50"
-                        href={`${config.path}/${encodeURIComponent(String(itemId(item)))}/edit`}
-                      >
-                        <Edit size={17} />
-                      </Link>
-                      <button
-                        aria-label={`Deactivate ${itemName(item)}`}
-                        className="grid h-9 w-9 place-items-center rounded-lg border border-slate-200 text-rose-600 hover:bg-rose-50 disabled:cursor-not-allowed disabled:opacity-40"
-                        disabled={!item.isActive}
-                        onClick={() => deactivate(item)}
-                        type="button"
-                      >
-                        <Power size={17} />
-                      </button>
-                    </div>
+                    <Link
+                      aria-label={`Edit ${itemName(item)}`}
+                      className="grid h-9 w-9 place-items-center rounded-lg border border-slate-200 text-blue-600 hover:bg-blue-50"
+                      href={`${config.path}/${encodeURIComponent(String(itemId(item)))}/edit`}
+                    >
+                      <Edit size={17} />
+                    </Link>
                   </td>
                 </tr>
               ))}
               {!isLoading && !errorMessage && filteredItems.length === 0 && (
                 <tr>
-                  <td className="px-4 py-8 text-center font-semibold text-slate-500" colSpan={7}>
+                  <td className="px-4 py-8 text-center font-semibold text-slate-500" colSpan={tableColumnCount}>
                     No records found.
                   </td>
                 </tr>
@@ -630,6 +705,55 @@ export function AdminSettingsResourceFormPage({
                     ))}
                   </select>
                 </label>
+              )}
+
+              {config.usesConfiguration && (
+                <>
+                  <label className="grid gap-2 text-sm font-bold text-[#0b1f3a]">
+                    Key
+                    <input
+                      className="h-11 rounded-lg border border-slate-200 px-3 font-normal text-slate-700 outline-none focus:border-blue-500"
+                      onChange={(event) => updateField("key", event.target.value.toUpperCase())}
+                      pattern="[A-Z0-9_]{2,120}"
+                      required
+                      value={form.key}
+                    />
+                  </label>
+                  <label className="grid gap-2 text-sm font-bold text-[#0b1f3a]">
+                    Type
+                    <select
+                      className="h-11 rounded-lg border border-slate-200 bg-white px-3 font-normal text-slate-700 outline-none focus:border-blue-500"
+                      onChange={(event) =>
+                        updateField("type", event.target.value as SettingFormValues["type"])
+                      }
+                      required
+                      value={form.type}
+                    >
+                      <option value="string">String</option>
+                      <option value="boolean">Boolean</option>
+                      <option value="integer">Integer</option>
+                      <option value="timestamp">Timestamp</option>
+                    </select>
+                  </label>
+                  <label className="grid gap-2 text-sm font-bold text-[#0b1f3a] md:col-span-2">
+                    Value
+                    <input
+                      className="h-11 rounded-lg border border-slate-200 px-3 font-normal text-slate-700 outline-none focus:border-blue-500"
+                      onChange={(event) => updateField("value", event.target.value)}
+                      required
+                      type={form.type === "integer" ? "number" : "text"}
+                      value={form.value}
+                    />
+                  </label>
+                  <label className="grid gap-2 text-sm font-bold text-[#0b1f3a] md:col-span-2">
+                    Description
+                    <textarea
+                      className="min-h-24 rounded-lg border border-slate-200 px-3 py-2 font-normal text-slate-700 outline-none focus:border-blue-500"
+                      onChange={(event) => updateField("description", event.target.value)}
+                      value={form.description}
+                    />
+                  </label>
+                </>
               )}
 
               {config.usesNames && (

@@ -1,5 +1,10 @@
-import { ParticipantDashboardPage } from "@/components/public/pages/participant-dashboard";
+import { ParticipantShell } from "@/components/participant/common/participant-shell";
 
 export default function Page() {
-  return <ParticipantDashboardPage />;
+  return (
+    <ParticipantShell
+      eyebrow="Seva First Innovation Challenge - Eastern Region"
+      title="Dashboard"
+    />
+  );
 }

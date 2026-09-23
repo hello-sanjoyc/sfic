@@ -11,5 +11,8 @@
     },
     "engines": {
         "node": ">=20.9.0"
+    },
+    "dependencies": {
+        "ua-parser-js": "^2.0.10"
     }
 }

@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import localFont from "next/font/local";
 import { challengeDates } from "@/lib/challenge-dates";
 import "./globals.css";
+import PageVisitorTracker from "@/components/PageVisitorTracker";
 
 const archivoBlack = localFont({
     src: "../fonts/ArchivoBlack-Regular.ttf",
@@ -45,9 +46,21 @@ const rozhaOne = localFont({
 
 const googleSans = localFont({
     src: [
-        { path: "../fonts/GoogleSans-Regular.ttf", weight: "400", style: "normal" },
-        { path: "../fonts/GoogleSans-Medium.ttf", weight: "500", style: "normal" },
-        { path: "../fonts/GoogleSans-Bold.ttf", weight: "700", style: "normal" },
+        {
+            path: "../fonts/GoogleSans-Regular.ttf",
+            weight: "400",
+            style: "normal",
+        },
+        {
+            path: "../fonts/GoogleSans-Medium.ttf",
+            weight: "500",
+            style: "normal",
+        },
+        {
+            path: "../fonts/GoogleSans-Bold.ttf",
+            weight: "700",
+            style: "normal",
+        },
     ],
     display: "swap",
     variable: "--font-google-sans",
@@ -76,8 +89,16 @@ export const metadata: Metadata = {
     icons: {
         icon: [
             { url: "/images/favicon.ico", sizes: "any" },
-            { url: "/images/favicon-32x32.png", sizes: "32x32", type: "image/png" },
-            { url: "/images/favicon-16x16.png", sizes: "16x16", type: "image/png" },
+            {
+                url: "/images/favicon-32x32.png",
+                sizes: "32x32",
+                type: "image/png",
+            },
+            {
+                url: "/images/favicon-16x16.png",
+                sizes: "16x16",
+                type: "image/png",
+            },
         ],
         shortcut: "/images/favicon.ico",
         apple: "/images/apple-touch-icon.png",
@@ -95,8 +116,7 @@ export const metadata: Metadata = {
         type: "website",
         url: siteUrl,
         title: "Seva First Innovation Challenge 2026",
-        description:
-            `Join the Seva First Innovation Challenge 2026. Submit innovative solutions to real-world problems. Challenge open: ${challengeDates.display.en}.`,
+        description: `Join the Seva First Innovation Challenge 2026. Submit innovative solutions to real-world problems. Challenge open: ${challengeDates.display.en}.`,
         siteName: "Seva First Innovation Challenge",
         images: [
             {
@@ -110,8 +130,7 @@ export const metadata: Metadata = {
     twitter: {
         card: "summary_large_image",
         title: "Seva First Innovation Challenge 2026",
-        description:
-            `Join the innovation challenge. Challenge open: ${challengeDates.shortDisplay.en}. Open to Eastern & North-Eastern India.`,
+        description: `Join the innovation challenge. Challenge open: ${challengeDates.shortDisplay.en}. Open to Eastern & North-Eastern India.`,
         images: [ogImageUrl],
         creator: "@WBGovt",
     },
@@ -132,7 +151,10 @@ export default function RootLayout({
     children,
 }: Readonly<{ children: React.ReactNode }>) {
     return (
-        <html lang="en" className={`${archivoBlack.variable} ${ubuntu.variable} ${anekBangla.variable} ${tiroBangla.variable} ${rozhaOne.variable} ${googleSans.variable}`}>
+        <html
+            lang="en"
+            className={`${archivoBlack.variable} ${ubuntu.variable} ${anekBangla.variable} ${tiroBangla.variable} ${rozhaOne.variable} ${googleSans.variable}`}
+        >
             <head>
                 <meta name="theme-color" content="#0b1f3a" />
                 <meta name="msapplication-TileColor" content="#ff9933" />
@@ -154,10 +176,16 @@ export default function RootLayout({
                     sizes="16x16"
                     type="image/png"
                 />
-                <link rel="apple-touch-icon" href="/images/apple-touch-icon.png" />
+                <link
+                    rel="apple-touch-icon"
+                    href="/images/apple-touch-icon.png"
+                />
                 <link rel="manifest" href="/manifest.json" />
             </head>
-            <body>{children}</body>
+            <body>
+                {children}
+                <PageVisitorTracker />
+            </body>
         </html>
     );
 }

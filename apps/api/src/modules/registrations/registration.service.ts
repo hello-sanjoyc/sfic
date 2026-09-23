@@ -579,15 +579,6 @@ async function createOrUpdateApplication(input: {
         status
       )
       VALUES ($1, $2, $3, $4, $5, $6)
-      ON CONFLICT (participant_id, challenge_id) DO UPDATE
-      SET participant_category_id = EXCLUDED.participant_category_id,
-          form_language = EXCLUDED.form_language,
-          status = CASE
-            WHEN participant_applications.status IN ('draft', 'email_verification')
-              THEN EXCLUDED.status
-            ELSE participant_applications.status
-          END,
-          updated_at = NOW()
       RETURNING
         id,
         application_number,

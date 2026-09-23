@@ -103,6 +103,22 @@ export type AdminSettingsUserRole = {
   role: string;
 };
 
+export type AdminSettingsConfigurationType =
+  | "boolean"
+  | "integer"
+  | "string"
+  | "timestamp";
+
+export type AdminSettingsConfiguration = {
+  createdAt: string;
+  description: string | null;
+  isActive: boolean;
+  key: string;
+  type: AdminSettingsConfigurationType;
+  updatedAt: string;
+  value: string;
+};
+
 export type UpsertAdminSettingsItemInput = Record<string, unknown>;
 
 export type AdminDashboardCountCard = {
@@ -144,14 +160,33 @@ export type AdminDashboardOrganisationTypeCountsResult = {
 };
 
 export type AdminDashboardChallengeCategoryCountCard = {
+  biharCount: number;
   count: number;
   detail: "Challenge Category";
+  jharkhandCount: number;
   key: string;
   label: string;
+  stateCounts: {
+    bihar: number;
+    jharkhand: number;
+    westBengal: number;
+  };
+  westBengalCount: number;
 };
 
 export type AdminDashboardChallengeCategoryCountsResult = {
   cards: AdminDashboardChallengeCategoryCountCard[];
+};
+
+export type AdminPageViewAnalyticsResult = {
+  averageTimeSeconds: number;
+  totalPageViews: number;
+  trend: Array<{
+    date: string;
+    pageViews: number;
+    uniqueVisits: number;
+  }>;
+  uniqueVisits: number;
 };
 
 export type AdminApplicationDetails = Record<string, unknown>;

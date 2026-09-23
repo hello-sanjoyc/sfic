@@ -3,6 +3,8 @@ export const bnContent = {
         badRequest: "অনুরোধটি সঠিক নয়।",
         applicationNumberLimitReached:
             "{stateCode} রাজ্যের জন্য আবেদন নম্বরের নির্ধারিত সীমা পূর্ণ হয়েছে।",
+        appSettingsFetched:
+            "অ্যাপ্লিকেশন সেটিংস সফলভাবে পাওয়া গেছে।",
         challengeCategoriesFetched:
             "চ্যালেঞ্জের বিভাগগুলি সফলভাবে পাওয়া গেছে।",
         challengesFetched: "চ্যালেঞ্জের তথ্য সফলভাবে পাওয়া গেছে।",
@@ -55,6 +57,8 @@ export const bnContent = {
         statesFetched: "রাজ্যের তথ্য সফলভাবে পাওয়া গেছে।",
         stateIdNumeric: "stateId সংখ্যায় হতে হবে।",
         unableCreateRegistration: "নিবন্ধন তৈরি করা যায়নি।",
+        unableFetchAppSettings:
+            "অ্যাপ্লিকেশন সেটিংস পাওয়া যায়নি।",
         unableFetchChallengeCategories: "চ্যালেঞ্জের বিভাগগুলি পাওয়া যায়নি।",
         unableFetchCommonLookups: "প্রয়োজনীয় সাধারণ তথ্য পাওয়া যায়নি।",
         unableFetchDistricts: "জেলার তথ্য পাওয়া যায়নি।",

@@ -3,6 +3,8 @@ export const hiContent = {
         badRequest: "अनुरोध मान्य नहीं है।",
         applicationNumberLimitReached:
             "{stateCode} राज्य के लिए आवेदन संख्या की निर्धारित सीमा पूरी हो चुकी है।",
+        appSettingsFetched:
+            "एप्लिकेशन सेटिंग्स सफलतापूर्वक प्राप्त हो गई हैं।",
         challengeCategoriesFetched:
             "चैलेंज श्रेणियां सफलतापूर्वक प्राप्त हो गई हैं।",
         challengesFetched: "चैलेंज की जानकारी सफलतापूर्वक प्राप्त हो गई है।",
@@ -53,6 +55,8 @@ export const hiContent = {
         statesFetched: "राज्यों की जानकारी सफलतापूर्वक प्राप्त हो गई है।",
         stateIdNumeric: "stateId केवल अंकों में होना चाहिए।",
         unableCreateRegistration: "पंजीकरण बनाया नहीं जा सका।",
+        unableFetchAppSettings:
+            "एप्लिकेशन सेटिंग्स प्राप्त नहीं की जा सकीं।",
         unableFetchChallengeCategories: "चैलेंज श्रेणियां प्राप्त नहीं की जा सकीं।",
         unableFetchCommonLookups: "आवश्यक सामान्य जानकारी प्राप्त नहीं की जा सकी।",
         unableFetchDistricts: "जिलों की जानकारी प्राप्त नहीं की जा सकी।",

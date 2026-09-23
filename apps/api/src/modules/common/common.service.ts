@@ -1,5 +1,7 @@
 import type { QueryResultRow } from "pg";
 import {
+    appSettingFromRow,
+    type AppSettingRow,
     districtFromRow,
     type DistrictRow,
     type InstituteTypeByParticipantCategoryRow,
@@ -49,6 +51,23 @@ async function getStates(pg: DatabaseClient) {
   `);
 
     return result.rows.map(listItemFromRow);
+}
+
+async function getAppSettings(pg: DatabaseClient) {
+    const result = await pg.query<AppSettingRow>(`
+    SELECT
+      setting_key,
+      setting_value,
+      setting_type,
+      description,
+      is_active,
+      updated_at
+    FROM app_settings
+    WHERE is_active = TRUE
+    ORDER BY setting_key
+  `);
+
+    return result.rows.map(appSettingFromRow);
 }
 
 async function getDistricts(pg: DatabaseClient, filters: DistrictFilters = {}) {
@@ -229,6 +248,7 @@ async function getLookups(pg: DatabaseClient) {
 }
 
 export const commonService = {
+    getAppSettings,
     getChallengeCategories,
     getDistricts,
     getInstituteTypesByParticipantCategory,

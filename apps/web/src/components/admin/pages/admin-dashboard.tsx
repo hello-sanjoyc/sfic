@@ -4,7 +4,6 @@ import {
   Building2,
   FileText,
   MapPinned,
-  PieChart,
   Tags,
   User,
   Users,
@@ -57,10 +56,18 @@ type OrganisationTypeCountsResponse = {
 };
 
 type ChallengeCategoryCountCard = {
+  biharCount: number;
   count: number;
   detail: "Challenge Category";
+  jharkhandCount: number;
   key: string;
   label: string;
+  stateCounts?: {
+    bihar: number;
+    jharkhand: number;
+    westBengal: number;
+  };
+  westBengalCount: number;
 };
 
 type ChallengeCategoryCountsResponse = {
@@ -195,76 +202,112 @@ const defaultOrganisationTypeCards: OrganisationTypeCountCard[] = [
 
 const defaultChallengeCategoryCards: ChallengeCategoryCountCard[] = [
   {
+    biharCount: 0,
     count: 0,
     detail: "Challenge Category",
+    jharkhandCount: 0,
     key: "challengeCategory1",
     label: "Village & Panchayat Innovation",
+    westBengalCount: 0,
   },
   {
+    biharCount: 0,
     count: 0,
     detail: "Challenge Category",
+    jharkhandCount: 0,
     key: "challengeCategory2",
     label: "Agriculture & Allied Sectors",
+    westBengalCount: 0,
   },
   {
+    biharCount: 0,
     count: 0,
     detail: "Challenge Category",
+    jharkhandCount: 0,
     key: "challengeCategory3",
     label: "Education & Skill Development",
+    westBengalCount: 0,
   },
   {
+    biharCount: 0,
     count: 0,
     detail: "Challenge Category",
+    jharkhandCount: 0,
     key: "challengeCategory4",
     label: "Healthcare",
+    westBengalCount: 0,
   },
   {
+    biharCount: 0,
     count: 0,
     detail: "Challenge Category",
+    jharkhandCount: 0,
     key: "challengeCategory5",
     label: "Urban & Civic Innovation",
+    westBengalCount: 0,
   },
   {
+    biharCount: 0,
     count: 0,
     detail: "Challenge Category",
+    jharkhandCount: 0,
     key: "challengeCategory6",
     label: "Environment & Sustainability",
+    westBengalCount: 0,
   },
   {
+    biharCount: 0,
     count: 0,
     detail: "Challenge Category",
+    jharkhandCount: 0,
     key: "challengeCategory7",
     label: "Employment, Livelihood & MSMEs",
+    westBengalCount: 0,
   },
   {
+    biharCount: 0,
     count: 0,
     detail: "Challenge Category",
+    jharkhandCount: 0,
     key: "challengeCategory8",
     label: "Women & Child Development",
+    westBengalCount: 0,
   },
   {
+    biharCount: 0,
     count: 0,
     detail: "Challenge Category",
+    jharkhandCount: 0,
     key: "challengeCategory9",
     label: "Disaster Management & Community Safety",
+    westBengalCount: 0,
   },
   {
+    biharCount: 0,
     count: 0,
     detail: "Challenge Category",
+    jharkhandCount: 0,
     key: "challengeCategory10",
     label: "Transport & Mobility",
+    westBengalCount: 0,
   },
   {
+    biharCount: 0,
     count: 0,
     detail: "Challenge Category",
+    jharkhandCount: 0,
     key: "challengeCategory11",
     label: "Energy",
+    westBengalCount: 0,
   },
   {
+    biharCount: 0,
     count: 0,
     detail: "Challenge Category",
+    jharkhandCount: 0,
     key: "challengeCategory12",
     label: "Tourism & Cultural Innovation",
+    westBengalCount: 0,
   },
 ];
 
@@ -422,17 +465,41 @@ export function AdminDashboardPage() {
         <h2 className="mb-4 text-lg font-black text-[#0b1f3a]">
           Challenge Category wise count
         </h2>
-        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-          {challengeCategoryCards.map((card) => (
-            <MetricCard
-              accent="bg-blue-50 text-blue-600"
-              detail={card.detail}
-              icon={PieChart}
-              key={card.key}
-              label={card.label}
-              value={String(card.count)}
-            />
-          ))}
+        <div className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
+          <div className="overflow-x-auto">
+            <table className="min-w-[760px] w-full border-collapse text-left text-sm">
+              <thead className="bg-slate-50 text-xs font-black uppercase tracking-wide text-slate-600">
+                <tr>
+                  <th className="px-5 py-4">Category Name</th>
+                  <th className="px-5 py-4 text-center">Count of Bihar</th>
+                  <th className="px-5 py-4 text-center">Count of Jharkhand</th>
+                  <th className="px-5 py-4 text-center">Count of West Bengal</th>
+                  <th className="px-5 py-4 text-center">Total Count</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-200">
+                {challengeCategoryCards.map((card) => (
+                  <tr key={card.key} className="text-slate-700">
+                    <td className="px-5 py-4 font-semibold text-[#0b1f3a]">
+                      {card.label}
+                    </td>
+                    <td className="px-5 py-4 text-center font-bold">
+                      {card.stateCounts?.bihar ?? card.biharCount}
+                    </td>
+                    <td className="px-5 py-4 text-center font-bold">
+                      {card.stateCounts?.jharkhand ?? card.jharkhandCount}
+                    </td>
+                    <td className="px-5 py-4 text-center font-bold">
+                      {card.stateCounts?.westBengal ?? card.westBengalCount}
+                    </td>
+                    <td className="px-5 py-4 text-center font-black text-[#0b1f3a]">
+                      {card.count}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
       </section>
     </AdminShell>

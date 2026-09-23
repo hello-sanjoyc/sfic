@@ -57,6 +57,20 @@ async function getStates(request: FastifyRequest, reply: FastifyReply) {
     }
 }
 
+async function getAppSettings(request: FastifyRequest, reply: FastifyReply) {
+    const pg = requireDatabase(request, reply);
+    if (!pg) return reply;
+
+    try {
+        return sendSuccess(request, reply, {
+            data: await commonService.getAppSettings(pg),
+            messageKey: "appSettingsFetched",
+        });
+    } catch (error) {
+        return handleFetchError(request, reply, "unableFetchAppSettings", error);
+    }
+}
+
 async function getDistricts(
     request: FastifyRequest<{ Querystring: DistrictsQuery }>,
     reply: FastifyReply,
@@ -215,6 +229,7 @@ async function getLookups(request: FastifyRequest, reply: FastifyReply) {
 }
 
 export const commonController = {
+    getAppSettings,
     getChallengeCategories,
     getDistricts,
     getInstituteTypes,

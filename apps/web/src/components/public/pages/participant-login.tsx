@@ -3,7 +3,7 @@
 import { ArrowRight, KeyRound, Mail, ShieldCheck } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
-import { AUTH_STORAGE_KEY } from "@/components/auth";
+import { PARTICIPANT_TOKEN_KEY } from "@/components/auth";
 import { getSiteContent } from "@/content";
 import type { Locale } from "@/i18n/locales";
 import { apiClient } from "@/lib/api-client";
@@ -28,6 +28,7 @@ type VerifyLoginResponse = {
     email: string;
     memberId: number;
     memberName: string;
+    phone: string;
     role: string;
     status: string;
   };
@@ -182,15 +183,8 @@ export function ParticipantLoginPage({ locale = "en" }: { locale?: Locale }) {
         },
       );
 
-      localStorage.setItem(
-        AUTH_STORAGE_KEY,
-        JSON.stringify({
-          ...result,
-          language: locale,
-          loggedInAt: new Date().toISOString(),
-        }),
-      );
-      router.push("/participants/dashboard");
+      localStorage.setItem(PARTICIPANT_TOKEN_KEY, result.session.token);
+      router.push("/participants/applications");
     } catch (requestError) {
       setError(
         requestError instanceof Error

@@ -6,6 +6,7 @@ export type ApiContent = {
     api: {
         badRequest: string;
         applicationNumberLimitReached: string;
+        appSettingsFetched: string;
         challengeCategoriesFetched: string;
         challengesFetched: string;
         databaseNotConfigured: string;
@@ -45,6 +46,7 @@ export type ApiContent = {
         statesFetched: string;
         stateIdNumeric: string;
         unableCreateRegistration: string;
+        unableFetchAppSettings: string;
         unableFetchChallengeCategories: string;
         unableFetchCommonLookups: string;
         unableFetchDistricts: string;

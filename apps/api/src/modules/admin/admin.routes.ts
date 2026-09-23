@@ -31,6 +31,7 @@ export const adminRoutes: FastifyPluginAsync = async (app) => {
         "/dashboard-challenge-category-counts",
         adminController.getDashboardChallengeCategoryCounts,
     );
+    app.get("/page-view-analytics", adminController.getPageViewAnalytics);
     app.get("/users", adminController.getUsers);
     app.post("/users", adminController.createUser);
     app.get("/users/:userId", adminController.getUser);
@@ -67,6 +68,12 @@ export const adminRoutes: FastifyPluginAsync = async (app) => {
     app.patch("/settings/challenge-categories/:id", adminController.updateSettingsChallengeCategory);
     app.put("/settings/challenge-categories/:id", adminController.updateSettingsChallengeCategory);
     app.delete("/settings/challenge-categories/:id", adminController.deleteSettingsChallengeCategory);
+    app.get("/settings/configuration", adminController.getSettingsConfigurations);
+    app.post("/settings/configuration", adminController.createSettingsConfiguration);
+    app.get("/settings/configuration/:key", adminController.getSettingsConfiguration);
+    app.patch("/settings/configuration/:key", adminController.updateSettingsConfiguration);
+    app.put("/settings/configuration/:key", adminController.updateSettingsConfiguration);
+    app.delete("/settings/configuration/:key", adminController.deleteSettingsConfiguration);
     app.get("/settings/user-roles", adminController.getSettingsUserRoles);
     app.post("/settings/user-roles", adminController.createSettingsUserRole);
     app.get("/settings/user-roles/:role", adminController.getSettingsUserRole);

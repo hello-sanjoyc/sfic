@@ -12,7 +12,10 @@ import type {
     AdminLanguage,
     AdminManagedUser,
     AdminManagedUsersResult,
+    AdminPageViewAnalyticsResult,
     AdminSettingsChallengeCategory,
+    AdminSettingsConfiguration,
+    AdminSettingsConfigurationType,
     AdminSettingsDistrict,
     AdminSettingsInstituteType,
     AdminSettingsNamedItem,
@@ -79,6 +82,18 @@ type ApplicationSummaryCountRow = {
     total: string;
 };
 
+type PageViewAnalyticsRow = {
+    average_time_seconds: string;
+    total_page_views: string;
+    unique_visits: string;
+};
+
+type PageViewAnalyticsTrendRow = {
+    analytics_date: Date | string;
+    page_views: string;
+    unique_visits: string;
+};
+
 type StateApplicationCountRow = {
     count: string;
     key: "bihar" | "jharkhand" | "westBengal";
@@ -112,9 +127,12 @@ type OrganisationTypeCountRow = {
 };
 
 type ChallengeCategoryCountRow = {
+    bihar_count: string;
     count: string;
+    jharkhand_count: string;
     key: string;
     label: string;
+    west_bengal_count: string;
 };
 
 type ApplicationDetailsRow = {
@@ -1311,6 +1329,16 @@ type AdminSettingsUserRoleRow = {
     role: string;
 };
 
+type AdminSettingsConfigurationRow = {
+    created_at: Date | string;
+    description: string | null;
+    is_active: boolean;
+    setting_key: string;
+    setting_type: AdminSettingsConfigurationType;
+    setting_value: string;
+    updated_at: Date | string;
+};
+
 function toSettingsNamedItem(row: AdminSettingsNamedRow): AdminSettingsNamedItem {
     const item: AdminSettingsNamedItem = {
         createdAt: new Date(row.created_at).toISOString(),
@@ -1368,6 +1396,206 @@ function normalizeSettingsCode(value: unknown) {
     }
 
     return code;
+}
+
+function toSettingsConfiguration(
+    row: AdminSettingsConfigurationRow,
+): AdminSettingsConfiguration {
+    return {
+        createdAt: new Date(row.created_at).toISOString(),
+        description: row.description,
+        isActive: row.is_active,
+        key: row.setting_key,
+        type: row.setting_type,
+        updatedAt: new Date(row.updated_at).toISOString(),
+        value: row.setting_value,
+    };
+}
+
+function normalizeSettingKey(value: unknown) {
+    const key = normalizeRequiredString(value).toUpperCase();
+
+    if (!/^[A-Z0-9_]{2,120}$/.test(key)) {
+        throw new AdminRuleError("Setting key must be 2-120 uppercase letters, numbers, or underscores.");
+    }
+
+    return key;
+}
+
+function normalizeConfigurationType(value: unknown): AdminSettingsConfigurationType {
+    const type = normalizeRequiredString(value).toLowerCase();
+
+    if (
+        type === "boolean" ||
+        type === "integer" ||
+        type === "string" ||
+        type === "timestamp"
+    ) {
+        return type;
+    }
+
+    throw new AdminRuleError("Setting type must be boolean, integer, string, or timestamp.");
+}
+
+function normalizeConfigurationValue(
+    value: unknown,
+    type: AdminSettingsConfigurationType,
+) {
+    const stringValue =
+        typeof value === "string" ? value.trim() : String(value ?? "").trim();
+
+    if (!stringValue) {
+        throw new AdminRuleError("Setting value is required.");
+    }
+
+    if (type === "boolean") {
+        const normalized = stringValue.toLowerCase();
+        if (normalized === "true" || normalized === "false") return normalized;
+        throw new AdminRuleError("Boolean setting value must be true or false.");
+    }
+
+    if (type === "integer") {
+        if (/^-?\d+$/.test(stringValue)) return String(Number(stringValue));
+        throw new AdminRuleError("Integer setting value must be a whole number.");
+    }
+
+    if (type === "timestamp") {
+        const time = Date.parse(stringValue);
+        if (!Number.isNaN(time)) return stringValue;
+        throw new AdminRuleError("Timestamp setting value must be a valid date or datetime.");
+    }
+
+    return stringValue;
+}
+
+function normalizeConfigurationInput(input: UpsertAdminSettingsItemInput) {
+    const type = normalizeConfigurationType(input.type ?? input.settingType);
+
+    return {
+        description:
+            input.description === undefined
+                ? null
+                : normalizeNullableString(input.description),
+        isActive: normalizeOptionalBoolean(input.isActive),
+        key: normalizeSettingKey(input.key ?? input.settingKey),
+        type,
+        value: normalizeConfigurationValue(
+            input.value ?? input.settingValue,
+            type,
+        ),
+    };
+}
+
+async function getSettingsConfigurations(
+    pg: DatabasePool,
+): Promise<AdminSettingsConfiguration[]> {
+    const result = await pg.query<AdminSettingsConfigurationRow>(`
+        SELECT setting_key, setting_value, setting_type, description, is_active, created_at, updated_at
+        FROM app_settings
+        ORDER BY setting_key
+    `);
+
+    return result.rows.map(toSettingsConfiguration);
+}
+
+async function getSettingsConfiguration(
+    pg: DatabasePool,
+    key: string,
+): Promise<AdminSettingsConfiguration | null> {
+    const settingKey = normalizeSettingKey(key);
+    const result = await pg.query<AdminSettingsConfigurationRow>(
+        `
+        SELECT setting_key, setting_value, setting_type, description, is_active, created_at, updated_at
+        FROM app_settings
+        WHERE setting_key = $1
+        LIMIT 1
+        `,
+        [settingKey],
+    );
+
+    return result.rows[0] ? toSettingsConfiguration(result.rows[0]) : null;
+}
+
+async function createSettingsConfiguration(
+    pg: DatabasePool,
+    input: UpsertAdminSettingsItemInput,
+): Promise<{ configuration: AdminSettingsConfiguration }> {
+    const values = normalizeConfigurationInput(input);
+    const result = await pg.query<AdminSettingsConfigurationRow>(
+        `
+        INSERT INTO app_settings (
+            setting_key,
+            setting_value,
+            setting_type,
+            description,
+            is_active
+        )
+        VALUES ($1, $2, $3, $4, $5)
+        RETURNING setting_key, setting_value, setting_type, description, is_active, created_at, updated_at
+        `,
+        [
+            values.key,
+            values.value,
+            values.type,
+            values.description,
+            values.isActive,
+        ],
+    );
+
+    return { configuration: toSettingsConfiguration(result.rows[0]) };
+}
+
+async function updateSettingsConfiguration(
+    pg: DatabasePool,
+    key: string,
+    input: UpsertAdminSettingsItemInput,
+): Promise<{ configuration: AdminSettingsConfiguration } | null> {
+    const currentKey = normalizeSettingKey(key);
+    const values = normalizeConfigurationInput({
+        ...input,
+        key: input.key ?? input.settingKey ?? currentKey,
+    });
+    const result = await pg.query<AdminSettingsConfigurationRow>(
+        `
+        UPDATE app_settings
+        SET setting_key = $1,
+            setting_value = $2,
+            setting_type = $3,
+            description = $4,
+            is_active = $5,
+            updated_at = NOW()
+        WHERE setting_key = $6
+        RETURNING setting_key, setting_value, setting_type, description, is_active, created_at, updated_at
+        `,
+        [
+            values.key,
+            values.value,
+            values.type,
+            values.description,
+            values.isActive,
+            currentKey,
+        ],
+    );
+
+    return result.rows[0]
+        ? { configuration: toSettingsConfiguration(result.rows[0]) }
+        : null;
+}
+
+async function deleteSettingsConfiguration(
+    pg: DatabasePool,
+    key: string,
+): Promise<{ configuration: AdminSettingsConfiguration } | null> {
+    const configuration = await getSettingsConfiguration(pg, key);
+    if (!configuration) return null;
+
+    return updateSettingsConfiguration(pg, configuration.key, {
+        description: configuration.description,
+        isActive: false,
+        key: configuration.key,
+        type: configuration.type,
+        value: configuration.value,
+    });
 }
 
 async function getSettingsStates(pg: DatabasePool): Promise<AdminSettingsState[]> {
@@ -1938,6 +2166,65 @@ async function deleteSettingsUserRole(
     role: string,
 ): Promise<{ userRole: AdminSettingsUserRole } | null> {
     return updateSettingsUserRole(pg, role, { isActive: false });
+}
+
+async function getPageViewAnalytics(
+    pg: DatabasePool,
+): Promise<AdminPageViewAnalyticsResult> {
+    const [summaryResult, trendResult] = await Promise.all([
+        pg.query<PageViewAnalyticsRow>(`
+            SELECT
+                COUNT(*)::text AS total_page_views,
+                COUNT(DISTINCT visitor_id)::text AS unique_visits,
+                COALESCE(
+                    ROUND(
+                        AVG(duration_seconds) FILTER (
+                            WHERE duration_seconds IS NOT NULL
+                        )
+                    ),
+                    0
+                )::text AS average_time_seconds
+            FROM public.page_visits
+        `),
+        pg.query<PageViewAnalyticsTrendRow>(`
+            WITH days AS (
+                SELECT generate_series(
+                    CURRENT_DATE - INTERVAL '29 days',
+                    CURRENT_DATE,
+                    INTERVAL '1 day'
+                )::date AS analytics_date
+            )
+
+            SELECT
+                days.analytics_date,
+                COUNT(page_visits.id)::text AS page_views,
+                COUNT(DISTINCT page_visits.visitor_id)::text AS unique_visits
+
+            FROM days
+
+            LEFT JOIN public.page_visits
+                ON page_visits.created_at >= days.analytics_date
+                AND page_visits.created_at < days.analytics_date + INTERVAL '1 day'
+
+            GROUP BY days.analytics_date
+            ORDER BY days.analytics_date
+        `),
+    ]);
+    const row = summaryResult.rows[0];
+
+    return {
+        averageTimeSeconds: Number(row?.average_time_seconds ?? 0),
+        totalPageViews: Number(row?.total_page_views ?? 0),
+        trend: trendResult.rows.map((trendRow) => ({
+            date:
+                trendRow.analytics_date instanceof Date
+                    ? trendRow.analytics_date.toISOString().slice(0, 10)
+                    : String(trendRow.analytics_date).slice(0, 10),
+            pageViews: Number(trendRow.page_views),
+            uniqueVisits: Number(trendRow.unique_visits),
+        })),
+        uniqueVisits: Number(row?.unique_visits ?? 0),
+    };
 }
 
 async function getDashboardCounts(
@@ -3049,42 +3336,90 @@ async function getDashboardChallengeCategoryCounts(
     pg: DatabasePool,
 ): Promise<AdminDashboardChallengeCategoryCountsResult> {
     const result = await pg.query<ChallengeCategoryCountRow>(`
+        WITH target_states(key, label, sort_order) AS (
+            VALUES
+                ('bihar', 'Bihar', 1),
+                ('jharkhand', 'Jharkhand', 2),
+                ('westBengal', 'West Bengal', 3)
+        ),
+        category_state_counts AS (
+            SELECT
+                challenge_categories.id AS category_id,
+                challenge_categories.name_en AS category_label,
+                challenge_categories.sort_order AS category_sort_order,
+                target_states.key AS state_key,
+                COUNT(participant_applications.id)::int AS count
+
+            FROM public.challenge_categories
+
+            CROSS JOIN target_states
+
+            LEFT JOIN public.states
+                ON LOWER(TRIM(states.name_en)) = LOWER(TRIM(target_states.label))
+
+            LEFT JOIN public.participant_applications
+                ON participant_applications.challenge_category_id =
+                    challenge_categories.id
+                AND participant_applications.state_id = states.id
+                AND participant_applications.status = 'submitted'
+
+            WHERE challenge_categories.is_active = TRUE
+
+            GROUP BY
+                challenge_categories.id,
+                challenge_categories.name_en,
+                challenge_categories.sort_order,
+                target_states.key,
+                target_states.sort_order
+        )
+
         SELECT
-            CONCAT('challengeCategory', challenge_categories.id)::text AS key,
-            challenge_categories.name_en AS label,
-            COUNT(participant_applications.id)::text AS count
+            CONCAT('challengeCategory', category_id)::text AS key,
+            category_label AS label,
+            COALESCE(SUM(count) FILTER (WHERE state_key = 'bihar'), 0)::text AS bihar_count,
+            COALESCE(SUM(count) FILTER (WHERE state_key = 'jharkhand'), 0)::text AS jharkhand_count,
+            COALESCE(SUM(count) FILTER (WHERE state_key = 'westBengal'), 0)::text AS west_bengal_count,
+            COALESCE(SUM(count), 0)::text AS count
 
-        FROM public.challenge_categories
-
-        LEFT JOIN public.participant_applications
-            ON participant_applications.challenge_category_id =
-                challenge_categories.id
-            AND participant_applications.status = 'submitted'
-
-        WHERE challenge_categories.is_active = TRUE
+        FROM category_state_counts
 
         GROUP BY
-            challenge_categories.id,
-            challenge_categories.name_en,
-            challenge_categories.sort_order
+            category_id,
+            category_label,
+            category_sort_order
 
         ORDER BY
-            challenge_categories.sort_order,
-            challenge_categories.name_en
+            category_sort_order,
+            category_label
     `);
 
     return {
-        cards: result.rows.map((row) => ({
-            count: Number(row.count),
-            detail: "Challenge Category",
-            key: row.key,
-            label: row.label,
-        })),
+        cards: result.rows.map((row) => {
+            const biharCount = Number(row.bihar_count);
+            const jharkhandCount = Number(row.jharkhand_count);
+            const westBengalCount = Number(row.west_bengal_count);
+
+            return {
+                biharCount,
+                count: Number(row.count),
+                detail: "Challenge Category",
+                jharkhandCount,
+                key: row.key,
+                label: row.label,
+                stateCounts: {
+                    bihar: biharCount,
+                    jharkhand: jharkhandCount,
+                    westBengal: westBengalCount,
+                },
+                westBengalCount,
+            };
+        }),
     };
 }
 
 export const adminService = {
     createSettingsChallengeCategory,
+    createSettingsConfiguration,
     createSettingsDistrict,
     createSettingsInstituteType,
     createSettingsParticipantCategory,
@@ -3094,6 +3429,7 @@ export const adminService = {
     deleteApplication,
     deleteApplicationDocument,
     deleteSettingsChallengeCategory,
+    deleteSettingsConfiguration,
     deleteSettingsDistrict,
     deleteSettingsInstituteType,
     deleteSettingsParticipantCategory,
@@ -3106,8 +3442,11 @@ export const adminService = {
     getDashboardChallengeCategoryCounts,
     getDashboardCounts,
     getDashboardOrganisationTypeCounts,
+    getPageViewAnalytics,
     getSettingsChallengeCategories,
     getSettingsChallengeCategory,
+    getSettingsConfiguration,
+    getSettingsConfigurations,
     getSettingsDistrict,
     getSettingsDistricts,
     getSettingsInstituteType,
@@ -3124,6 +3463,7 @@ export const adminService = {
     requestLoginCode,
     resendLoginCode,
     updateSettingsChallengeCategory,
+    updateSettingsConfiguration,
     updateSettingsDistrict,
     updateSettingsInstituteType,
     updateSettingsParticipantCategory,

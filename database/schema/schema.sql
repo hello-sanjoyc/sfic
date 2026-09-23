@@ -329,6 +329,20 @@ CREATE TABLE public.user_roles (
     is_active boolean DEFAULT true NOT NULL
 );
 
+-- app_settings --------------------------------------------------
+
+CREATE TABLE public.app_settings (
+    setting_key character varying(120) NOT NULL,
+    setting_value text NOT NULL,
+    setting_type character varying(30) DEFAULT 'string'::character varying NOT NULL,
+    description text,
+    is_active boolean DEFAULT true NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT ck_app_settings_key CHECK (((setting_key)::text ~ '^[A-Z0-9_]+$'::text)),
+    CONSTRAINT ck_app_settings_type CHECK (((setting_type)::text = ANY ((ARRAY['boolean'::character varying, 'integer'::character varying, 'string'::character varying, 'timestamp'::character varying])::text[])))
+);
+
 -- participants -----------------------------------------------------------
 
 CREATE TABLE public.participants (
@@ -713,6 +727,9 @@ ALTER TABLE ONLY public.challenges
 ALTER TABLE ONLY public.user_roles
     ADD CONSTRAINT user_roles_pkey PRIMARY KEY (role);
 
+ALTER TABLE ONLY public.app_settings
+    ADD CONSTRAINT app_settings_pkey PRIMARY KEY (setting_key);
+
 ALTER TABLE ONLY public.participants
     ADD CONSTRAINT participants_pkey PRIMARY KEY (id);
 ALTER TABLE ONLY public.participants
@@ -731,8 +748,6 @@ ALTER TABLE ONLY public.participant_applications
     ADD CONSTRAINT participant_applications_pkey PRIMARY KEY (id);
 ALTER TABLE ONLY public.participant_applications
     ADD CONSTRAINT participant_applications_application_number_key UNIQUE (application_number);
-ALTER TABLE ONLY public.participant_applications
-    ADD CONSTRAINT uq_applications_participant_challenge UNIQUE (participant_id, challenge_id);
 
 ALTER TABLE ONLY public.application_number_sequences
     ADD CONSTRAINT application_number_sequences_pkey PRIMARY KEY (state_code);
@@ -893,6 +908,7 @@ CREATE INDEX idx_user_login_tokens_email ON public.user_login_verification_token
 -- ============================================================================
 
 CREATE TRIGGER trg_challenges_updated_at BEFORE UPDATE ON public.challenges FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
+CREATE TRIGGER trg_app_settings_updated_at BEFORE UPDATE ON public.app_settings FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
 CREATE TRIGGER trg_participants_updated_at BEFORE UPDATE ON public.participants FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
 CREATE TRIGGER trg_users_updated_at BEFORE UPDATE ON public.users FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
 CREATE TRIGGER trg_participant_applications_updated_at BEFORE UPDATE ON public.participant_applications FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();

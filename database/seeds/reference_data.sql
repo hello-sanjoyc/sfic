@@ -320,9 +320,62 @@ SELECT setval('public.challenges_id_seq', GREATEST((SELECT MAX(id) FROM public.c
 
 -- user_roles ------------------------------------------------------------
 
-INSERT INTO public.user_roles VALUES ('SUPERADMIN') ON CONFLICT (role) DO NOTHING;
-INSERT INTO public.user_roles VALUES ('ADMIN') ON CONFLICT (role) DO NOTHING;
-INSERT INTO public.user_roles VALUES ('JURY') ON CONFLICT (role) DO NOTHING;
-INSERT INTO public.user_roles VALUES ('HELPDESK') ON CONFLICT (role) DO NOTHING;
+INSERT INTO public.user_roles (role) VALUES ('SUPERADMIN') ON CONFLICT (role) DO NOTHING;
+INSERT INTO public.user_roles (role) VALUES ('ADMIN') ON CONFLICT (role) DO NOTHING;
+INSERT INTO public.user_roles (role) VALUES ('JURY') ON CONFLICT (role) DO NOTHING;
+INSERT INTO public.user_roles (role) VALUES ('HELPDESK') ON CONFLICT (role) DO NOTHING;
+
+-- app_settings --------------------------------------------------
+
+INSERT INTO public.app_settings (
+    setting_key,
+    setting_value,
+    setting_type,
+    description
+)
+VALUES
+    (
+        'PARTICIPANT_REGISTRATION_ENABLED',
+        'true',
+        'boolean',
+        'Controls whether participant registration is enabled.'
+    ),
+    (
+        'PARTICIPANT_REGISTRATION_START_DATE',
+        '2026-09-19T15:00',
+        'timestamp',
+        'Participant registration opening date and time.'
+    ),
+    (
+        'PARTICIPANT_REGISTRATION_END_DATE',
+        '2026-10-30T23:59',
+        'timestamp',
+        'Participant registration closing date and time.'
+    ),
+    (
+        'PARTICIPANT_APPLICATION_MULTIPLE',
+        'true',
+        'boolean',
+        'Controls whether a participant can create multiple applications.'
+    ),
+    (
+        'PARTICIPANT_APPLICATION_SAME_CATEGORY_MULTIPLE',
+        'true',
+        'boolean',
+        'Controls whether a participant can submit multiple applications in the same challenge category.'
+    ),
+    (
+        'PARTICIPANT_APPLICATION_SAME_CATEGORY_MULTIPLE_LIMIT',
+        '3',
+        'integer',
+        'Maximum number of applications allowed in the same challenge category.'
+    )
+ON CONFLICT (setting_key) DO UPDATE
+SET
+    setting_value = EXCLUDED.setting_value,
+    setting_type = EXCLUDED.setting_type,
+    description = EXCLUDED.description,
+    is_active = TRUE,
+    updated_at = now();
 
 COMMIT;

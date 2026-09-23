@@ -4,6 +4,7 @@ import {
   Layers3,
   Map,
   MapPinned,
+  Settings,
   ShieldCheck,
   Tags,
 } from "lucide-react";
@@ -46,6 +47,12 @@ const settingsLinks = [
     href: "/admin/settings/user-roles",
     icon: ShieldCheck,
     label: "User Roles",
+  },
+  {
+    description: "Manage application-wide configuration settings.",
+    href: "/admin/settings/configuration",
+    icon: Settings,
+    label: "Configuration",
   },
 ] as const;
 

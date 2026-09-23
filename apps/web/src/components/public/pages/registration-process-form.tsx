@@ -2015,33 +2015,44 @@ export function RegistrationProcessForm({
                                             category.value;
 
                                         return (
-                                            <button
-                                                aria-pressed={isSelected}
-                                                className={`rounded-md border p-4 text-left transition hover:-translate-y-0.5 hover:border-[#ff9933] hover:shadow-[0_12px_28px_-22px_rgba(255,153,51,.9)] ${
+                                            <label
+                                                className={`flex min-h-20 cursor-pointer items-start gap-3 rounded-md border px-4 py-3 text-left transition hover:-translate-y-0.5 hover:border-[#ff9933] hover:shadow-[0_12px_28px_-22px_rgba(255,153,51,.9)] ${
                                                     isSelected
                                                         ? "border-[#ff9933] bg-orange-50 ring-2 ring-[#ff9933]/20"
                                                         : "border-slate-200 bg-slate-50"
-                                                } disabled:cursor-not-allowed disabled:opacity-75`}
-                                                disabled={hasSubmittedRegistrationStep}
+                                                } ${hasSubmittedRegistrationStep ? "cursor-not-allowed opacity-75" : ""}`}
                                                 key={category.value}
-                                                onClick={() =>
-                                                    selectParticipantCategory(
-                                                        category.value,
-                                                    )
-                                                }
-                                                type="button"
                                             >
-                                                <span className="font-bold text-[#0b1f3a]">
-                                                    {category.value === "Junior"
-                                                        ? content.junior
-                                                        : content.open}
+                                                <input
+                                                    checked={isSelected}
+                                                    className="mt-0.5 h-4 w-4 border-slate-300 text-[#ff9933] focus:ring-[#ff9933]"
+                                                    disabled={
+                                                        hasSubmittedRegistrationStep
+                                                    }
+                                                    name="participantCategory"
+                                                    onChange={() =>
+                                                        selectParticipantCategory(
+                                                            category.value,
+                                                        )
+                                                    }
+                                                    type="radio"
+                                                    value={category.value}
+                                                />
+                                                <span className="min-w-0">
+                                                    <span className="block text-sm font-bold text-[#0b1f3a]">
+                                                        {category.value ===
+                                                        "Junior"
+                                                            ? content.junior
+                                                            : content.open}
+                                                    </span>
+                                                    <span className="mt-2 block text-sm font-normal leading-6 text-slate-600">
+                                                        {category.value ===
+                                                        "Junior"
+                                                            ? content.juniorDescription
+                                                            : content.openDescription}
+                                                    </span>
                                                 </span>
-                                                <span className="mt-2 block text-sm leading-6 text-slate-600">
-                                                    {category.value === "Junior"
-                                                        ? content.juniorDescription
-                                                        : content.openDescription}
-                                                </span>
-                                            </button>
+                                            </label>
                                         );
                                     })}
                                 </div>
@@ -2530,36 +2541,41 @@ export function RegistrationProcessForm({
                                                     mode;
 
                                                 return (
-                                                    <button
-                                                        aria-pressed={
-                                                            isSelected
-                                                        }
-                                                        className={`rounded-md border p-4 text-left transition hover:-translate-y-0.5 hover:border-[#ff9933] ${
+                                                    <label
+                                                        className={`flex min-h-20 cursor-pointer items-start gap-3 rounded-md border px-4 py-3 text-left transition hover:-translate-y-0.5 hover:border-[#ff9933] ${
                                                             isSelected
                                                                 ? "border-[#ff9933] bg-orange-50 ring-2 ring-[#ff9933]/20"
                                                                 : "border-slate-200 bg-slate-50"
                                                         }`}
                                                         key={mode}
-                                                        onClick={() =>
-                                                            selectParticipationMode(
-                                                                mode,
-                                                            )
-                                                        }
-                                                        type="button"
                                                     >
-                                                        <span className="block font-bold text-[#0b1f3a]">
-                                                            {mode ===
-                                                            "Individual"
-                                                                ? content.individual
-                                                                : content.team}
+                                                        <input
+                                                            checked={isSelected}
+                                                            className="mt-0.5 h-4 w-4 border-slate-300 text-[#ff9933] focus:ring-[#ff9933]"
+                                                            name="participationMode"
+                                                            onChange={() =>
+                                                                selectParticipationMode(
+                                                                    mode,
+                                                                )
+                                                            }
+                                                            type="radio"
+                                                            value={mode}
+                                                        />
+                                                        <span className="min-w-0">
+                                                            <span className="block text-sm font-bold text-[#0b1f3a]">
+                                                                {mode ===
+                                                                "Individual"
+                                                                    ? content.individual
+                                                                    : content.team}
+                                                            </span>
+                                                            <span className="mt-2 block text-sm font-normal leading-6 text-slate-600">
+                                                                {mode ===
+                                                                "Individual"
+                                                                    ? content.individualDescription
+                                                                    : content.teamDescription}
+                                                            </span>
                                                         </span>
-                                                        <span className="mt-1 block text-sm font-normal leading-6 text-slate-600">
-                                                            {mode ===
-                                                            "Individual"
-                                                                ? content.individualDescription
-                                                                : content.teamDescription}
-                                                        </span>
-                                                    </button>
+                                                    </label>
                                                 );
                                             },
                                         )}

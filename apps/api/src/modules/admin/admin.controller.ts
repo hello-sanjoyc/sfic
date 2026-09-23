@@ -66,6 +66,10 @@ type SettingRoleParams = {
     role?: string;
 };
 
+type SettingConfigurationParams = {
+    key?: string;
+};
+
 type UpsertSettingBody = Record<string, unknown>;
 
 function requireDatabase(request: FastifyRequest, reply: FastifyReply) {
@@ -634,6 +638,151 @@ async function getSettingsStates(request: FastifyRequest, reply: FastifyReply) {
         return sendSuccess(request, reply, {
             data: { states: await adminService.getSettingsStates(pg) },
             message: "States fetched successfully.",
+        });
+    } catch (error) {
+        return handleAdminSettingsError(request, reply, error);
+    }
+}
+
+async function getSettingsConfigurations(
+    request: FastifyRequest,
+    reply: FastifyReply,
+) {
+    const pg = requireDatabase(request, reply);
+    if (!pg) return reply;
+
+    try {
+        return sendSuccess(request, reply, {
+            data: {
+                configurations: await adminService.getSettingsConfigurations(pg),
+            },
+            message: "Configurations fetched successfully.",
+        });
+    } catch (error) {
+        return handleAdminSettingsError(request, reply, error);
+    }
+}
+
+async function getSettingsConfiguration(
+    request: FastifyRequest<{ Params: SettingConfigurationParams }>,
+    reply: FastifyReply,
+) {
+    const pg = requireDatabase(request, reply);
+    if (!pg) return reply;
+    if (!isNonEmptyString(request.params.key)) {
+        return sendError(request, reply, {
+            message: "A valid configuration key is required.",
+            statusCode: 400,
+        });
+    }
+
+    try {
+        const configuration = await adminService.getSettingsConfiguration(
+            pg,
+            request.params.key,
+        );
+        if (!configuration) {
+            return sendError(request, reply, {
+                message: "Configuration not found.",
+                statusCode: 404,
+            });
+        }
+
+        return sendSuccess(request, reply, {
+            data: { configuration },
+            message: "Configuration fetched successfully.",
+        });
+    } catch (error) {
+        return handleAdminSettingsError(request, reply, error);
+    }
+}
+
+async function createSettingsConfiguration(
+    request: FastifyRequest<{ Body?: UpsertSettingBody }>,
+    reply: FastifyReply,
+) {
+    const pg = requireDatabase(request, reply);
+    const body = requireSettingBody(request, reply);
+    if (!pg || !body) return reply;
+
+    try {
+        return sendSuccess(request, reply, {
+            data: await adminService.createSettingsConfiguration(pg, body),
+            message: "Configuration created successfully.",
+            statusCode: 201,
+        });
+    } catch (error) {
+        return handleAdminSettingsError(request, reply, error);
+    }
+}
+
+async function updateSettingsConfiguration(
+    request: FastifyRequest<{
+        Body?: UpsertSettingBody;
+        Params: SettingConfigurationParams;
+    }>,
+    reply: FastifyReply,
+) {
+    const pg = requireDatabase(request, reply);
+    const body = requireSettingBody(request, reply);
+    if (!pg || !body) return reply;
+    if (!isNonEmptyString(request.params.key)) {
+        return sendError(request, reply, {
+            message: "A valid configuration key is required.",
+            statusCode: 400,
+        });
+    }
+
+    try {
+        const result = await adminService.updateSettingsConfiguration(
+            pg,
+            request.params.key,
+            body,
+        );
+        if (!result) {
+            return sendError(request, reply, {
+                message: "Configuration not found.",
+                statusCode: 404,
+            });
+        }
+
+        return sendSuccess(request, reply, {
+            data: result,
+            message: "Configuration updated successfully.",
+        });
+    } catch (error) {
+        return handleAdminSettingsError(request, reply, error);
+    }
+}
+
+async function deleteSettingsConfiguration(
+    request: FastifyRequest<{ Params: SettingConfigurationParams }>,
+    reply: FastifyReply,
+) {
+    const pg = requireDatabase(request, reply);
+    if (!pg) return reply;
+    if (!isNonEmptyString(request.params.key)) {
+        return sendError(request, reply, {
+            message: "A valid configuration key is required.",
+            statusCode: 400,
+        });
+    }
+
+    try {
+        const result = await adminService.deleteSettingsConfiguration(
+            pg,
+            request.params.key,
+        );
+        if (!result) {
+            return sendError(request, reply, {
+                message: "Configuration not found.",
+                statusCode: 404,
+            });
+        }
+
+        return sendSuccess(request, reply, {
+            data: result,
+            message: "Configuration deactivated successfully.",
         });
     } catch (error) {
         return handleAdminSettingsError(request, reply, error);
@@ -1396,6 +1545,30 @@ async function downloadApplicationPdf(
     }
 }
 
+async function getPageViewAnalytics(
+    request: FastifyRequest,
+    reply: FastifyReply,
+) {
+    const pg = requireDatabase(request, reply);
+    if (!pg) return reply;
+
+    try {
+        const result = await adminService.getPageViewAnalytics(pg);
+
+        return sendSuccess(request, reply, {
+            data: result,
+            message: "Page view analytics fetched successfully.",
+        });
+    } catch (error) {
+        request.server.log.error(error);
+
+        return sendError(request, reply, {
+            message: getApiContent("en").api.internalServerError,
+            statusCode: 500,
+        });
+    }
+}
+
 async function getDashboardOrganisationTypeCounts(
     request: FastifyRequest,
     reply: FastifyReply,
@@ -1446,6 +1619,7 @@ async function getDashboardChallengeCategoryCounts(
 
 export const adminController = {
     createSettingsChallengeCategory,
+    createSettingsConfiguration,
     createSettingsDistrict,
     createSettingsInstituteType,
     createSettingsParticipantCategory,
@@ -1455,6 +1629,7 @@ export const adminController = {
     deleteApplication,
     deleteApplicationDocument,
     deleteSettingsChallengeCategory,
+    deleteSettingsConfiguration,
     deleteSettingsDistrict,
     deleteSettingsInstituteType,
     deleteSettingsParticipantCategory,
@@ -1468,8 +1643,11 @@ export const adminController = {
     getDashboardChallengeCategoryCounts,
     getDashboardCounts,
     getDashboardOrganisationTypeCounts,
+    getPageViewAnalytics,
     getSettingsChallengeCategories,
     getSettingsChallengeCategory,
+    getSettingsConfiguration,
+    getSettingsConfigurations,
     getSettingsDistrict,
     getSettingsDistricts,
     getSettingsInstituteType,
@@ -1485,6 +1663,7 @@ export const adminController = {
     requestLoginCode,
     resendLoginCode,
     updateSettingsChallengeCategory,
+    updateSettingsConfiguration,
     updateSettingsDistrict,
     updateSettingsInstituteType,
     updateSettingsParticipantCategory,

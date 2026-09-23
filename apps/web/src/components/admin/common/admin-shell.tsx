@@ -2,6 +2,7 @@
 
 import {
   ClipboardList,
+  LineChart,
   Home,
   LogOut,
   Settings,
@@ -36,6 +37,7 @@ const navItems = [
   ["Dashboards", Home, "/admin/dashboard"],
   ["Applications", ClipboardList, "/admin/applications"],
   ["Users", Users, "/admin/users"],
+  ["Page Views", LineChart, "/admin/analytics"],
   ["Settings", Settings, "/admin/settings"],
 ] as const;
 

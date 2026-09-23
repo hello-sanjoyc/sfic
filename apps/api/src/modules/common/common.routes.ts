@@ -6,6 +6,8 @@ import {
 } from "./common.controller.js";
 
 export const commonRoutes: FastifyPluginAsync = async (app) => {
+    app.get("/app-settings", commonController.getAppSettings);
+
     app.get("/states", commonController.getStates);
 
     app.get<{ Querystring: DistrictsQuery }>(

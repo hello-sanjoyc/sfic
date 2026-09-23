@@ -3,6 +3,7 @@ export const enContent = {
         badRequest: "Invalid request.",
         applicationNumberLimitReached:
             "Application number limit reached for {stateCode}.",
+        appSettingsFetched: "Application settings fetched successfully.",
         challengeCategoriesFetched:
             "Challenge categories fetched successfully.",
         challengesFetched: "Challenges fetched successfully.",
@@ -51,6 +52,7 @@ export const enContent = {
         statesFetched: "States fetched successfully.",
         stateIdNumeric: "stateId must be a numeric value.",
         unableCreateRegistration: "Unable to create registration.",
+        unableFetchAppSettings: "Unable to fetch application settings.",
         unableFetchChallengeCategories: "Unable to fetch challenge categories.",
         unableFetchCommonLookups: "Unable to fetch common lookups.",
         unableFetchDistricts: "Unable to fetch districts.",
