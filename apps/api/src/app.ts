@@ -181,7 +181,7 @@ export function buildApp() {
     app.register(multipart, {
         limits: {
             fileSize:
-                Number(process.env.SUPPORTING_DOCUMENT_MAX_SIZE_MB ?? 2) *
+                Number(process.env.SUPPORTING_DOCUMENT_MAX_SIZE_MB ?? 5) *
                 1024 *
                 1024,
             files: Number(process.env.SUPPORTING_DOCUMENT_MAX_FILES ?? 3),

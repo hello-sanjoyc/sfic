@@ -99,7 +99,7 @@ const maxSupportingDocuments = Number(
     process.env.SUPPORTING_DOCUMENT_MAX_FILES ?? 3,
 );
 const maxSupportingDocumentSizeMb = Number(
-    process.env.SUPPORTING_DOCUMENT_MAX_SIZE_MB ?? 2,
+    process.env.SUPPORTING_DOCUMENT_MAX_SIZE_MB ?? 5,
 );
 const maxSupportingDocumentSizeBytes =
     maxSupportingDocumentSizeMb * 1024 * 1024;
