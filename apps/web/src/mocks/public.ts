@@ -384,7 +384,7 @@ export const stages: Stage[] = [
         slug: "submit-proposal",
         index: "03",
         title: "Submit Your Proposal",
-        window: "September - October 2026",
+        window: "",
         format: "Online Innovation & Implementation Plan",
         status: "Upcoming",
         description:
@@ -395,7 +395,7 @@ export const stages: Stage[] = [
         slug: "screening-shortlisting",
         index: "04",
         title: "Screening & Shortlisting",
-        window: "October 2026",
+        window: "",
         format: "Eligibility · completeness · technical merit",
         status: "Upcoming",
         description:
@@ -406,7 +406,7 @@ export const stages: Stage[] = [
         slug: "regional-evaluation",
         index: "05",
         title: "Regional Evaluation",
-        window: "October 2026",
+        window: "",
         format: "Expert jury presentation",
         status: "Upcoming",
         description:
@@ -428,7 +428,7 @@ export const stages: Stage[] = [
         slug: "final-evaluation",
         index: "07",
         title: "Final Evaluation",
-        window: "10 - 30 Oct 2026",
+        window: "",
         format: "Final challenge evaluation",
         status: "Upcoming",
         description:

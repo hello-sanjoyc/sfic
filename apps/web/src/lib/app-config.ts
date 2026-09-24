@@ -8,9 +8,9 @@ const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000";
 export const appConfig = {
   name:
     process.env.NEXT_PUBLIC_APP_NAME ??
-    "Seva First Innovation Challenge 2026",
+    "Seva First Innovation Challenge - Eastern Region",
   shortName:
-    process.env.NEXT_PUBLIC_APP_SHORT_NAME ?? "Seva First Innovation Challenge",
+    process.env.NEXT_PUBLIC_APP_SHORT_NAME ?? "Seva First Innovation Challenge - Eastern Region",
   slogan:
     process.env.NEXT_PUBLIC_APP_SLOGAN ??
     "Science, technology and innovation for public impact.",

@@ -362,7 +362,9 @@ function StandardPage({
         locale={locale}
       />
       {isRegisterPage ? (
-        <RegisterPageBody id="page-main-content">{sectionCards}</RegisterPageBody>
+        <RegisterPageBody id="page-main-content">
+          <div className="grid gap-8 sm:gap-10">{sectionCards}</div>
+        </RegisterPageBody>
       ) : (
         <section
           className="mx-auto max-w-5xl px-4 py-16 sm:px-6"

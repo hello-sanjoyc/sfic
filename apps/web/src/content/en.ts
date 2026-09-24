@@ -48,15 +48,16 @@ export const enContent = {
         },
     },
     seo: {
-        title: "Seva First Innovation Challenge 2026 | Eastern Region",
+        title: "Seva First Innovation Challenge - Eastern Region",
         description: `Join the Seva First Innovation Challenge 2026. Submit innovative solutions to real-world problems. Challenge open: ${challengeDates.display.en}. Open to participants from West Bengal, Bihar and Jharkhand.`,
         keywords: "innovation challenge, hackathon, startup, innovation competition, West Bengal, Eastern India",
         ogImage: "/images/og-image.jpg",
-        ogImageAlt: "Seva First Innovation Challenge 2026 - Eastern Region",
+        ogImageAlt: "Seva First Innovation Challenge - Eastern Region",
     },
     header: {
-        brand: "Seva First Innovation Challenge",
+        brand: "Seva First Innovation Challenge - Eastern Region",
         subtitle: "Under Seva Sankalp Abhiyan",
+        region: "Bihar, Jharkhand and West Bengal",
         menu: "Menu",
         nav: {
             home: "Home",
@@ -110,24 +111,28 @@ export const enContent = {
                         {
                             title: "Registration",
                             body:
-                                "Select Junior or Open category, enter your full name, email address and mobile number, then verify the 6 digit code sent to your email.",
+                                "Select Junior or Open category, enter your full name, mobile number and email address, verify the 6 digit email code, then provide date of birth and gender.",
                         },
                         {
                             title: "Profile Completion",
                             body:
-                                "Provide your state, district, city, PIN code, address, education details, present organisation name and organisation type. You may apply as an individual or as a team. The applicant is treated as the Team Lead by default, and up to four additional team members can be added.",
+                                "Provide your state, district, city, PIN code, address, highest educational qualification, last attended educational institute, year of passing, institute or organisation name and institute type. Choose Individual or Team; for team applications, add member name, email and mobile details. The applicant is treated as the Team Lead by default.",
                         },
                         {
                             title: "Proposal Submission",
                             body:
-                                "Select the challenge category and complete the required proposal elements:",
+                                "Select the challenge category, complete the proposal fields, add optional mentor acknowledgement, intellectual property or publication details, upload supporting PDF documents and add an optional video URL:",
                             bullets: [
                                 "Problem and location",
                                 "Proposed solution",
                                 "Technology or method",
-                                "Implementation route, cost, beneficiaries, timeline, impact and scalability",
+                                "Implementation route",
+                                "Cost and funding",
+                                "Beneficiaries",
+                                "Timeline",
+                                "Expected impact",
+                                "Scalability",
                                 "Prototype or pilot details, if available",
-                                "Supporting PDF documents",
                             ],
                         },
                         {
@@ -671,11 +676,11 @@ export const enContent = {
             items: [
                 ["Identify the Problem", "Start with your community", "School · village · town · district · workplace", "Start with a problem you have actually seen in your school, village, town, district, workplace or community.", "A clear, grounded problem statement"],
                 ["Develop the Solution", "Before submission", "Build · improve · change", "Explain what you want to build, improve or change, and why your approach can work.", "A practical solution approach"],
-                ["Submit Your Proposal", "September - October 2026", "Online Innovation & Implementation Plan", "Complete the online Innovation & Implementation Plan and upload supporting material, if available.", "Complete proposal submitted"],
-                ["Screening & Shortlisting", "October 2026", "Eligibility · completeness · technical merit", "Entries will be checked for eligibility, completeness and technical merit.", "Shortlisted entries move to regional evaluation"],
-                ["Regional Evaluation", "October 2026", "Expert jury presentation", "Shortlisted participants will present their solution, model, prototype or implementation plan before an expert jury.", "Promising innovators identified"],
+                ["Submit Your Proposal", "", "Online Innovation & Implementation Plan", "Complete the online Innovation & Implementation Plan and upload supporting material, if available.", "Complete proposal submitted"],
+                ["Screening & Shortlisting", "", "Eligibility · completeness · technical merit", "Entries will be checked for eligibility, completeness and technical merit.", "Shortlisted entries move to regional evaluation"],
+                ["Regional Evaluation", "", "Expert jury presentation", "Shortlisted participants will present their solution, model, prototype or implementation plan before an expert jury.", "Promising innovators identified"],
                 ["Mentoring & Prototype Support", "After shortlisting", "Guidance · refinement · next-stage preparation", "Selected innovators may receive guidance to strengthen the solution and prepare it for the next stage.", "Stronger prototype, pilot or implementation plan"],
-                ["Final Evaluation", "10 - 30 Oct 2026", "Final challenge evaluation", "The strongest entries will move forward through the Challenge evaluation process.", "Leading innovations selected for recognition"],
+                ["Final Evaluation", "", "Final challenge evaluation", "The strongest entries will move forward through the Challenge evaluation process.", "Leading innovations selected for recognition"],
                 ["Pilot & Adoption", "After the Challenge", "Institutions · departments · industry partners", "Promising solutions may be connected with institutions, government departments, industry or implementation partners for further development and possible pilot use.", "Pathway to prototype, pilot, incubation or adoption"],
             ],
         },

@@ -54,16 +54,20 @@ export function MainHeader() {
       <header className="sticky top-0 z-40 border-b border-slate-200 bg-white/95 shadow-[0_3px_16px_rgba(15,23,42,.04)] backdrop-blur">
         <div className="mx-auto flex max-w-7xl items-center justify-between gap-5 px-4 py-3.5 sm:px-6">
           <Link href={href("")} className="flex min-w-0 items-center gap-3.5">
-            <Image src="/images/logo.webp" alt="Government of West Bengal" width={56} height={56} className="size-12 shrink-0 object-contain" priority />
+            <Image src="/images/logo.webp" alt="Government of West Bengal" width={72} height={72} className="size-14 shrink-0 object-contain sm:size-16" priority />
             <div className="min-w-0 border-l border-slate-200 pl-3 text-[#0b1f3a]">
               <div className="text-[16px] font-extrabold tracking-tight">{content.header.brand}</div>
               <div className="text-[14px] font-normal">{content.header.subtitle}</div>
+              <div className="text-[12px] font-semibold text-slate-600">{content.header.region}</div>
             </div>
           </Link>
-          <nav className="hidden items-center gap-4 text-[15px] font-semibold text-slate-700 xl:flex">
-            {nav.map(([label, part]) => <Link className="border-b-2 border-transparent py-2 transition hover:border-[#ff9933] hover:text-[#000080]" href={href(part)} key={label} onClick={handleNavClick(part)}>{label}</Link>)}
-          </nav>
-          <div className="hidden items-center gap-3 md:flex"><Link className="rounded-full bg-[#ff9933] px-4 py-2.5 text-base font-extrabold text-[#071426] transition hover:bg-[#f08a24]" href={actionHref("/register")}>{content.common.applyNow}</Link></div>
+          <div className="ml-auto hidden items-center justify-end gap-8 xl:flex">
+            <nav className="flex items-center justify-end gap-4 text-[15px] font-semibold text-slate-700">
+              {nav.map(([label, part]) => <Link className="border-b-2 border-transparent py-2 transition hover:border-[#ff9933] hover:text-[#000080]" href={href(part)} key={label} onClick={handleNavClick(part)}>{label}</Link>)}
+            </nav>
+            <Link className="rounded-full bg-[#ff9933] px-4 py-2.5 text-base font-extrabold text-[#071426] transition hover:bg-[#f08a24]" href={actionHref("/register")}>{content.common.applyNow}</Link>
+          </div>
+          <div className="ml-auto hidden items-center gap-3 md:flex xl:hidden"><Link className="rounded-full bg-[#ff9933] px-4 py-2.5 text-base font-extrabold text-[#071426] transition hover:bg-[#f08a24]" href={actionHref("/register")}>{content.common.applyNow}</Link></div>
           <button className="rounded-full p-2 text-[#071426] xl:hidden" aria-label="Open navigation" onClick={() => setOpen(true)}><Menu size={26} /></button>
         </div>
       </header>
@@ -71,9 +75,10 @@ export function MainHeader() {
         <div className="fixed inset-0 z-50 overflow-y-auto bg-white text-[#071426]">
           <div className="flex items-center justify-between border-b border-slate-200 bg-white px-4 py-3.5">
             <Link href={href("")} className="flex items-center gap-2" onClick={() => setOpen(false)}>
-              <Image src="/images/logo.webp" alt="Government of West Bengal" width={40} height={40} className="size-10 object-contain" priority />
+              <Image src="/images/logo.webp" alt="Government of West Bengal" width={56} height={56} className="size-12 shrink-0 object-contain" priority />
               <div className="min-w-0">
                 <div className="text-sm font-extrabold tracking-tight">{content.header.brand}</div>
+                <div className="text-xs font-medium text-slate-600">{content.header.region}</div>
               </div>
             </Link>
             <button className="rounded-full p-2 text-[#071426]" aria-label="Close navigation" onClick={() => setOpen(false)}><X size={28} /></button>

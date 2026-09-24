@@ -43,7 +43,7 @@ export function RegisterPageBody({
         </a>
       </div>
       <RegistrationProcessForm showStartButton={false} startOpen />
-      {children}
+      <div className="mt-16 sm:mt-20">{children}</div>
     </section>
   );
 }

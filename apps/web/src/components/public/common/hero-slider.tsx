@@ -11,21 +11,33 @@ const introMessages = [
     language: "English",
     subtitle: "Under Seva Sankalp Abhiyan",
     subtitleFont: "var(--font-ubuntu)",
-    title: "Seva First Innovation Challenge",
+    titleLine1: "Seva First",
+    titleLine2: "Innovation Challenge",
+    region: "Eastern Region - Bihar, Jharkhand & West Bengal",
+    titleClassName:
+      "text-4xl font-extrabold tracking-normal sm:text-5xl md:text-[4rem] md:leading-[1.02] lg:text-[4.5rem]",
     titleFont: "var(--font-archivo-black)",
   },
   {
     language: "Bengali",
     subtitle: "সেবা সংকল্প অভিযানের অধীনে",
     subtitleFont: "var(--font-tiro-bangla)",
-    title: "সেবা ফার্স্ট ইনোভেশন চ্যালেঞ্জ",
+    titleLine1: "সেবা ফার্স্ট",
+    titleLine2: "ইনোভেশন চ্যালেঞ্জ",
+    region: "পূর্বাঞ্চল - বিহার, ঝাড়খণ্ড ও পশ্চিমবঙ্গ",
+    titleClassName:
+      "text-4xl font-extrabold tracking-normal sm:text-6xl md:text-[4.75rem] md:leading-[1.02]",
     titleFont: "var(--font-anek-bangla)",
   },
   {
     language: "Hindi",
     subtitle: "सेवा संकल्प अभियान के अंतर्गत",
     subtitleFont: "var(--font-google-sans)",
-    title: "सेवा फर्स्ट इनोवेशन चैलेंज",
+    titleLine1: "सेवा फर्स्ट",
+    titleLine2: "इनोवेशन चैलेंज",
+    region: "पूर्वी क्षेत्र - बिहार, झारखंड और पश्चिम बंगाल",
+    titleClassName:
+      "text-4xl font-extrabold tracking-normal sm:text-6xl md:text-[4.75rem] md:leading-[1.02]",
     titleFont: "var(--font-rozha-one)",
   },
 ];
@@ -91,13 +103,20 @@ export function HeroSlider({ slides }: { slides: HeroSlide[] }) {
                     key={introMessage.language}
                   >
                     <h1
-                      className="text-4xl font-extrabold tracking-normal sm:text-6xl md:text-[4.75rem] md:leading-[1.02]"
+                      className={introMessage.titleClassName}
                       style={{ fontFamily: introMessage.titleFont }}
                     >
-                      {introMessage.title}
+                      <span className="block">{introMessage.titleLine1}</span>
+                      <span className="block whitespace-nowrap">{introMessage.titleLine2}</span>
                     </h1>
                     <p
-                      className="mt-5 text-lg font-bold tracking-normal text-[#071426]/85 sm:text-2xl"
+                      className="mt-3 text-lg font-extrabold tracking-normal text-[#071426]/95 sm:text-2xl md:text-[1.75rem] md:leading-tight"
+                      style={{ fontFamily: introMessage.subtitleFont }}
+                    >
+                      {introMessage.region}
+                    </p>
+                    <p
+                      className="mt-4 text-base font-bold tracking-normal text-[#071426]/85 sm:text-xl md:text-[1.5rem]"
                       style={{ fontFamily: introMessage.subtitleFont }}
                     >
                       {introMessage.subtitle}

@@ -76,7 +76,7 @@ export const viewport: Viewport = {
 };
 
 export const metadata: Metadata = {
-    title: "Seva First Innovation Challenge, Under Seva Sankalp Abhiyan",
+    title: "Seva First Innovation Challenge - Eastern Region, Under Seva Sankalp Abhiyan",
     description:
         "Join the Seva First Innovation Challenge 2026. A public innovation challenge for science and technology solutions with real-world impact. Open to participants from Eastern & North-Eastern India.",
     keywords:
@@ -115,21 +115,21 @@ export const metadata: Metadata = {
     openGraph: {
         type: "website",
         url: siteUrl,
-        title: "Seva First Innovation Challenge 2026",
+        title: "Seva First Innovation Challenge - Eastern Region",
         description: `Join the Seva First Innovation Challenge 2026. Submit innovative solutions to real-world problems. Challenge open: ${challengeDates.display.en}.`,
-        siteName: "Seva First Innovation Challenge",
+        siteName: "Seva First Innovation Challenge - Eastern Region",
         images: [
             {
                 url: ogImageUrl,
                 width: 1200,
                 height: 630,
-                alt: "Seva First Innovation Challenge 2026 - Eastern Region",
+                alt: "Seva First Innovation Challenge - Eastern Region",
             },
         ],
     },
     twitter: {
         card: "summary_large_image",
-        title: "Seva First Innovation Challenge 2026",
+        title: "Seva First Innovation Challenge - Eastern Region",
         description: `Join the innovation challenge. Challenge open: ${challengeDates.shortDisplay.en}. Open to Eastern & North-Eastern India.`,
         images: [ogImageUrl],
         creator: "@WBGovt",
@@ -139,11 +139,11 @@ export const metadata: Metadata = {
         address: false,
         telephone: false,
     },
-    applicationName: "Seva First Innovation Challenge",
+    applicationName: "Seva First Innovation Challenge - Eastern Region",
     appleWebApp: {
         capable: true,
         statusBarStyle: "black-translucent",
-        title: "Seva First Innovation Challenge",
+        title: "Seva First Innovation Challenge - Eastern Region",
     },
 };
 

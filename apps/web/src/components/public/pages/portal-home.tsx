@@ -546,9 +546,11 @@ export function PortalHome({ locale }: { locale: string }) {
                                 <h3 className="mt-5 text-lg font-bold leading-tight text-[#0b1f3a]">
                                     {stage.title}
                                 </h3>
-                                <p className="mt-2 font-mono text-sm font-bold text-[#000080]">
-                                    {stage.window}
-                                </p>
+                                {stage.window ? (
+                                    <p className="mt-2 font-mono text-sm font-bold text-[#000080]">
+                                        {stage.window}
+                                    </p>
+                                ) : null}
                                 <p className="mt-1 text-xs font-semibold uppercase tracking-wider text-slate-500">
                                     {stage.format}
                                 </p>
