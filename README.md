@@ -1,4 +1,4 @@
-# Inno Challenge
+# Seva First Innovation Challenge 2026
 
 Monorepo containing the public/authenticated Next.js application and Fastify API.
 
