@@ -289,10 +289,12 @@ export default function Page() {
   const title =
     application?.applicationNumber ??
     (isLoading ? "Application Details" : "Application Not Found");
+  const isDraftEditableStatus = editableStatuses.has(application?.status ?? "");
   const canEdit =
     participantRole === "applicant" &&
-    editableStatuses.has(application?.status ?? "");
-  const canDownload = Boolean(application) && !canEdit;
+    Boolean(application) &&
+    application?.status !== "submitted";
+  const canDownload = Boolean(application) && !isDraftEditableStatus;
 
   const downloadApplication = async () => {
     if (!application || isDownloading) return;

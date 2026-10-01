@@ -218,7 +218,11 @@ function requiredText(
     return text;
 }
 
-function validateSubmitApplicationBody(body: SubmitApplicationBody = {}) {
+function validateSubmitApplicationBody(
+    body: SubmitApplicationBody = {},
+    options: { requireSupportingDocuments?: boolean } = {},
+) {
+    const requireSupportingDocuments = options.requireSupportingDocuments ?? true;
     const errors: string[] = [];
     const language = participantService.normalizeLanguage(
         body.language ?? "en",
@@ -259,7 +263,7 @@ function validateSubmitApplicationBody(body: SubmitApplicationBody = {}) {
     if (!challengeCategoryId) {
         errors.push(validationMessages.fieldRequired("challengeCategoryId"));
     }
-    if (!supportingDocuments.length) {
+    if (requireSupportingDocuments && !supportingDocuments.length) {
         errors.push(validationMessages.supportingDocumentRequired);
     }
     if (supportingDocuments.length > maxSupportingDocuments) {
@@ -848,6 +852,84 @@ async function submitApplication(
     }
 }
 
+async function updateApplicationSubmission(
+    request: FastifyRequest<{
+        Body?: SubmitApplicationBody;
+        Params: ApplicationParams;
+    }>,
+    reply: FastifyReply,
+) {
+    const pg = requireDatabase(request, reply);
+    if (!pg) return reply;
+    const participant = (request as AuthenticatedParticipantRequest)
+        .participant;
+    const applicationHash = request.params.applicationHash ?? "";
+    const { body, storedDocuments } = await getSubmitApplicationBody(request);
+
+    if (!/^[a-f0-9]{32}$/i.test(applicationHash)) {
+        await cleanupStoredDocuments(storedDocuments);
+        return sendError(request, reply, {
+            message: "A valid application id is required.",
+            statusCode: 400,
+        });
+    }
+
+    if (participant.role !== "applicant") {
+        await cleanupStoredDocuments(storedDocuments);
+        return sendError(request, reply, {
+            message: "Only the applicant can submit application edits.",
+            statusCode: 403,
+        });
+    }
+
+    const validated = validateSubmitApplicationBody(body, {
+        requireSupportingDocuments: false,
+    });
+
+    if (validated.errors.length) {
+        await cleanupStoredDocuments(storedDocuments);
+        return sendError(request, reply, {
+            data: { errors: validated.errors },
+            messageKey: "validationError",
+            statusCode: 400,
+        });
+    }
+
+    try {
+        const result = await participantService.updateApplicationSubmission(pg, {
+            ...validated.value,
+            applicationHash,
+            email: participant.email,
+        });
+        const documentStorageMappings = await relocateStoredDocuments({
+            applicationId: result.application.id,
+            documents: storedDocuments,
+        });
+
+        await participantService.updateApplicationDocumentStorageKeys(pg, {
+            applicationId: result.application.id,
+            mappings: documentStorageMappings,
+        });
+
+        return sendSuccess(request, reply, {
+            data: result,
+            messageKey: "proposalSubmitted",
+        });
+    } catch (error) {
+        await cleanupStoredDocuments(storedDocuments);
+        request.server.log.error(error);
+
+        return sendError(request, reply, {
+            message:
+                error instanceof Error
+                    ? error.message
+                    : getApiContent(validated.value.language).api
+                          .unableSubmitProposal,
+            statusCode: getErrorStatusCode(error) ?? 500,
+        });
+    }
+}
+
 async function getApplications(
     request: FastifyRequest<{ Querystring: ApplicationsQuery }>,
     reply: FastifyReply,
@@ -1029,6 +1111,72 @@ async function downloadApplicationDocument(
     }
 }
 
+async function deleteApplicationDocument(
+    request: FastifyRequest<{
+        Params: ApplicationDocumentParams;
+    }>,
+    reply: FastifyReply,
+) {
+    const pg = requireDatabase(request, reply);
+    if (!pg) return reply;
+    const participant = (request as AuthenticatedParticipantRequest)
+        .participant;
+    const applicationHash = request.params.applicationHash ?? "";
+    const documentId = parsePositiveInteger(request.params.documentId);
+
+    if (!/^[a-f0-9]{32}$/i.test(applicationHash) || !documentId) {
+        return sendError(request, reply, {
+            message: "A valid application id and document id are required.",
+            statusCode: 400,
+        });
+    }
+
+    if (participant.role !== "applicant") {
+        return sendError(request, reply, {
+            message: "Only the applicant can delete application documents.",
+            statusCode: 403,
+        });
+    }
+
+    try {
+        const result = await participantService.deleteApplicationDocument(pg, {
+            applicationHash,
+            documentId,
+            email: participant.email,
+        });
+
+        if (!result) {
+            return sendError(request, reply, {
+                message: "Document not found or cannot be deleted.",
+                statusCode: 404,
+            });
+        }
+
+        const filePath = await resolveStoredFilePath(result.document.storageKey);
+        let fileDeleted = false;
+
+        if (filePath) {
+            await unlink(filePath);
+            fileDeleted = true;
+        }
+
+        return sendSuccess(request, reply, {
+            data: {
+                ...result,
+                fileDeleted,
+            },
+            message: "Document deleted successfully.",
+        });
+    } catch (error) {
+        request.server.log.error(error);
+
+        return sendError(request, reply, {
+            message: "Document could not be deleted.",
+            statusCode: getErrorStatusCode(error) ?? 500,
+        });
+    }
+}
+
 async function downloadApplicationPdf(
     request: FastifyRequest<{
         Params: ApplicationParams;
@@ -1094,6 +1242,7 @@ async function downloadApplicationPdf(
 }
 
 export const participantController = {
+    deleteApplicationDocument,
     downloadApplicationDocument,
     downloadApplicationPdf,
     getApplication,
@@ -1102,5 +1251,6 @@ export const participantController = {
     requestLoginCode,
     resendLoginCode,
     submitApplication,
+    updateApplicationSubmission,
     verifyLoginCode,
 };

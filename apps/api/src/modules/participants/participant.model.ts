@@ -160,6 +160,12 @@ export type ParticipantApplicationDocumentDownload = {
   storageKey: string;
 };
 
+export type DeleteParticipantApplicationDocumentResult = {
+  document: ParticipantApplicationDocumentDownload & {
+    id: number;
+  };
+};
+
 export type ParticipantProfileResult = {
   profile: {
     address: string | null;
@@ -262,6 +268,11 @@ export type SubmitParticipantApplicationInput = {
   yearOfPassing: string;
 };
 
+export type UpdateParticipantApplicationSubmissionInput =
+  SubmitParticipantApplicationInput & {
+    applicationHash: string;
+  };
+
 export type SubmitParticipantApplicationResult = {
   application: {
     applicationHash: string;
@@ -275,3 +286,6 @@ export type SubmitParticipantApplicationResult = {
     reason?: string;
   };
 };
+
+export type UpdateParticipantApplicationSubmissionResult =
+  SubmitParticipantApplicationResult;

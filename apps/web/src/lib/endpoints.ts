@@ -28,6 +28,8 @@ export const endpoints = {
             documentId: string | number,
         ) =>
             `${api}/participants/applications/${encodeURIComponent(hash)}/documents/${documentId}/download`,
+        applicationDocument: (hash: string, documentId: string | number) =>
+            `${api}/participants/applications/${encodeURIComponent(hash)}/documents/${documentId}`,
         applicationDownload: (hash: string) =>
             `${api}/participants/applications/${encodeURIComponent(hash)}/download`,
         applications: `${api}/participants/applications`,
