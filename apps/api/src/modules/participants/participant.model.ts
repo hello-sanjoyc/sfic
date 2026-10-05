@@ -240,9 +240,11 @@ export type SubmitParticipantApplicationInput = {
   challengeCategoryId: number;
   city: string;
   costFunding: string;
+  dateOfBirth?: string;
   districtId: number;
   email: string;
   expectedImpact: string;
+  gender?: "Male" | "Female" | "Others";
   highestEducationalQualification: string;
   implementationRoute: string;
   intellectualPropertyPublication?: string;

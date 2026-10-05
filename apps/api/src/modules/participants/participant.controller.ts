@@ -56,8 +56,10 @@ type SubmitApplicationBody = {
     challengeCategoryId?: number | string;
     city?: string;
     costFunding?: string;
+    dateOfBirth?: string;
     districtId?: number | string;
     expectedImpact?: string;
+    gender?: string;
     highestEducationalQualification?: string;
     implementationRoute?: string;
     intellectualPropertyPublication?: string;
@@ -185,6 +187,27 @@ function normalizeVerificationCode(value: unknown) {
         : "";
 }
 
+function parseDateOfBirth(value: string) {
+    const match = value.trim().match(/^(\d{2})-(\d{2})-(\d{4})$/);
+    if (!match) return "";
+
+    const [, day, month, year] = match;
+    const isoDate = `${year}-${month}-${day}`;
+    const date = new Date(`${isoDate}T00:00:00Z`);
+
+    if (
+        Number.isNaN(date.getTime()) ||
+        date.getUTCFullYear() !== Number(year) ||
+        date.getUTCMonth() + 1 !== Number(month) ||
+        date.getUTCDate() !== Number(day) ||
+        date > new Date()
+    ) {
+        return "";
+    }
+
+    return isoDate;
+}
+
 function normalizeNumericText(value: string) {
     return normalizeLocalizedDigits(value).replace(/\D/g, "");
 }
@@ -231,6 +254,10 @@ function validateSubmitApplicationBody(
     const stateId = numericId(body.stateId);
     const districtId = numericId(body.districtId);
     const challengeCategoryId = numericId(body.challengeCategoryId);
+    const dateOfBirth = isNonEmptyString(body.dateOfBirth)
+        ? parseDateOfBirth(body.dateOfBirth)
+        : "";
+    const gender = isNonEmptyString(body.gender) ? body.gender.trim() : "";
     const participationMode: "Individual" | "Team" =
         body.participationMode === "Team" ? "Team" : "Individual";
     const teamMembers = (body.teamMembers ?? [])
@@ -262,6 +289,12 @@ function validateSubmitApplicationBody(
     if (!districtId) errors.push(validationMessages.districtIdRequired);
     if (!challengeCategoryId) {
         errors.push(validationMessages.fieldRequired("challengeCategoryId"));
+    }
+    if (isNonEmptyString(body.dateOfBirth) && !dateOfBirth) {
+        errors.push(validationMessages.fieldRequired("dateOfBirth"));
+    }
+    if (gender && !["Male", "Female", "Others"].includes(gender)) {
+        errors.push(validationMessages.fieldRequired("gender"));
     }
     if (requireSupportingDocuments && !supportingDocuments.length) {
         errors.push(validationMessages.supportingDocumentRequired);
@@ -335,6 +368,7 @@ function validateSubmitApplicationBody(
             errors,
             validationMessages.fieldRequired,
         ),
+        dateOfBirth: dateOfBirth || undefined,
         districtId: districtId ?? 0,
         expectedImpact: requiredText(
             body,
@@ -342,6 +376,9 @@ function validateSubmitApplicationBody(
             errors,
             validationMessages.fieldRequired,
         ),
+        gender: gender
+            ? (gender as "Male" | "Female" | "Others")
+            : undefined,
         highestEducationalQualification: requiredText(
             body,
             "highestEducationalQualification",

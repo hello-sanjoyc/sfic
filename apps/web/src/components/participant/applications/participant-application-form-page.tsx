@@ -182,7 +182,9 @@ type FormErrors = Partial<
 type ApplicantProfileValues = {
     address: string;
     city: string;
+    dateOfBirth: string;
     districtId: string;
+    gender: string;
     highestEducationalQualification: string;
     instituteName: string;
     instituteTypeId: string;
@@ -191,7 +193,9 @@ type ApplicantProfileValues = {
     stateId: string;
     yearOfPassing: string;
 };
-type ApplicantProfileErrors = Partial<Record<keyof ApplicantProfileValues, string>>;
+type ApplicantProfileErrors = Partial<
+    Record<keyof ApplicantProfileValues, string>
+>;
 type ParticipantApplicationFormMode = "create" | "edit";
 
 type ParticipantApplicationFormPageProps = {
@@ -226,7 +230,9 @@ const initialValues: ProposalValues = {
 const initialApplicantProfileValues: ApplicantProfileValues = {
     address: "",
     city: "",
+    dateOfBirth: "",
     districtId: "",
+    gender: "",
     highestEducationalQualification: "",
     instituteName: "",
     instituteTypeId: "",
@@ -316,6 +322,8 @@ const multilingualNamePattern = /^[\p{L}\p{M} ]{2,}$/u;
 const validationMessages = {
     alphabetsOnly: "Enter alphabets only.",
     challengeCategory: "Select a challenge category.",
+    dateOfBirth: "Enter date of birth in dd-mm-yyyy format.",
+    gender: "Select your gender.",
     multipleApplicationsDisabled:
         "Multiple applications are not enabled for participants.",
     registrationClosed: "Participant registration is currently closed.",
@@ -344,6 +352,8 @@ const inputClass =
     "mt-2 w-full rounded-lg border border-slate-200 bg-white px-4 py-3 text-sm font-normal text-[#0b1f3a] outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:ring-4 focus:ring-blue-50";
 
 const textareaClass = `${inputClass} min-h-32 resize-y leading-6`;
+const dateOfBirthPattern = /^(0[1-9]|[12][0-9]|3[01])-(0[1-9]|1[0-2])-\d{4}$/;
+const genderOptions = ["Male", "Female", "Others"] as const;
 
 function FieldCounter({ value }: Readonly<{ value: string }>) {
     return (
@@ -373,6 +383,93 @@ function formatFileSize(size: number) {
 
 function getFileKey(file: File) {
     return `${file.name}-${file.size}-${file.lastModified}`;
+}
+
+function numericFieldValue(value: string, maxLength: number) {
+    return value.replace(/\D/g, "").slice(0, maxLength);
+}
+
+function dateOfBirthFieldValue(value: string) {
+    const digits = numericFieldValue(value, 8);
+    const parts = [
+        digits.slice(0, 2),
+        digits.slice(2, 4),
+        digits.slice(4, 8),
+    ].filter(Boolean);
+
+    return parts.join("-");
+}
+
+function parseLastDateOfSubmission(value: string) {
+    const trimmedValue = value.trim();
+    const isoMatch = trimmedValue.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    const displayMatch = trimmedValue.match(/^(\d{2})-(\d{2})-(\d{4})$/);
+
+    const [, yearText, monthText, dayText] = isoMatch ?? [];
+    const [, displayDayText, displayMonthText, displayYearText] =
+        displayMatch ?? [];
+    const year = Number(yearText ?? displayYearText);
+    const month = Number(monthText ?? displayMonthText);
+    const day = Number(dayText ?? displayDayText);
+    const date = new Date(Date.UTC(year, month - 1, day));
+
+    if (
+        Number.isNaN(date.getTime()) ||
+        date.getUTCFullYear() !== year ||
+        date.getUTCMonth() + 1 !== month ||
+        date.getUTCDate() !== day
+    ) {
+        return null;
+    }
+
+    return date;
+}
+
+function formatLastDateOfSubmission(date: Date) {
+    return new Intl.DateTimeFormat("en-IN", {
+        day: "numeric",
+        month: "long",
+        year: "numeric",
+        timeZone: "UTC",
+    }).format(date);
+}
+
+function parseDateOfBirth(value: string, closingDate: Date) {
+    const match = value.match(/^(\d{2})-(\d{2})-(\d{4})$/);
+    if (!match) return null;
+
+    const [, dayText, monthText, yearText] = match;
+    const day = Number(dayText);
+    const month = Number(monthText);
+    const year = Number(yearText);
+    const date = new Date(Date.UTC(year, month - 1, day));
+
+    if (
+        Number.isNaN(date.getTime()) ||
+        date.getUTCFullYear() !== year ||
+        date.getUTCMonth() + 1 !== month ||
+        date.getUTCDate() !== day ||
+        date > closingDate
+    ) {
+        return null;
+    }
+
+    return date;
+}
+
+function calculateAgeOnClosingDate(dateOfBirth: string, closingDate: Date) {
+    const birthDate = parseDateOfBirth(dateOfBirth, closingDate);
+    if (!birthDate) return null;
+
+    let age = closingDate.getUTCFullYear() - birthDate.getUTCFullYear();
+    const hasBirthdayPassed =
+        closingDate.getUTCMonth() > birthDate.getUTCMonth() ||
+        (closingDate.getUTCMonth() === birthDate.getUTCMonth() &&
+            closingDate.getUTCDate() >= birthDate.getUTCDate());
+
+    if (!hasBirthdayPassed) age -= 1;
+
+    return age;
 }
 
 function getSupportingDocumentFileError(file: File) {
@@ -616,7 +713,9 @@ function applicantProfileValuesFromApplication(
     return {
         address: profileString(application.profile, "address"),
         city: profileString(application.profile, "city"),
+        dateOfBirth: "",
         districtId: optionId(application.district?.id),
+        gender: "",
         highestEducationalQualification: profileString(
             application.profile,
             "highestEducationalQualification",
@@ -636,8 +735,18 @@ function applicantProfileValuesFromApplication(
     };
 }
 
-function isApplicantProfileIncomplete(values: ApplicantProfileValues) {
-    return Object.values(values).some((value) => !value.trim());
+function isApplicantProfileIncomplete(
+    values: ApplicantProfileValues,
+    application?: ParticipantApplicationDetails | null,
+) {
+    return (
+        !application?.participant?.dateOfBirth ||
+        !application.participant?.gender ||
+        Object.entries(values).some(([field, value]) => {
+            if (field === "dateOfBirth" || field === "gender") return false;
+            return !value.trim();
+        })
+    );
 }
 
 function getYearFromDate(value?: string | null) {
@@ -649,16 +758,38 @@ function getYearFromDate(value?: string | null) {
 
 function validateApplicantProfile(
     values: ApplicantProfileValues,
-    dateOfBirth?: string | null,
+    dateOfBirth: string | null | undefined,
+    options: {
+        closingDate: Date;
+        requireDateOfBirth: boolean;
+        requireGender: boolean;
+    },
 ) {
     const errors: ApplicantProfileErrors = {};
     const requiredMessage = "This field is required.";
 
     (Object.keys(values) as Array<keyof ApplicantProfileValues>).forEach(
         (field) => {
+            if (field === "dateOfBirth" || field === "gender") return;
             if (!values[field].trim()) errors[field] = requiredMessage;
         },
     );
+
+    if (options.requireDateOfBirth) {
+        if (
+            !dateOfBirthPattern.test(values.dateOfBirth) ||
+            !parseDateOfBirth(values.dateOfBirth, options.closingDate)
+        ) {
+            errors.dateOfBirth = validationMessages.dateOfBirth;
+        }
+    }
+
+    if (
+        options.requireGender &&
+        !genderOptions.includes(values.gender as (typeof genderOptions)[number])
+    ) {
+        errors.gender = validationMessages.gender;
+    }
 
     if (values.pinCode && !/^[0-9]{6}$/.test(values.pinCode)) {
         errors.pinCode = "Enter a valid 6-digit PIN code.";
@@ -668,7 +799,13 @@ function validateApplicantProfile(
         if (!/^(19|20)\d{2}$/.test(values.yearOfPassing)) {
             errors.yearOfPassing = "Enter a valid year.";
         } else {
-            const birthYear = getYearFromDate(dateOfBirth);
+            const enteredBirthDate = parseDateOfBirth(
+                values.dateOfBirth,
+                options.closingDate,
+            );
+            const birthYear = enteredBirthDate
+                ? enteredBirthDate.getUTCFullYear()
+                : getYearFromDate(dateOfBirth);
             if (
                 birthYear !== null &&
                 Number(values.yearOfPassing) < birthYear + 12
@@ -811,10 +948,20 @@ export function ParticipantApplicationFormPage({
                   settings,
                   existingApplications.length,
               );
+    const applicationClosingDate =
+        parseLastDateOfSubmission(
+            settings[settingKeys.registrationEndDate] ?? "",
+        ) ?? new Date();
+    const ageOnClosingDate = calculateAgeOnClosingDate(
+        applicantProfileValues.dateOfBirth,
+        applicationClosingDate,
+    );
+    const lastDateOfSubmissionText =
+        formatLastDateOfSubmission(applicationClosingDate);
+    const needsDateOfBirth = Boolean(applicantData && !applicantData.participant?.dateOfBirth);
+    const needsGender = Boolean(applicantData && !applicantData.participant?.gender);
     const needsApplicantProfileCompletion = applicantData
-        ? isApplicantProfileIncomplete(
-              applicantProfileValuesFromApplication(applicantData),
-          )
+        ? isApplicantProfileIncomplete(applicantProfileValues, applicantData)
         : false;
     const applicantProfileErrors = useMemo(
         () =>
@@ -822,12 +969,20 @@ export function ParticipantApplicationFormPage({
                 ? validateApplicantProfile(
                       applicantProfileValues,
                       applicantData?.participant?.dateOfBirth,
+                      {
+                          closingDate: applicationClosingDate,
+                          requireDateOfBirth: needsDateOfBirth,
+                          requireGender: needsGender,
+                      },
                   )
                 : {},
         [
+            applicationClosingDate,
             applicantData?.participant?.dateOfBirth,
             applicantProfileValues,
             needsApplicantProfileCompletion,
+            needsDateOfBirth,
+            needsGender,
         ],
     );
     const hasApplicantProfileErrors =
@@ -972,7 +1127,9 @@ export function ParticipantApplicationFormPage({
                     instituteTypes: [],
                     states: [],
                 });
-                setLookupsError("Applicant detail options could not be loaded.");
+                setLookupsError(
+                    "Applicant detail options could not be loaded.",
+                );
             });
 
         return () => {
@@ -1262,11 +1419,13 @@ export function ParticipantApplicationFormPage({
         (event: ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
             const rawValue = event.target.value;
             const nextValue =
-                field === "pinCode" || field === "yearOfPassing"
-                    ? rawValue
-                          .replace(/\D/g, "")
-                          .slice(0, field === "pinCode" ? 6 : 4)
-                    : rawValue;
+                field === "dateOfBirth"
+                    ? dateOfBirthFieldValue(rawValue)
+                    : field === "pinCode" || field === "yearOfPassing"
+                      ? rawValue
+                            .replace(/\D/g, "")
+                            .slice(0, field === "pinCode" ? 6 : 4)
+                      : rawValue;
 
             setStatusMessage("");
             setApplicantProfileValues((current) => {
@@ -1389,7 +1548,9 @@ export function ParticipantApplicationFormPage({
     };
 
     const deleteExistingDocument = async (
-        document: NonNullable<ParticipantApplicationDetails["documents"]>[number],
+        document: NonNullable<
+            ParticipantApplicationDetails["documents"]
+        >[number],
     ) => {
         if (!applicationHash || !document.id || deletingDocumentId) return;
 
@@ -1420,8 +1581,7 @@ export function ParticipantApplicationFormPage({
                     ? {
                           ...current,
                           documents: (current.documents ?? []).filter(
-                              (item) =>
-                                  String(item.id) !== String(document.id),
+                              (item) => String(item.id) !== String(document.id),
                           ),
                       }
                     : current,
@@ -1473,7 +1633,8 @@ export function ParticipantApplicationFormPage({
         }
 
         const selectedInstituteType = instituteTypeOptions.find(
-            (type) => String(type.id) === applicantProfileValues.instituteTypeId,
+            (type) =>
+                String(type.id) === applicantProfileValues.instituteTypeId,
         );
         const selectedInstituteTypeName =
             localizedName(selectedInstituteType?.name) ||
@@ -1485,8 +1646,12 @@ export function ParticipantApplicationFormPage({
             challengeCategoryId: Number(values.challengeCategory),
             city: applicantProfileValues.city,
             costFunding: values.costFunding,
+            dateOfBirth: needsDateOfBirth
+                ? applicantProfileValues.dateOfBirth
+                : undefined,
             districtId: Number(applicantProfileValues.districtId),
             expectedImpact: values.expectedImpact,
+            gender: needsGender ? applicantProfileValues.gender : undefined,
             highestEducationalQualification:
                 applicantProfileValues.highestEducationalQualification,
             implementationRoute: values.implementationRoute,
@@ -1580,12 +1745,12 @@ export function ParticipantApplicationFormPage({
                     <section className="overflow-hidden rounded-lg border border-slate-200 shadow-sm">
                         <div
                             className={`bg-cover bg-center px-5 py-6 md:px-7 ${
-                                ((!isEditMode &&
+                                (!isEditMode &&
                                     (isSettingsLoading || settingsError)) ||
-                                    lookupsError ||
-                                    challengeCategoryError ||
-                                    roleBlockReason ||
-                                    applicationBlockReason)
+                                lookupsError ||
+                                challengeCategoryError ||
+                                roleBlockReason ||
+                                applicationBlockReason
                                     ? "border-b border-slate-200"
                                     : ""
                             }`}
@@ -1674,6 +1839,72 @@ export function ParticipantApplicationFormPage({
                             </div>
 
                             <div className="mt-6 grid gap-4 md:grid-cols-2">
+                                {needsDateOfBirth && (
+                                    <label className="text-sm font-bold text-slate-700">
+                                        Date of Birth
+                                        <div className="mt-2 flex overflow-hidden rounded-lg border border-slate-200 bg-white transition focus-within:border-blue-500 focus-within:ring-4 focus-within:ring-blue-50">
+                                            <input
+                                                aria-invalid={Boolean(
+                                                    applicantProfileErrors.dateOfBirth,
+                                                )}
+                                                className="min-w-0 flex-1 px-4 py-3 text-sm font-normal text-[#0b1f3a] outline-none placeholder:text-slate-400"
+                                                disabled={isFormLocked}
+                                                inputMode="numeric"
+                                                maxLength={10}
+                                                onChange={updateApplicantProfileValue(
+                                                    "dateOfBirth",
+                                                )}
+                                                pattern="[0-9]{2}-[0-9]{2}-[0-9]{4}"
+                                                placeholder="dd-mm-yyyy"
+                                                type="text"
+                                                value={
+                                                    applicantProfileValues.dateOfBirth
+                                                }
+                                            />
+                                            <div className="flex min-w-24 items-center justify-center bg-slate-200 px-3 text-center text-sm font-bold text-[#071426]">
+                                                {ageOnClosingDate === null
+                                                    ? "Years"
+                                                    : `${ageOnClosingDate} Years`}
+                                            </div>
+                                        </div>
+                                        <FieldError
+                                            message={
+                                                applicantProfileErrors.dateOfBirth
+                                            }
+                                        />
+                                        <span className="mt-1 block text-xs font-normal text-slate-500">
+                                            Age is calculated considering Last
+                                            Date of Submission (
+                                            {lastDateOfSubmissionText}).
+                                        </span>
+                                    </label>
+                                )}
+
+                                {needsGender && (
+                                    <label className="text-sm font-bold text-slate-700">
+                                        Gender
+                                        <select
+                                            aria-invalid={Boolean(
+                                                applicantProfileErrors.gender,
+                                            )}
+                                            className={inputClass}
+                                            disabled={isFormLocked}
+                                            onChange={updateApplicantProfileValue(
+                                                "gender",
+                                            )}
+                                            value={applicantProfileValues.gender}
+                                        >
+                                            <option value="">Gender</option>
+                                            <option value="Male">Male</option>
+                                            <option value="Female">Female</option>
+                                            <option value="Others">Others</option>
+                                        </select>
+                                        <FieldError
+                                            message={applicantProfileErrors.gender}
+                                        />
+                                    </label>
+                                )}
+
                                 <label className="text-sm font-bold text-slate-700">
                                     State
                                     <select
@@ -1698,9 +1929,7 @@ export function ParticipantApplicationFormPage({
                                         ))}
                                     </select>
                                     <FieldError
-                                        message={
-                                            applicantProfileErrors.stateId
-                                        }
+                                        message={applicantProfileErrors.stateId}
                                     />
                                 </label>
 
@@ -1718,7 +1947,9 @@ export function ParticipantApplicationFormPage({
                                         onChange={updateApplicantProfileValue(
                                             "districtId",
                                         )}
-                                        value={applicantProfileValues.districtId}
+                                        value={
+                                            applicantProfileValues.districtId
+                                        }
                                     >
                                         <option value="">
                                             Select district
@@ -2398,64 +2629,67 @@ export function ParticipantApplicationFormPage({
                                     ))}
                                 </ul>
                             )}
-                            {isEditMode && existingSupportingDocuments.length > 0 && (
-                                <ul className="mt-3 grid gap-2">
-                                    {existingSupportingDocuments.map((document) => (
-                                        <li
-                                            className="flex items-center justify-between gap-3 rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-700"
-                                            key={String(
-                                                document.id ??
-                                                    document.originalFileName,
-                                            )}
-                                        >
-                                            <span className="inline-flex min-w-0 items-center gap-2">
-                                                <FileText
-                                                    className="shrink-0 text-blue-700"
-                                                    size={16}
-                                                />
-                                                <span className="truncate">
-                                                    {document.originalFileName ??
-                                                        "Uploaded document"}
-                                                </span>
-                                            </span>
-                                            <span className="inline-flex shrink-0 items-center gap-3">
-                                                <span className="font-normal text-slate-500">
-                                                    {formatFileSize(
-                                                        Number(
-                                                            document.fileSizeBytes ??
-                                                                0,
-                                                        ),
+                            {isEditMode &&
+                                existingSupportingDocuments.length > 0 && (
+                                    <ul className="mt-3 grid gap-2">
+                                        {existingSupportingDocuments.map(
+                                            (document) => (
+                                                <li
+                                                    className="flex items-center justify-between gap-3 rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-700"
+                                                    key={String(
+                                                        document.id ??
+                                                            document.originalFileName,
                                                     )}
-                                                </span>
-                                                <button
-                                                    aria-label={`Delete ${
-                                                        document.originalFileName ??
-                                                        "uploaded document"
-                                                    }`}
-                                                    className="inline-flex items-center gap-1 rounded-md px-2 py-1 font-bold text-rose-700 transition hover:bg-rose-50 disabled:cursor-not-allowed disabled:opacity-50"
-                                                    disabled={
-                                                        isFormLocked ||
-                                                        deletingDocumentId ===
-                                                            document.id
-                                                    }
-                                                    onClick={() =>
-                                                        deleteExistingDocument(
-                                                            document,
-                                                        )
-                                                    }
-                                                    type="button"
                                                 >
-                                                    <Trash2 size={14} />
-                                                    {deletingDocumentId ===
-                                                    document.id
-                                                        ? "Deleting..."
-                                                        : "Delete"}
-                                                </button>
-                                            </span>
-                                        </li>
-                                    ))}
-                                </ul>
-                            )}
+                                                    <span className="inline-flex min-w-0 items-center gap-2">
+                                                        <FileText
+                                                            className="shrink-0 text-blue-700"
+                                                            size={16}
+                                                        />
+                                                        <span className="truncate">
+                                                            {document.originalFileName ??
+                                                                "Uploaded document"}
+                                                        </span>
+                                                    </span>
+                                                    <span className="inline-flex shrink-0 items-center gap-3">
+                                                        <span className="font-normal text-slate-500">
+                                                            {formatFileSize(
+                                                                Number(
+                                                                    document.fileSizeBytes ??
+                                                                        0,
+                                                                ),
+                                                            )}
+                                                        </span>
+                                                        <button
+                                                            aria-label={`Delete ${
+                                                                document.originalFileName ??
+                                                                "uploaded document"
+                                                            }`}
+                                                            className="inline-flex items-center gap-1 rounded-md px-2 py-1 font-bold text-rose-700 transition hover:bg-rose-50 disabled:cursor-not-allowed disabled:opacity-50"
+                                                            disabled={
+                                                                isFormLocked ||
+                                                                deletingDocumentId ===
+                                                                    document.id
+                                                            }
+                                                            onClick={() =>
+                                                                deleteExistingDocument(
+                                                                    document,
+                                                                )
+                                                            }
+                                                            type="button"
+                                                        >
+                                                            <Trash2 size={14} />
+                                                            {deletingDocumentId ===
+                                                            document.id
+                                                                ? "Deleting..."
+                                                                : "Delete"}
+                                                        </button>
+                                                    </span>
+                                                </li>
+                                            ),
+                                        )}
+                                    </ul>
+                                )}
                         </div>
 
                         <label className="text-sm font-bold text-slate-700">

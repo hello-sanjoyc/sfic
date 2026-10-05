@@ -888,6 +888,41 @@ async function getParticipantProfile(client: PoolClient, email: string) {
     return result.rows[0] ?? null;
 }
 
+async function completeMissingParticipantBasics(
+    client: PoolClient,
+    applicant: ParticipantProfileRow,
+    input: Pick<SubmitParticipantApplicationInput, "dateOfBirth" | "gender">,
+) {
+    const shouldSetDateOfBirth = !applicant.date_of_birth && input.dateOfBirth;
+    const shouldSetGender = !applicant.gender && input.gender;
+
+    if (!shouldSetDateOfBirth && !shouldSetGender) return applicant;
+
+    const result = await client.query<{
+        date_of_birth: Date | string | null;
+        gender: string | null;
+    }>(
+        `
+      UPDATE public.participants
+      SET
+        date_of_birth = COALESCE(date_of_birth, $2::date),
+        gender = COALESCE(NULLIF(gender, ''), NULLIF($3, ''))
+      WHERE id = $1
+      RETURNING date_of_birth, gender
+    `,
+        [applicant.id, input.dateOfBirth ?? null, input.gender ?? null],
+    );
+    const updated = result.rows[0];
+
+    return updated
+        ? {
+              ...applicant,
+              date_of_birth: updated.date_of_birth,
+              gender: updated.gender,
+          }
+        : applicant;
+}
+
 async function getState(client: PoolClient, stateId: number) {
     const result = await client.query<StateRow>(
         `
@@ -1298,6 +1333,11 @@ async function submitApplication(
             );
         }
 
+        applicant = await completeMissingParticipantBasics(client, applicant, {
+            dateOfBirth: input.dateOfBirth,
+            gender: input.gender,
+        });
+
         if (
             !isYearOfPassingAtLeast12YearsAfterDateOfBirth({
                 dateOfBirth: applicant.date_of_birth,
@@ -1606,6 +1646,11 @@ async function updateApplicationSubmission(
                 403,
             );
         }
+
+        applicant = await completeMissingParticipantBasics(client, applicant, {
+            dateOfBirth: input.dateOfBirth,
+            gender: input.gender,
+        });
 
         if (
             !isYearOfPassingAtLeast12YearsAfterDateOfBirth({
