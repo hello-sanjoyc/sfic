@@ -17,6 +17,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { AdminShell } from "@/components/admin/common/admin-shell";
+import { AUTH_STORAGE_KEY } from "@/components/auth";
 import { apiClient } from "@/lib/api-client";
 import { appConfig } from "@/lib/app-config";
 import { endpoints } from "@/lib/endpoints";
@@ -163,16 +164,44 @@ function formatDashValue(value: unknown) {
   return String(value);
 }
 
-function documentDownloadUrl(
-  applicationId: string | number | null | undefined,
-  documentId: string | number | null | undefined,
-) {
-  if (!applicationId || !documentId) return "";
+function getAdminAuthorizationHeader() {
+  if (typeof window === "undefined") return "";
 
-  return `${appConfig.apiUrl}${endpoints.admin.applicationDocumentDownload(
-    applicationId,
-    documentId,
-  )}`;
+  try {
+    const session = JSON.parse(localStorage.getItem(AUTH_STORAGE_KEY) ?? "{}") as {
+      actor?: string;
+      session?: { token?: string };
+    };
+    const token = session.actor === "admin" ? session.session?.token : undefined;
+    return token ? `Bearer ${token}` : "";
+  } catch {
+    return "";
+  }
+}
+
+async function getDownloadErrorMessage(response: Response, fallback: string) {
+  try {
+    const body = (await response.json()) as {
+      error?: { message?: string };
+      message?: string;
+    };
+
+    return body.error?.message ?? body.message ?? fallback;
+  } catch {
+    return fallback;
+  }
+}
+
+function triggerDownload(blob: Blob, filename: string) {
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+
+  link.href = url;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
 }
 
 function Field({
@@ -219,9 +248,14 @@ export function AdminApplicationDetailsPage({
 }>) {
   const router = useRouter();
   const [application, setApplication] = useState<ApplicationDetails | null>(null);
+  const [documentDownloadingId, setDocumentDownloadingId] = useState<
+    number | string | null
+  >(null);
+  const [downloadError, setDownloadError] = useState("");
   const [errorMessage, setErrorMessage] = useState("");
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [isDownloading, setIsDownloading] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
@@ -257,6 +291,107 @@ export function AdminApplicationDetailsPage({
   const title =
     application?.applicationNumber ??
     (isLoading ? "Application Details" : "Application Not Found");
+
+  const downloadApplication = async () => {
+    if (!application || isDownloading) return;
+
+    const authorization = getAdminAuthorizationHeader();
+
+    if (!authorization) {
+      setDownloadError("A valid admin session is required.");
+      return;
+    }
+
+    setDownloadError("");
+    setIsDownloading(true);
+
+    try {
+      const response = await fetch(
+        `${appConfig.apiUrl}${endpoints.admin.applicationDownload(applicationId)}`,
+        {
+          headers: {
+            Authorization: authorization,
+          },
+        },
+      );
+
+      if (!response.ok) {
+        throw new Error(
+          await getDownloadErrorMessage(
+            response,
+            "Application PDF could not be downloaded.",
+          ),
+        );
+      }
+
+      const blob = await response.blob();
+      triggerDownload(
+        blob,
+        `${application.applicationNumber ?? "application"}.pdf`,
+      );
+    } catch (error) {
+      setDownloadError(
+        error instanceof Error
+          ? error.message
+          : "Application PDF could not be downloaded.",
+      );
+    } finally {
+      setIsDownloading(false);
+    }
+  };
+
+  const downloadDocument = async (
+    fileDocument: NonNullable<ApplicationDetails["documents"]>[number],
+  ) => {
+    if (
+      !application?.id ||
+      !fileDocument.id ||
+      documentDownloadingId !== null
+    ) {
+      return;
+    }
+
+    const authorization = getAdminAuthorizationHeader();
+
+    if (!authorization) {
+      setDownloadError("A valid admin session is required.");
+      return;
+    }
+
+    setDownloadError("");
+    setDocumentDownloadingId(fileDocument.id);
+
+    try {
+      const response = await fetch(
+        `${appConfig.apiUrl}${endpoints.admin.applicationDocumentDownload(
+          application.id,
+          fileDocument.id,
+        )}`,
+        {
+          headers: {
+            Authorization: authorization,
+          },
+        },
+      );
+
+      if (!response.ok) {
+        throw new Error(
+          await getDownloadErrorMessage(response, "Document could not be downloaded."),
+        );
+      }
+
+      const blob = await response.blob();
+      triggerDownload(blob, String(fileDocument.originalFileName ?? "document"));
+    } catch (error) {
+      setDownloadError(
+        error instanceof Error
+          ? error.message
+          : "Document could not be downloaded.",
+      );
+    } finally {
+      setDocumentDownloadingId(null);
+    }
+  };
 
   const deleteApplication = () => {
     if (!application || isDeleting) return;
@@ -294,13 +429,15 @@ export function AdminApplicationDetailsPage({
         </Link>
         <div className="flex flex-wrap items-center gap-2">
           {application ? (
-            <a
-              className="inline-flex h-11 items-center gap-2 rounded-lg bg-blue-600 px-4 text-sm font-bold text-white"
-              href={`${appConfig.apiUrl}${endpoints.admin.applicationDownload(applicationId)}`}
+            <button
+              className="inline-flex h-11 items-center gap-2 rounded-lg bg-blue-600 px-4 text-sm font-bold text-white disabled:cursor-not-allowed disabled:opacity-60"
+              disabled={isDownloading}
+              onClick={downloadApplication}
+              type="button"
             >
               <Download size={17} />
-              Download Application
-            </a>
+              {isDownloading ? "Downloading..." : "Download Application"}
+            </button>
           ) : (
             <button
               className="inline-flex h-11 items-center gap-2 rounded-lg bg-blue-600 px-4 text-sm font-bold text-white opacity-50"
@@ -313,6 +450,12 @@ export function AdminApplicationDetailsPage({
           )}
         </div>
       </div>
+
+      {downloadError && (
+        <section className="rounded-lg border border-rose-200 bg-white p-4 text-sm font-semibold text-rose-600 shadow-sm">
+          {downloadError}
+        </section>
+      )}
 
       {isLoading && (
         <section className="rounded-lg border border-slate-200 bg-white p-8 text-center text-sm font-semibold text-slate-500 shadow-sm">
@@ -513,14 +656,17 @@ export function AdminApplicationDetailsPage({
                   key={String(document.id ?? document.storageKey)}
                 >
                   <div className="min-w-0">
-                    {documentDownloadUrl(application.id, document.id) ? (
-                      <a
-                        className="break-words text-sm font-normal text-blue-600 hover:underline"
-                        download
-                        href={documentDownloadUrl(application.id, document.id)}
+                    {application.id && document.id ? (
+                      <button
+                        className="break-words text-left text-sm font-normal text-blue-600 hover:underline disabled:cursor-not-allowed disabled:opacity-60"
+                        disabled={documentDownloadingId !== null}
+                        onClick={() => downloadDocument(document)}
+                        type="button"
                       >
-                        {formatValue(document.originalFileName)}
-                      </a>
+                        {documentDownloadingId === document.id
+                          ? "Downloading..."
+                          : formatValue(document.originalFileName)}
+                      </button>
                     ) : (
                       <p className="break-words text-sm font-normal">
                         {formatValue(document.originalFileName)}
