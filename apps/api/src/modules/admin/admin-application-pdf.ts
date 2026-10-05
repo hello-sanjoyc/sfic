@@ -112,19 +112,20 @@ function formatFileSize(value: unknown) {
 
 function wrapText(value: string, maxWidth: number, fontSize: number) {
     const averageCharacterWidth = fontSize * 0.52;
-    const maxCharacters = Math.max(8, Math.floor(maxWidth / averageCharacterWidth));
-    const words = value
-        .split(/\s+/)
-        .flatMap((word) => {
-            if (word.length <= maxCharacters) return [word];
+    const maxCharacters = Math.max(
+        8,
+        Math.floor(maxWidth / averageCharacterWidth),
+    );
+    const words = value.split(/\s+/).flatMap((word) => {
+        if (word.length <= maxCharacters) return [word];
 
-            const parts: string[] = [];
-            for (let index = 0; index < word.length; index += maxCharacters) {
-                parts.push(word.slice(index, index + maxCharacters));
-            }
+        const parts: string[] = [];
+        for (let index = 0; index < word.length; index += maxCharacters) {
+            parts.push(word.slice(index, index + maxCharacters));
+        }
 
-            return parts;
-        });
+        return parts;
+    });
     const lines: string[] = [];
     let line = "";
 
@@ -244,17 +245,19 @@ class PdfBuilder {
         this.centeredText({
             font: "F2",
             size: 15,
-            text: "Sewa First Innovation Challenge",
+            text: "Seva First Innovation Challenge",
             y: pageHeight - 46,
         });
         this.centeredText({
             font: "F1",
             size: 10,
-            text: "Under Sewa Sankalp Abhiyan",
+            text: "Under Seva Sankalp Abhiyan",
             y: pageHeight - 62,
         });
         this.setStroke(border);
-        this.operations.push(`${margin} ${pageHeight - 78} m ${pageWidth - margin} ${pageHeight - 78} l S`);
+        this.operations.push(
+            `${margin} ${pageHeight - 78} m ${pageWidth - margin} ${pageHeight - 78} l S`,
+        );
 
         this.setFill(muted);
         this.rightAlignedText({
@@ -335,15 +338,17 @@ class PdfBuilder {
         x: number;
         y: number;
     }) {
-        wrapText(input.text, input.maxWidth, input.size).forEach((line, index) => {
-            this.text({
-                font: input.font,
-                size: input.size,
-                text: line,
-                x: input.x,
-                y: input.y - index * (input.size + 3),
-            });
-        });
+        wrapText(input.text, input.maxWidth, input.size).forEach(
+            (line, index) => {
+                this.text({
+                    font: input.font,
+                    size: input.size,
+                    text: line,
+                    x: input.x,
+                    y: input.y - index * (input.size + 3),
+                });
+            },
+        );
     }
 
     summaryCard(input: {
@@ -411,12 +416,48 @@ class PdfBuilder {
         const rightLabelX = pageWidth - margin - 170;
         const rightValueX = rightLabelX + 104;
         this.setFill(navy);
-        this.text({ font: "F2", size: 9, text: "Participant Type:", x: rightLabelX, y: this.y - 22 });
-        this.text({ font: "F2", size: 9, text: "Submitted:", x: rightLabelX, y: this.y - 42 });
-        this.text({ font: "F2", size: 9, text: "Updated:", x: rightLabelX, y: this.y - 62 });
-        this.text({ font: "F1", size: 9, text: input.participationMode, x: rightValueX, y: this.y - 22 });
-        this.text({ font: "F1", size: 9, text: input.submittedAt, x: rightValueX, y: this.y - 42 });
-        this.text({ font: "F1", size: 9, text: input.updatedAt, x: rightValueX, y: this.y - 62 });
+        this.text({
+            font: "F2",
+            size: 9,
+            text: "Participant Type:",
+            x: rightLabelX,
+            y: this.y - 22,
+        });
+        this.text({
+            font: "F2",
+            size: 9,
+            text: "Submitted:",
+            x: rightLabelX,
+            y: this.y - 42,
+        });
+        this.text({
+            font: "F2",
+            size: 9,
+            text: "Updated:",
+            x: rightLabelX,
+            y: this.y - 62,
+        });
+        this.text({
+            font: "F1",
+            size: 9,
+            text: input.participationMode,
+            x: rightValueX,
+            y: this.y - 22,
+        });
+        this.text({
+            font: "F1",
+            size: 9,
+            text: input.submittedAt,
+            x: rightValueX,
+            y: this.y - 42,
+        });
+        this.text({
+            font: "F1",
+            size: 9,
+            text: input.updatedAt,
+            x: rightValueX,
+            y: this.y - 62,
+        });
 
         this.y -= cardHeight + 16;
     }
@@ -453,7 +494,10 @@ class PdfBuilder {
     }
 
     private drawRow(labelLines: string[], valueLines: string[]) {
-        const height = Math.max(rowHeight, Math.max(labelLines.length, valueLines.length) * 12 + 14);
+        const height = Math.max(
+            rowHeight,
+            Math.max(labelLines.length, valueLines.length) * 12 + 14,
+        );
         const top = this.y;
         const bottom = top - height;
 
@@ -501,7 +545,11 @@ class PdfBuilder {
         this.beginTableSegment(title);
 
         rows.forEach(([label, value]) => {
-            let labelLines = wrapText(label.toUpperCase(), labelWidth - 20, 8.5);
+            let labelLines = wrapText(
+                label.toUpperCase(),
+                labelWidth - 20,
+                8.5,
+            );
             let valueLines = wrapMultilineText(
                 normalizeMultilineText(value),
                 contentWidth - labelWidth - 24,
@@ -524,8 +572,14 @@ class PdfBuilder {
                     valueLines.length,
                     1,
                 );
-                const lineCount = Math.max(1, Math.min(availableLines, requestedLines));
-                const projectedHeight = Math.max(rowHeight, lineCount * 12 + 14);
+                const lineCount = Math.max(
+                    1,
+                    Math.min(availableLines, requestedLines),
+                );
+                const projectedHeight = Math.max(
+                    rowHeight,
+                    lineCount * 12 + 14,
+                );
 
                 if (this.y - projectedHeight < margin) {
                     this.pageBreak();
@@ -567,7 +621,9 @@ class PdfBuilder {
             objects.push(
                 `<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${pageWidth} ${pageHeight}] /Resources << /Font << /F1 << /Type /Font /Subtype /Type1 /BaseFont /Helvetica >> /F2 << /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold >> >> >> /Contents ${contentObjectId} 0 R >>`,
             );
-            objects.push(`<< /Length ${Buffer.byteLength(decoratedContent)} >>\nstream\n${decoratedContent}\nendstream`);
+            objects.push(
+                `<< /Length ${Buffer.byteLength(decoratedContent)} >>\nstream\n${decoratedContent}\nendstream`,
+            );
         });
 
         let pdf = "%PDF-1.4\n";
@@ -590,11 +646,15 @@ class PdfBuilder {
 export function generateApplicationPdf(application: ApplicationPdfDetails) {
     const pdf = new PdfBuilder();
     const applicationNumber = normalizeText(application.applicationNumber);
-    const challengeCategory = localizedName(application.challengeCategory?.name);
+    const challengeCategory = localizedName(
+        application.challengeCategory?.name,
+    );
     const participationMode = normalizeText(application.participationMode);
     const status = formatStatus(application.status);
     const submittedAt = formatDate(application.submittedAt);
-    const updatedAt = formatDate(application.updatedAt ?? application.createdAt);
+    const updatedAt = formatDate(
+        application.updatedAt ?? application.createdAt,
+    );
 
     pdf.summaryCard({
         applicationNumber,
@@ -618,7 +678,10 @@ export function generateApplicationPdf(application: ApplicationPdfDetails) {
         ["Full Name", application.participant?.fullName],
         ["Email", application.participant?.email],
         ["Mobile", application.participant?.mobile],
-        ["Participant Category", localizedName(application.participantCategory?.name)],
+        [
+            "Participant Category",
+            localizedName(application.participantCategory?.name),
+        ],
         ["Date of Birth", formatDate(application.participant?.dateOfBirth)],
         ["Gender", application.participant?.gender],
     ]);
@@ -669,7 +732,10 @@ export function generateApplicationPdf(application: ApplicationPdfDetails) {
         member.isApplicant ? "Team Lead" : "Team Member",
         `${normalizeText(member.fullName)} | ${normalizeText(member.email)} | ${normalizeText(member.mobile)}`,
     ]) satisfies Array<[string, unknown]>;
-    pdf.table("Team Members", teamRows.length ? teamRows : [["Team Members", "-"]]);
+    pdf.table(
+        "Team Members",
+        teamRows.length ? teamRows : [["Team Members", "-"]],
+    );
 
     const documentLines = (application.documents ?? []).map(
         (document) =>
@@ -677,7 +743,10 @@ export function generateApplicationPdf(application: ApplicationPdfDetails) {
     );
     pdf.table("Supporting Documents", [
         ["Video URL", application.proposal?.videoUrl],
-        ["Supporting Documents", documentLines.length ? documentLines.join("\n") : "-"],
+        [
+            "Supporting Documents",
+            documentLines.length ? documentLines.join("\n") : "-",
+        ],
     ]);
 
     return pdf.finish();

@@ -1,11 +1,36 @@
 export type AdminLanguage = "bn" | "en" | "hi";
 
 export type AdminUser = {
+  analyticsAccess: string;
+  applicationsAccess: string;
+  districtId: number | null;
   email: string;
   id: number;
   mobile: string;
   name: string;
   role: string;
+  scope: string;
+  settingsAccess: string;
+  stateId: number | null;
+  usersAccess: string;
+};
+
+export type AdminAccessModule =
+  | "analytics"
+  | "applications"
+  | "settings"
+  | "users";
+
+export type AdminAccessContext = {
+  applicationsAccess: string;
+  analyticsAccess: string;
+  districtId: number | null;
+  role: string;
+  scope: string;
+  settingsAccess: string;
+  stateId: number | null;
+  userId: number;
+  usersAccess: string;
 };
 
 export type RequestAdminLoginCodeInput = {
@@ -45,6 +70,8 @@ export type AdminManagedUser = {
   isActive: boolean;
   mobile: string;
   role: string;
+  districtId: number | null;
+  stateId: number | null;
   updatedAt: string;
 };
 
@@ -59,11 +86,15 @@ export type AdminManagedUsersResult = {
 };
 
 export type UpsertAdminManagedUserInput = {
+  districtId?: unknown;
+  district_id?: unknown;
   email?: unknown;
   fullName?: unknown;
   isActive?: unknown;
   mobile?: unknown;
   role?: unknown;
+  stateId?: unknown;
+  state_id?: unknown;
 };
 
 export type AdminSettingsNamedItem = {
@@ -119,6 +150,21 @@ export type AdminSettingsConfiguration = {
   value: string;
 };
 
+export type AdminRbacRule = {
+  analyticsAccess: string;
+  applicationsAccess: string;
+  createdAt: string;
+  description: string;
+  id: number;
+  isActive: boolean;
+  role: string;
+  scope: string;
+  scopeNotes: string[];
+  settingsAccess: string;
+  updatedAt: string;
+  usersAccess: string;
+};
+
 export type UpsertAdminSettingsItemInput = Record<string, unknown>;
 
 export type AdminDashboardCountCard = {
@@ -126,9 +172,11 @@ export type AdminDashboardCountCard = {
   detail: string;
   key:
     | "bihar"
+    | "districtApplications"
     | "jharkhand"
     | "junior"
     | "open"
+    | "stateApplications"
     | "single"
     | "team"
     | "totalApplications"
@@ -159,13 +207,28 @@ export type AdminDashboardOrganisationTypeCountsResult = {
   cards: AdminDashboardOrganisationTypeCountCard[];
 };
 
+export type AdminDashboardDistrictCountRow = {
+  count: number;
+  districtId: number;
+  districtName: string;
+  stateId: number;
+  stateName: string;
+};
+
+export type AdminDashboardDistrictCountsResult = {
+  rows: AdminDashboardDistrictCountRow[];
+};
+
 export type AdminDashboardChallengeCategoryCountCard = {
   biharCount: number;
   count: number;
   detail: "Challenge Category";
+  districtCount?: number;
   jharkhandCount: number;
   key: string;
   label: string;
+  regionCount?: number;
+  stateCount?: number;
   stateCounts: {
     bihar: number;
     jharkhand: number;

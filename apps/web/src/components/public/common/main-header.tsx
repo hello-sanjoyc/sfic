@@ -65,9 +65,10 @@ export function MainHeader() {
             <nav className="flex items-center justify-end gap-4 text-[15px] font-semibold text-slate-700">
               {nav.map(([label, part]) => <Link className="border-b-2 border-transparent py-2 transition hover:border-[#ff9933] hover:text-[#000080]" href={href(part)} key={label} onClick={handleNavClick(part)}>{label}</Link>)}
             </nav>
+            <Link className="rounded-full border border-[#ff9933] px-4 py-2 text-[15px] font-bold text-[#0b1f3a] transition hover:bg-[#fff3e6] hover:text-[#000080]" href={actionHref("/login")}>{content.common.login}</Link>
             <Link className="rounded-full bg-[#ff9933] px-4 py-2.5 text-base font-extrabold text-[#071426] transition hover:bg-[#f08a24]" href={actionHref("/register")}>{content.common.applyNow}</Link>
           </div>
-          <div className="ml-auto hidden items-center gap-3 md:flex xl:hidden"><Link className="rounded-full bg-[#ff9933] px-4 py-2.5 text-base font-extrabold text-[#071426] transition hover:bg-[#f08a24]" href={actionHref("/register")}>{content.common.applyNow}</Link></div>
+          <div className="ml-auto hidden items-center gap-3 md:flex xl:hidden"><Link className="rounded-full border border-[#ff9933] px-4 py-2 text-[15px] font-bold text-[#0b1f3a] transition hover:bg-[#fff3e6] hover:text-[#000080]" href={actionHref("/login")}>{content.common.login}</Link><Link className="rounded-full bg-[#ff9933] px-4 py-2.5 text-base font-extrabold text-[#071426] transition hover:bg-[#f08a24]" href={actionHref("/register")}>{content.common.applyNow}</Link></div>
           <button className="rounded-full p-2 text-[#071426] xl:hidden" aria-label="Open navigation" onClick={() => setOpen(true)}><Menu size={26} /></button>
         </div>
       </header>
@@ -96,6 +97,7 @@ export function MainHeader() {
             ))}
           </nav>
           <div className="border-t border-slate-200 bg-white px-4 py-4">
+            <Link className="mb-3 block rounded-full border border-[#ff9933] px-4 py-3 text-center text-base font-extrabold text-[#071426] transition hover:bg-[#fff3e6] hover:text-[#000080]" href={actionHref("/login")} onClick={() => setOpen(false)}>{content.common.login}</Link>
             <Link className="block rounded-full bg-[#ff9933] px-4 py-3 text-center text-base font-extrabold text-[#071426] transition hover:bg-[#f08a24]" href={actionHref("/register")} onClick={() => setOpen(false)}>{content.common.applyNow}</Link>
           </div>
         </div>

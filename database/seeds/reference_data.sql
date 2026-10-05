@@ -320,10 +320,105 @@ SELECT setval('public.challenges_id_seq', GREATEST((SELECT MAX(id) FROM public.c
 
 -- user_roles ------------------------------------------------------------
 
-INSERT INTO public.user_roles (role) VALUES ('SUPERADMIN') ON CONFLICT (role) DO NOTHING;
-INSERT INTO public.user_roles (role) VALUES ('ADMIN') ON CONFLICT (role) DO NOTHING;
-INSERT INTO public.user_roles (role) VALUES ('JURY') ON CONFLICT (role) DO NOTHING;
-INSERT INTO public.user_roles (role) VALUES ('HELPDESK') ON CONFLICT (role) DO NOTHING;
+INSERT INTO public.user_roles (role, is_active)
+VALUES
+    ('SUPERADMIN', TRUE),
+    ('ADMIN_REGION', TRUE),
+    ('ADMIN_STATE', TRUE),
+    ('ADMIN_DISTRICT', TRUE),
+    ('ADMIN', FALSE),
+    ('JURY_STATE', FALSE),
+    ('JURY_DISTRICT', FALSE),
+    ('HELPDESK', FALSE)
+ON CONFLICT (role) DO UPDATE
+SET is_active = EXCLUDED.is_active;
+
+-- rbac_rules ------------------------------------------------------------
+
+INSERT INTO public.rbac_rules (
+    role,
+    scope,
+    description,
+    applications_access,
+    users_access,
+    settings_access,
+    analytics_access,
+    scope_notes
+)
+VALUES
+(
+    'SUPERADMIN',
+    'Application',
+    'Can do everything in the Admin Workspace.',
+    'Full Access',
+    'Full Access',
+    'Full Access',
+    'Full Access',
+    ARRAY['SUPERADMIN bypasses all scope filters.']
+),
+(
+    'ADMIN_REGION',
+    'Region',
+    'Can access data of the region which includes states of West Bengal, Bihar and Jharkhand.',
+    'Full Access',
+    'Full Access',
+    'View Only',
+    'Full Access',
+    ARRAY['ADMIN_REGION is limited to the Eastern Region states: West Bengal, Bihar and Jharkhand.']
+),
+(
+    'ADMIN_STATE',
+    'State',
+    'Can access data of the assigned state.',
+    'Full Access',
+    'Full Access',
+    'No Access',
+    'Full Access',
+    ARRAY['ADMIN_STATE requires one assigned state.']
+),
+(
+    'ADMIN_DISTRICT',
+    'District',
+    'Can access data of the assigned district of the state.',
+    'Full Access',
+    'View Only',
+    'No Access',
+    'Full Access',
+    ARRAY['ADMIN_DISTRICT requires one assigned state and one assigned district.']
+),
+(
+    'JURY_STATE',
+    'State',
+    'Can access applications which qualify for the state level evaluation of the assigned state.',
+    'Full Access',
+    'Full Access',
+    'Full Access',
+    'Full Access',
+    ARRAY['JURY_STATE can only view applications routed to state level evaluation for the assigned state.']
+),
+(
+    'JURY_DISTRICT',
+    'District',
+    'Can access applications for the district level evaluation of the assigned state and district.',
+    'Full Access',
+    'Full Access',
+    'Full Access',
+    'Full Access',
+    ARRAY['JURY_DISTRICT can only view applications routed to district level evaluation for the assigned state and district.']
+)
+ON CONFLICT (role) DO UPDATE
+SET
+    scope = EXCLUDED.scope,
+    description = EXCLUDED.description,
+    applications_access = EXCLUDED.applications_access,
+    users_access = EXCLUDED.users_access,
+    settings_access = EXCLUDED.settings_access,
+    analytics_access = EXCLUDED.analytics_access,
+    scope_notes = EXCLUDED.scope_notes,
+    is_active = TRUE,
+    updated_at = NOW();
+
+SELECT setval('public.rbac_rules_id_seq', GREATEST((SELECT MAX(id) FROM public.rbac_rules), 1));
 
 -- app_settings --------------------------------------------------
 

@@ -31,7 +31,23 @@ VALUES ('ADMIN')
 ON CONFLICT (role) DO NOTHING;
 
 INSERT INTO public.user_roles (role)
-VALUES ('JURY')
+VALUES ('ADMIN_REGION')
+ON CONFLICT (role) DO NOTHING;
+
+INSERT INTO public.user_roles (role)
+VALUES ('ADMIN_STATE')
+ON CONFLICT (role) DO NOTHING;
+
+INSERT INTO public.user_roles (role)
+VALUES ('ADMIN_DISTRICT')
+ON CONFLICT (role) DO NOTHING;
+
+INSERT INTO public.user_roles (role)
+VALUES ('JURY_STATE')
+ON CONFLICT (role) DO NOTHING;
+
+INSERT INTO public.user_roles (role)
+VALUES ('JURY_DISTRICT')
 ON CONFLICT (role) DO NOTHING;
 
 INSERT INTO public.user_roles (role)

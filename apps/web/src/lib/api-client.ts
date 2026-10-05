@@ -18,6 +18,8 @@ type ApiError = {
   message?: string;
 };
 
+const AUTH_STORAGE_KEY = "seva-first-innovation-challenge-session";
+
 export type ApiRequestOptions = Omit<RequestInit, "body"> & {
   baseUrl?: string;
   body?: BodyInit | Record<string, unknown> | null;
@@ -76,6 +78,39 @@ function getErrorMessage(body: unknown) {
   return "The request could not be completed.";
 }
 
+function isAdminEndpoint(endpoint: string) {
+  return endpoint.includes("/api/v1/admin/") || endpoint.startsWith("/admin/");
+}
+
+function isPublicAdminAuthEndpoint(endpoint: string) {
+  return (
+    endpoint.endsWith("/admin/login") ||
+    endpoint.endsWith("/admin/resend-login-code") ||
+    endpoint.endsWith("/admin/verify-login")
+  );
+}
+
+function getAdminAuthorizationHeader(endpoint: string) {
+  if (
+    typeof window === "undefined" ||
+    !isAdminEndpoint(endpoint) ||
+    isPublicAdminAuthEndpoint(endpoint)
+  ) {
+    return undefined;
+  }
+
+  try {
+    const session = JSON.parse(localStorage.getItem(AUTH_STORAGE_KEY) ?? "{}") as {
+      actor?: string;
+      session?: { token?: string };
+    };
+    const token = session.actor === "admin" ? session.session?.token : undefined;
+    return token ? `Bearer ${token}` : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
 const axiosClient = axios.create({
   withCredentials: true,
 });
@@ -87,9 +122,15 @@ export async function apiRequest<T>(
   const { baseUrl, body, headers, method, query, signal } = options;
 
   try {
+    const requestHeaders = headersToObject(headers) ?? {};
+    const authorization = getAdminAuthorizationHeader(endpoint);
+    if (authorization && !requestHeaders.Authorization && !requestHeaders.authorization) {
+      requestHeaders.Authorization = authorization;
+    }
+
     const response = await axiosClient.request({
       data: body,
-      headers: headersToObject(headers),
+      headers: requestHeaders,
       method,
       signal: signal ?? undefined,
       url: buildUrl(endpoint, query, baseUrl),

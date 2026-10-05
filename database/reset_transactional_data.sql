@@ -1,5 +1,5 @@
 --
--- Sewa First Innovation Challenge (SFIC) - Transactional Data Reset
+-- Seva First Innovation Challenge (SFIC) - Transactional Data Reset
 --
 -- Deletes ALL transactional / user-submitted data (participants,
 -- applications, team members, uploaded documents, form saves, and
@@ -28,6 +28,7 @@ TRUNCATE TABLE
     public.application_form_saves,
     public.participant_email_verification_tokens,
     public.participant_login_verification_tokens,
+    public.admin_sessions,
     public.user_login_verification_tokens,
     public.application_team_members,
     public.participant_applications,

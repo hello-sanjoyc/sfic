@@ -12,6 +12,12 @@ import { usePathname, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { getSiteContent } from "@/content";
 import { apiClient, endpoints } from "@/lib/api";
+import {
+    getAppSettings,
+    registrationAvailability,
+    settingsMap,
+    type AppSettingsMap,
+} from "@/lib/registration-settings";
 
 const steps = [
     "Registration",
@@ -1053,6 +1059,9 @@ export function RegistrationProcessForm({
     const [registrationSubmitError, setRegistrationSubmitError] = useState("");
     const [proposalSubmitError, setProposalSubmitError] = useState("");
     const [verificationMessage, setVerificationMessage] = useState("");
+    const [settings, setSettings] = useState<AppSettingsMap>({});
+    const [isSettingsLoading, setIsSettingsLoading] = useState(true);
+    const [settingsError, setSettingsError] = useState("");
     const [resendAvailableAt, setResendAvailableAt] = useState(0);
     const [currentTime, setCurrentTime] = useState(() => Date.now());
     const [stateOptions, setStateOptions] = useState<LookupOption[]>([]);
@@ -1148,9 +1157,16 @@ export function RegistrationProcessForm({
     const hasSubmittedRegistrationStep = Boolean(
         applicationId || participantId,
     );
+    const registrationStatus = useMemo(
+        () => registrationAvailability(settings),
+        [settings],
+    );
+    const registrationStatusMessage =
+        settingsError || registrationStatus.message;
     const resendRemainingMs = Math.max(resendAvailableAt - currentTime, 0);
     const isResendLocked = resendRemainingMs > 0;
     const canContinue =
+        registrationStatus.canRegister &&
         Object.keys(currentErrors).length === 0 &&
         (step !== 0 ||
             isEmailVerified ||
@@ -1161,6 +1177,35 @@ export function RegistrationProcessForm({
         !isSubmittingProposal;
     const hasReachedSupportingDocumentLimit =
         selectedSupportingDocuments.length >= maxSupportingDocuments;
+
+    useEffect(() => {
+        let isMounted = true;
+
+        setIsSettingsLoading(true);
+        setSettingsError("");
+
+        getAppSettings()
+            .then((result) => {
+                if (!isMounted) return;
+                setSettings(settingsMap(result));
+            })
+            .catch((error) => {
+                if (!isMounted) return;
+                setSettings({});
+                setSettingsError(
+                    error instanceof Error
+                        ? error.message
+                        : "Application settings could not be loaded.",
+                );
+            })
+            .finally(() => {
+                if (isMounted) setIsSettingsLoading(false);
+            });
+
+        return () => {
+            isMounted = false;
+        };
+    }, []);
 
     useEffect(() => {
         let isMounted = true;
@@ -1423,6 +1468,8 @@ export function RegistrationProcessForm({
     }, [hasRestoredForm, searchParams]);
 
     const openForm = () => {
+        if (isSettingsLoading || !registrationStatus.canRegister) return;
+
         setIsOpen(true);
         setTimeout(() => {
             formRef.current?.scrollIntoView({
@@ -1439,6 +1486,17 @@ export function RegistrationProcessForm({
                 block: "start",
             });
         });
+    };
+
+    const ensureRegistrationAvailable = (setError: (message: string) => void) => {
+        if (registrationStatus.canRegister) return true;
+
+        setError(
+            registrationStatus.message ||
+                "Participant registration is currently closed.",
+        );
+        scrollToFormTop();
+        return false;
     };
 
     const updateValue =
@@ -1593,6 +1651,8 @@ export function RegistrationProcessForm({
     };
 
     const submitRegistrationStep = async () => {
+        if (!ensureRegistrationAvailable(setRegistrationSubmitError)) return;
+
         if (hasSubmittedRegistrationStep) {
             setRegistrationSubmitError(
                 validationMessages.duplicateRegistration,
@@ -1652,6 +1712,8 @@ export function RegistrationProcessForm({
     };
 
     const verifyRegistrationCode = async () => {
+        if (!ensureRegistrationAvailable(setRegistrationSubmitError)) return;
+
         if (!applicationId) {
             setRegistrationSubmitError(content.registrationNotFound);
             return;
@@ -1690,6 +1752,8 @@ export function RegistrationProcessForm({
     };
 
     const submitProfileStep = async () => {
+        if (!ensureRegistrationAvailable(setRegistrationSubmitError)) return;
+
         if (!applicationId) {
             setRegistrationSubmitError(content.registrationNotFound);
             return;
@@ -1725,6 +1789,8 @@ export function RegistrationProcessForm({
     };
 
     const resendVerificationCode = async () => {
+        if (!ensureRegistrationAvailable(setRegistrationSubmitError)) return;
+
         if (!applicationId) {
             await submitRegistrationStep();
             return;
@@ -1770,6 +1836,8 @@ export function RegistrationProcessForm({
     };
 
     const submitProposalStep = async () => {
+        if (!ensureRegistrationAvailable(setProposalSubmitError)) return;
+
         if (!applicationId) {
             setProposalSubmitError(content.registrationNotFound);
             return;
@@ -1956,14 +2024,27 @@ export function RegistrationProcessForm({
     return (
         <div className={showStartButton ? "mt-8" : ""}>
             {showStartButton && (
-                <button
-                    className="inline-flex items-center rounded-md bg-[#ff9933] px-5 py-3 font-bold text-[#071426] transition hover:bg-[#f08a24]"
-                    onClick={openForm}
-                    type="button"
-                >
-                    {content.startRegistration}{" "}
-                    <ArrowRight className="ml-2" size={18} />
-                </button>
+                <>
+                    <button
+                        className="inline-flex items-center rounded-md bg-[#ff9933] px-5 py-3 font-bold text-[#071426] transition hover:bg-[#f08a24] disabled:cursor-not-allowed disabled:bg-slate-300 disabled:text-slate-600"
+                        disabled={
+                            isSettingsLoading ||
+                            !registrationStatus.canRegister
+                        }
+                        onClick={openForm}
+                        type="button"
+                    >
+                        {isSettingsLoading
+                            ? "Checking registration..."
+                            : content.startRegistration}{" "}
+                        <ArrowRight className="ml-2" size={18} />
+                    </button>
+                    {!isSettingsLoading && registrationStatusMessage ? (
+                        <p className="mt-3 rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-medium text-slate-700">
+                            {registrationStatusMessage}
+                        </p>
+                    ) : null}
+                </>
             )}
 
             {isOpen && (
@@ -1972,6 +2053,24 @@ export function RegistrationProcessForm({
                     className={`${showStartButton ? "mt-8 " : ""}rounded-xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6`}
                     ref={formRef}
                 >
+                    {isSettingsLoading ||
+                    settingsError ||
+                    !registrationStatus.canRegister ? (
+                        <div className="rounded-lg border border-amber-200 bg-amber-50 p-5">
+                            <h2
+                                className="text-xl font-bold text-[#0b1f3a]"
+                                id="registration-form-title"
+                            >
+                                Registration Status
+                            </h2>
+                            <p className="mt-2 leading-7 text-slate-700">
+                                {isSettingsLoading
+                                    ? "Checking registration availability. Please wait."
+                                    : registrationStatusMessage}
+                            </p>
+                        </div>
+                    ) : (
+                        <>
                     <div className="flex flex-col gap-4 border-b border-slate-200 pb-5 md:flex-row md:flex-wrap md:items-start md:justify-between">
                         <div>
                             <p className="text-xs font-bold uppercase tracking-wider text-[#138808]">
@@ -3162,6 +3261,8 @@ export function RegistrationProcessForm({
                                 {applicationNumber}
                             </p>
                         </div>
+                    )}
+                        </>
                     )}
                 </section>
             )}

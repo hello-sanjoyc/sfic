@@ -1,6 +1,6 @@
 import type { Locale } from "@/i18n/locales";
 
-const defaultStartDate = "2026-09-17";
+const defaultStartDate = "2026-09-19";
 const defaultEndDate = "2026-10-30";
 
 const localeMap: Record<Locale, string> = {

@@ -5,9 +5,11 @@ import {
   LineChart,
   Home,
   LogOut,
+  Menu,
   Settings,
   ShieldCheck,
   Users,
+  X,
 } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
@@ -18,9 +20,14 @@ import { AUTH_STORAGE_KEY } from "@/components/auth";
 type AdminSession = {
   actor?: string;
   admin?: {
+    analyticsAccess?: string;
+    applicationsAccess?: string;
     email?: string;
     name?: string;
     role?: string;
+    scope?: string;
+    settingsAccess?: string;
+    usersAccess?: string;
   };
   session?: {
     token?: string;
@@ -28,9 +35,14 @@ type AdminSession = {
 };
 
 const defaultAdmin = {
+  analyticsAccess: "Full Access",
+  applicationsAccess: "Full Access",
   email: "sany.chowdhury@gmail.com",
   name: "Sanjoy Chowdhury",
   role: "SUPERADMIN",
+  scope: "Application",
+  settingsAccess: "Full Access",
+  usersAccess: "Full Access",
 };
 
 const navItems = [
@@ -40,6 +52,54 @@ const navItems = [
   ["Page Views", LineChart, "/admin/analytics"],
   ["Settings", Settings, "/admin/settings"],
 ] as const;
+
+function adminRoleLabel(role: string) {
+  if (role === "SUPERADMIN") return "Super Admin";
+  if (role === "ADMIN_REGION") return "Region Admin";
+  if (role === "ADMIN_STATE") return "State Admin";
+  if (role === "ADMIN_DISTRICT") return "District Admin";
+  return role;
+}
+
+function defaultAccessForRole(role: string) {
+  if (role === "ADMIN_REGION") {
+    return {
+      analyticsAccess: "Full Access",
+      applicationsAccess: "Full Access",
+      settingsAccess: "View Only",
+      usersAccess: "Full Access",
+    };
+  }
+
+  if (role === "ADMIN_STATE") {
+    return {
+      analyticsAccess: "Full Access",
+      applicationsAccess: "Full Access",
+      settingsAccess: "No Access",
+      usersAccess: "Full Access",
+    };
+  }
+
+  if (role === "ADMIN_DISTRICT") {
+    return {
+      analyticsAccess: "Full Access",
+      applicationsAccess: "Full Access",
+      settingsAccess: "No Access",
+      usersAccess: "View Only",
+    };
+  }
+
+  return {
+    analyticsAccess: "Full Access",
+    applicationsAccess: "Full Access",
+    settingsAccess: "Full Access",
+    usersAccess: "Full Access",
+  };
+}
+
+function hasAccess(value?: string) {
+  return value?.trim().toLowerCase() !== "no access";
+}
 
 function parseSession(value: string | null): AdminSession | null {
   if (!value) return null;
@@ -81,6 +141,7 @@ export function AdminShell({
   const router = useRouter();
   const [admin, setAdmin] = useState(defaultAdmin);
   const [isSessionChecked, setIsSessionChecked] = useState(false);
+  const [isNavOpen, setIsNavOpen] = useState(false);
 
   useEffect(() => {
     const session = parseSession(localStorage.getItem(AUTH_STORAGE_KEY));
@@ -92,9 +153,24 @@ export function AdminShell({
     }
 
     setAdmin({
+      ...defaultAdmin,
+      ...defaultAccessForRole(session?.admin?.role ?? defaultAdmin.role),
       email: session?.admin?.email ?? defaultAdmin.email,
       name: session?.admin?.name ?? defaultAdmin.name,
       role: session?.admin?.role ?? defaultAdmin.role,
+      analyticsAccess:
+        session?.admin?.analyticsAccess ??
+        defaultAccessForRole(session?.admin?.role ?? defaultAdmin.role).analyticsAccess,
+      applicationsAccess:
+        session?.admin?.applicationsAccess ??
+        defaultAccessForRole(session?.admin?.role ?? defaultAdmin.role).applicationsAccess,
+      scope: session?.admin?.scope ?? defaultAdmin.scope,
+      settingsAccess:
+        session?.admin?.settingsAccess ??
+        defaultAccessForRole(session?.admin?.role ?? defaultAdmin.role).settingsAccess,
+      usersAccess:
+        session?.admin?.usersAccess ??
+        defaultAccessForRole(session?.admin?.role ?? defaultAdmin.role).usersAccess,
     });
     setIsSessionChecked(true);
   }, [router]);
@@ -102,9 +178,24 @@ export function AdminShell({
   const logout = () => {
     localStorage.removeItem(AUTH_STORAGE_KEY);
     sessionStorage.removeItem(AUTH_STORAGE_KEY);
+    setIsNavOpen(false);
     router.replace("/en/admin/login");
     router.refresh();
   };
+
+  useEffect(() => {
+    setIsNavOpen(false);
+  }, [pathname]);
+
+  const visibleNavItems = navItems.filter(([label]) => {
+    if (label === "Applications") return hasAccess(admin.applicationsAccess);
+    if (label === "Users") return hasAccess(admin.usersAccess);
+    if (label === "Page Views") {
+      return admin.role === "SUPERADMIN" || admin.role === "ADMIN_REGION";
+    }
+    if (label === "Settings") return hasAccess(admin.settingsAccess);
+    return true;
+  });
 
   if (!isSessionChecked) {
     return (
@@ -135,7 +226,7 @@ export function AdminShell({
           </div>
 
           <nav className="grid gap-2 px-3">
-            {navItems.map(([label, Icon, href]) => {
+            {visibleNavItems.map(([label, Icon, href]) => {
               const active =
                 pathname === href ||
                 (href !== "/admin/dashboard" && pathname.startsWith(href));
@@ -168,9 +259,86 @@ export function AdminShell({
           <div className="mt-auto" />
         </aside>
 
+        {isNavOpen && (
+          <div className="fixed inset-0 z-50 lg:hidden">
+            <button
+              aria-label="Close navigation"
+              className="absolute inset-0 bg-slate-950/45"
+              onClick={() => setIsNavOpen(false)}
+              type="button"
+            />
+            <aside className="relative flex h-full w-[min(20rem,86vw)] flex-col overflow-y-auto bg-[#08213c] text-white shadow-2xl">
+              <div className="flex items-center justify-between gap-3 p-5">
+                <div className="flex min-w-0 items-center gap-3">
+                  <Image
+                    alt="Seva First Innovation Challenge"
+                    className="size-11 rounded-md bg-white object-contain p-1"
+                    height={48}
+                    src="/images/logo.webp"
+                    width={48}
+                  />
+                  <div className="min-w-0">
+                    <p className="text-xl font-black leading-none">SFIC</p>
+                    <p className="mt-1 text-xs font-semibold text-blue-100">
+                      Admin Workspace
+                    </p>
+                  </div>
+                </div>
+                <button
+                  aria-label="Close navigation"
+                  className="grid size-10 place-items-center rounded-lg text-blue-100 hover:bg-white/10"
+                  onClick={() => setIsNavOpen(false)}
+                  type="button"
+                >
+                  <X size={22} />
+                </button>
+              </div>
+
+              <nav className="grid gap-2 px-3">
+                {visibleNavItems.map(([label, Icon, href]) => {
+                  const active =
+                    pathname === href ||
+                    (href !== "/admin/dashboard" && pathname.startsWith(href));
+
+                  return (
+                    <Link
+                      className={`flex min-h-12 items-center gap-4 rounded-lg px-5 py-3 text-left text-sm font-semibold transition ${
+                        active
+                          ? "bg-blue-600 text-white shadow-lg shadow-blue-950/30"
+                          : "text-blue-100 hover:bg-white/10"
+                      }`}
+                      href={href}
+                      key={label}
+                    >
+                      <Icon size={21} />
+                      <span>{label}</span>
+                    </Link>
+                  );
+                })}
+                <button
+                  className="flex min-h-12 items-center gap-4 rounded-lg px-5 py-3 text-left text-sm font-semibold text-blue-100 transition hover:bg-white/10"
+                  onClick={logout}
+                  type="button"
+                >
+                  <LogOut size={21} />
+                  <span>Logout</span>
+                </button>
+              </nav>
+            </aside>
+          </div>
+        )}
+
         <main className="min-w-0">
           <header className="sticky top-0 z-20 border-b border-slate-200 bg-white px-5 py-4 md:px-10">
             <div className="flex min-h-16 items-center gap-4">
+              <button
+                aria-label="Open navigation"
+                className="grid size-11 shrink-0 place-items-center rounded-lg border border-slate-200 text-[#0b1f3a] hover:bg-slate-50 lg:hidden"
+                onClick={() => setIsNavOpen(true)}
+                type="button"
+              >
+                <Menu size={23} />
+              </button>
               <div className="min-w-0">
                 <h1 className="truncate text-2xl font-black tracking-normal text-black md:text-3xl">
                   {title}
@@ -180,8 +348,8 @@ export function AdminShell({
                 </p>
               </div>
 
-              <div className="ml-auto flex items-center gap-4">
-                <div className="grid h-14 w-14 place-items-center rounded-full bg-gradient-to-br from-[#f7eee6] to-[#edf2f7] text-base font-black text-[#0b1f3a]">
+              <div className="ml-auto flex items-center gap-2 sm:gap-4">
+                <div className="hidden h-14 w-14 place-items-center rounded-full bg-gradient-to-br from-[#f7eee6] to-[#edf2f7] text-base font-black text-[#0b1f3a] sm:grid">
                   {initials(admin.name)}
                 </div>
                 <div className="hidden min-w-40 sm:block">
@@ -189,7 +357,7 @@ export function AdminShell({
                     {admin.name}
                   </p>
                   <p className="mt-1 text-sm font-bold text-slate-500">
-                    {admin.role === "SUPERADMIN" ? "Super Admin" : admin.role}
+                    {adminRoleLabel(admin.role)}
                   </p>
                 </div>
                 <button
@@ -208,8 +376,8 @@ export function AdminShell({
             {children}
             <div className="rounded-lg border border-blue-100 bg-white p-4 text-sm text-slate-600 shadow-sm lg:hidden">
               <ShieldCheck className="mr-2 inline text-blue-600" size={18} />
-              The admin workspace remains usable on smaller screens and is
-              optimized for desktop review workflows.
+              Use the menu button in the header to open admin pages on smaller
+              screens.
             </div>
           </div>
         </main>

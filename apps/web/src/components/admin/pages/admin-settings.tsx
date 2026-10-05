@@ -7,6 +7,7 @@ import {
   Settings,
   ShieldCheck,
   Tags,
+  UserCheck,
 } from "lucide-react";
 import Link from "next/link";
 import { AdminShell } from "@/components/admin/common/admin-shell";
@@ -47,6 +48,12 @@ const settingsLinks = [
     href: "/admin/settings/user-roles",
     icon: ShieldCheck,
     label: "User Roles",
+  },
+  {
+    description: "Review role-based access controls and data scopes.",
+    href: "/admin/settings/rbac",
+    icon: UserCheck,
+    label: "RBAC Settings",
   },
   {
     description: "Manage application-wide configuration settings.",
