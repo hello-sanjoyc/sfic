@@ -48,11 +48,13 @@ export const enContent = {
         },
     },
     seo: {
-        title: "Seva First Innovation Challenge - Eastern Region",
-        description: `Join the Seva First Innovation Challenge 2026. Submit innovative solutions to real-world problems. Challenge open: ${challengeDates.display.en}. Open to participants from West Bengal, Bihar and Jharkhand.`,
-        keywords: "innovation challenge, hackathon, startup, innovation competition, West Bengal, Eastern India",
+        title: "Seva First Innovation Challenge | Eastern Region - SFIC East",
+        description: `Explore the Seva First Innovation Challenge Eastern Region, a platform to showcase innovative ideas, solutions and initiatives focused on improving public services. Open to participants from West Bengal, Bihar and Jharkhand.`,
+        keywords:
+            "Seva First Innovation Challenge, SFIC, SFICEast, SFIC East, hackathon, startup, innovation competition, West Bengal, Eastern India, Bihar, Jharkhand, public service innovation, technology for social good, community solutions, problem-solving, innovation challenge, Eastern Region innovation, SFIC East 2026",
         ogImage: "/images/og-image.jpg",
-        ogImageAlt: "Seva First Innovation Challenge - Eastern Region",
+        ogImageAlt:
+            "Seva First Innovation Challenge - Eastern Region - SFIC East",
     },
     header: {
         brand: "Seva First Innovation Challenge - Eastern Region",
@@ -77,51 +79,42 @@ export const enContent = {
         ip: "IP Policy",
         accessibility: "Accessibility",
         disclaimer: "Disclaimer",
-        department:
-            "Department of Science & Technology and Biotechnology",
+        department: "Department of Science & Technology and Biotechnology",
         address:
             "Vigyan Chetana Bhavan, 26/B, DD Block, Sector I, Salt Lake, Kolkata 700064",
         landmark: "Landmark: City Centre I, Behind ILS Hospital",
         tagline: "Science, technology and innovation for public impact.",
         note: "",
-        rights:
-            "Department of Science & Technology and Biotechnology, Government of West Bengal. All rights reserved.",
+        rights: "Department of Science & Technology and Biotechnology, Government of West Bengal. All rights reserved.",
     },
     pages: {
         register: {
             title: "Start Your Application",
-            intro:
-                "Prepare your basic details and take the first step towards submitting your innovation.",
+            intro: "Prepare your basic details and take the first step towards submitting your innovation.",
             sections: [
                 {
                     heading: "Who can apply",
-                    body:
-                        "Participants from West Bengal, Bihar and Jharkhand can apply through this portal. Choose Junior if you are from school, ITI, diploma or undergraduate level. Choose Open if you are a graduate, professional, startup or community group.",
+                    body: "Participants from West Bengal, Bihar and Jharkhand can apply through this portal. Choose Junior if you are from school, ITI, diploma or undergraduate level. Choose Open if you are a graduate, professional, startup or community group.",
                 },
                 {
                     heading: "What you will need",
-                    body:
-                        "Keep your contact details, location details, education details, organisation information, participation mode, team member details if applying as a team, proposal responses and supporting PDF documents ready before you begin.",
+                    body: "Keep your contact details, location details, education details, organisation information, participation mode, team member details if applying as a team, proposal responses and supporting PDF documents ready before you begin.",
                 },
                 {
                     heading: "Application process",
-                    body:
-                        "The application will be completed through the portal in four steps:",
+                    body: "The application will be completed through the portal in four steps:",
                     steps: [
                         {
                             title: "Registration",
-                            body:
-                                "Select Junior or Open category, enter your full name, mobile number and email address, verify the 6 digit email code, then provide date of birth and gender.",
+                            body: "Select Junior or Open category, enter your full name, mobile number and email address, verify the 6 digit email code, then provide date of birth and gender.",
                         },
                         {
                             title: "Profile Completion",
-                            body:
-                                "Provide your state, district, city, PIN code, address, highest educational qualification, last attended educational institute, year of passing, institute or organisation name and institute type. Choose Individual or Team; for team applications, add member name, email and mobile details. The applicant is treated as the Team Lead by default.",
+                            body: "Provide your state, district, city, PIN code, address, highest educational qualification, last attended educational institute, year of passing, institute or organisation name and institute type. Choose Individual or Team; for team applications, add member name, email and mobile details. The applicant is treated as the Team Lead by default.",
                         },
                         {
                             title: "Proposal Submission",
-                            body:
-                                "Select the challenge category, complete the proposal fields, add optional mentor acknowledgement, intellectual property or publication details, upload supporting PDF documents and add an optional video URL:",
+                            body: "Select the challenge category, complete the proposal fields, add optional mentor acknowledgement, intellectual property or publication details, upload supporting PDF documents and add an optional video URL:",
                             bullets: [
                                 "Problem and location",
                                 "Proposed solution",
@@ -137,8 +130,7 @@ export const enContent = {
                         },
                         {
                             title: "Application Number Generation",
-                            body:
-                                "After submission, your Application Number will be shown on screen. Please keep it for future reference, status tracking and further communication.",
+                            body: "After submission, your Application Number will be shown on screen. Please keep it for future reference, status tracking and further communication.",
                         },
                     ],
                 },
@@ -146,18 +138,31 @@ export const enContent = {
         },
         login: {
             title: "Application Portal Login",
-            intro:
-                "Choose the appropriate future application portal to continue your challenge journey.",
+            intro: "Choose the appropriate future application portal to continue your challenge journey.",
+            sections: [
+                {
+                    heading: "Participant Login",
+                    body: "Access your account to manage your Innovation Challenge participation, view your submitted application(s), update permitted details, and track your application status.",
+                },
+                {
+                    heading: "Jury / Expert Login",
+                    body: "Sign in to access assigned applications, review participant submissions, provide evaluations, and complete the assessment process securely.",
+                },
+                {
+                    heading: "Admin Login",
+                    body: "Secure access for authorised administrators to manage all the administrative activities.",
+                },
+            ],
+            participantButton: "Open Participant Login",
+            adminButton: "Open Admin Login",
         },
         screenReader: {
             title: "Screen Reader Access",
-            intro:
-                "Information for visitors using screen readers and other assistive technologies.",
+            intro: "Information for visitors using screen readers and other assistive technologies.",
             sections: [
                 {
                     heading: "Using this website with a screen reader",
-                    body:
-                        "The portal is designed with semantic headings, descriptive links, keyboard access and readable page structure so screen reader users can browse information and complete application steps more easily.",
+                    body: "The portal is designed with semantic headings, descriptive links, keyboard access and readable page structure so screen reader users can browse information and complete application steps more easily.",
                     items: [
                         "Use heading navigation to move between major sections.",
                         "Use landmarks to move between header, main content and footer.",
@@ -166,8 +171,7 @@ export const enContent = {
                 },
                 {
                     heading: "Recommended screen readers",
-                    body:
-                        "The website should work with commonly used screen readers and modern browsers. Keep your browser and assistive technology updated for the best experience.",
+                    body: "The website should work with commonly used screen readers and modern browsers. Keep your browser and assistive technology updated for the best experience.",
                     items: [
                         "NVDA with Firefox or Chrome on Windows",
                         "JAWS with Chrome or Edge on Windows",
@@ -177,8 +181,7 @@ export const enContent = {
                 },
                 {
                     heading: "Keyboard access",
-                    body:
-                        "All important controls can be reached with the keyboard. Use Tab and Shift+Tab to move between controls, Enter or Space to activate buttons, and arrow keys where a control supports them.",
+                    body: "All important controls can be reached with the keyboard. Use Tab and Shift+Tab to move between controls, Enter or Space to activate buttons, and arrow keys where a control supports them.",
                     items: [
                         "Visible focus indicators are provided for interactive elements.",
                         "The application form shows validation messages near the relevant field.",
@@ -187,8 +190,7 @@ export const enContent = {
                 },
                 {
                     heading: "Documents and uploads",
-                    body:
-                        "Applicants may upload supporting PDF files. For better accessibility, use tagged PDFs where possible and give files clear names before uploading.",
+                    body: "Applicants may upload supporting PDF files. For better accessibility, use tagged PDFs where possible and give files clear names before uploading.",
                     items: [
                         "Avoid scanned image-only PDFs when a text-based PDF is available.",
                         "Use meaningful file names that describe the document.",
@@ -197,8 +199,7 @@ export const enContent = {
                 },
                 {
                     heading: "Need help?",
-                    body:
-                        "If you face difficulty using the portal with assistive technology, contact the helpdesk with the page name, browser, device and screen reader details.",
+                    body: "If you face difficulty using the portal with assistive technology, contact the helpdesk with the page name, browser, device and screen reader details.",
                     items: ["Email: sficeast@gmail.com"],
                 },
             ],
@@ -210,7 +211,7 @@ export const enContent = {
                 {
                     heading: "Introduction",
                     content: [
-                        "This Privacy Policy explains how the Seva First Innovation Challenge (\"we\", \"us\", or \"our\") collects, uses, discloses, and safeguards your information when you visit our website (\"Site\").",
+                        'This Privacy Policy explains how the Seva First Innovation Challenge ("we", "us", or "our") collects, uses, discloses, and safeguards your information when you visit our website ("Site").',
                         "Please read this Privacy Policy carefully. If you do not agree with our policies and practices, please do not use our Site.",
                     ],
                 },
@@ -281,7 +282,7 @@ export const enContent = {
                         "• Use the materials for any commercial purpose or for any public display",
                         "• Attempt to decompile or reverse engineer any software contained on the website",
                         "• Remove any copyright or other proprietary notations from the materials",
-                        "• Transfer the materials to another person or \"mirror\" the materials on any other server",
+                        '• Transfer the materials to another person or "mirror" the materials on any other server',
                     ],
                 },
                 {
@@ -351,7 +352,7 @@ export const enContent = {
                 {
                     heading: "Trademarks",
                     content: [
-                        "All trademarks, service marks, and logos (\"Marks\") appearing on the Seva First Innovation Challenge website are the property of their respective owners. Nothing on this website grants you the right to use any of these Marks.",
+                        'All trademarks, service marks, and logos ("Marks") appearing on the Seva First Innovation Challenge website are the property of their respective owners. Nothing on this website grants you the right to use any of these Marks.',
                         "You may not use any of these Marks without the prior written permission of the respective owners.",
                     ],
                 },
@@ -607,8 +608,7 @@ export const enContent = {
                         "Polytechnic students",
                         "Undergraduate students",
                     ],
-                    note:
-                        "Judged mainly on problem understanding, originality of thinking and practicality. A working model is encouraged, but may not be compulsory.",
+                    note: "Judged mainly on problem understanding, originality of thinking and practicality. A working model is encouraged, but may not be compulsory.",
                 },
                 {
                     title: "Open Category",
@@ -620,8 +620,7 @@ export const enContent = {
                         "Independent innovators",
                         "Community groups",
                     ],
-                    note:
-                        "Entries should present a stronger implementation case. A prototype, proof of concept or pilot will add weight to the submission.",
+                    note: "Entries should present a stronger implementation case. A prototype, proof of concept or pilot will add weight to the submission.",
                 },
             ],
         },
@@ -632,18 +631,54 @@ export const enContent = {
                 "The themes below are meant to guide participants, not limit them. If you have identified an important problem outside these areas, you may still submit it as long as the problem is clear and the solution is practical.",
             possibleAreas: "possible areas",
             items: [
-                ["Village & Panchayat Innovation", "Solutions for better public services and everyday life in villages and local communities."],
-                ["Agriculture & Allied Sectors", "Ideas that can improve farm productivity, reduce losses and strengthen rural livelihoods."],
-                ["Education & Skill Development", "Solutions that make learning more accessible, useful and effective."],
-                ["Healthcare", "Practical ways to improve access to healthcare and strengthen preventive and emergency care."],
-                ["Urban & Civic Innovation", "Solutions for everyday problems in towns and cities."],
-                ["Environment & Sustainability", "Ideas that protect natural resources and reduce environmental damage."],
-                ["Employment, Livelihood & MSMEs", "Solutions that help people find work, build businesses and reach markets."],
-                ["Women & Child Development", "Innovations that improve safety, health, wellbeing and access to opportunity."],
-                ["Disaster Management & Community Safety", "Solutions that help communities prepare for, respond to and recover from disasters."],
-                ["Transport & Mobility", "Ideas that make travel safer, easier and more accessible."],
-                ["Energy", "Affordable and sustainable solutions for homes, communities and public infrastructure."],
-                ["Tourism & Cultural Innovation", "Ideas that improve tourism while creating opportunities for local communities."],
+                [
+                    "Village & Panchayat Innovation",
+                    "Solutions for better public services and everyday life in villages and local communities.",
+                ],
+                [
+                    "Agriculture & Allied Sectors",
+                    "Ideas that can improve farm productivity, reduce losses and strengthen rural livelihoods.",
+                ],
+                [
+                    "Education & Skill Development",
+                    "Solutions that make learning more accessible, useful and effective.",
+                ],
+                [
+                    "Healthcare",
+                    "Practical ways to improve access to healthcare and strengthen preventive and emergency care.",
+                ],
+                [
+                    "Urban & Civic Innovation",
+                    "Solutions for everyday problems in towns and cities.",
+                ],
+                [
+                    "Environment & Sustainability",
+                    "Ideas that protect natural resources and reduce environmental damage.",
+                ],
+                [
+                    "Employment, Livelihood & MSMEs",
+                    "Solutions that help people find work, build businesses and reach markets.",
+                ],
+                [
+                    "Women & Child Development",
+                    "Innovations that improve safety, health, wellbeing and access to opportunity.",
+                ],
+                [
+                    "Disaster Management & Community Safety",
+                    "Solutions that help communities prepare for, respond to and recover from disasters.",
+                ],
+                [
+                    "Transport & Mobility",
+                    "Ideas that make travel safer, easier and more accessible.",
+                ],
+                [
+                    "Energy",
+                    "Affordable and sustainable solutions for homes, communities and public infrastructure.",
+                ],
+                [
+                    "Tourism & Cultural Innovation",
+                    "Ideas that improve tourism while creating opportunities for local communities.",
+                ],
             ],
         },
         focus: {
@@ -656,15 +691,39 @@ export const enContent = {
                 ["3", "States"],
                 ["Vast", "Opportunities"],
             ],
-            tagline: ["Resilient People. Thriving Regions.", "A Stronger India."],
+            tagline: [
+                "Resilient People. Thriving Regions.",
+                "A Stronger India.",
+            ],
             items: [
-                ["Climate & Flood Resilience", "Flood forecasting, river monitoring, embankment monitoring, cyclone preparedness and community response."],
-                ["Himalayan & Hill Solutions", "Landslide monitoring, mountain connectivity, water management, remote healthcare and sustainable tourism."],
-                ["Tea, Horticulture & Plantation Innovation", "Better crop health, processing, productivity, supply chains and market access."],
-                ["Fisheries & Aquaculture", "Water-quality monitoring, disease management, cold chains and better market connections."],
-                ["Tribal & Remote Communities", "Solutions for healthcare, education, connectivity and livelihoods in hard-to-reach areas."],
-                ["Bamboo, Handloom & Handicrafts", "Product innovation, sustainable materials, improved production and digital market access."],
-                ["River & Water Systems", "Water quality, erosion, irrigation, groundwater management and flood resilience."],
+                [
+                    "Climate & Flood Resilience",
+                    "Flood forecasting, river monitoring, embankment monitoring, cyclone preparedness and community response.",
+                ],
+                [
+                    "Himalayan & Hill Solutions",
+                    "Landslide monitoring, mountain connectivity, water management, remote healthcare and sustainable tourism.",
+                ],
+                [
+                    "Tea, Horticulture & Plantation Innovation",
+                    "Better crop health, processing, productivity, supply chains and market access.",
+                ],
+                [
+                    "Fisheries & Aquaculture",
+                    "Water-quality monitoring, disease management, cold chains and better market connections.",
+                ],
+                [
+                    "Tribal & Remote Communities",
+                    "Solutions for healthcare, education, connectivity and livelihoods in hard-to-reach areas.",
+                ],
+                [
+                    "Bamboo, Handloom & Handicrafts",
+                    "Product innovation, sustainable materials, improved production and digital market access.",
+                ],
+                [
+                    "River & Water Systems",
+                    "Water quality, erosion, irrigation, groundwater management and flood resilience.",
+                ],
             ],
         },
         stages: {
@@ -674,14 +733,62 @@ export const enContent = {
                 "Every submission should make the problem, solution, implementation route and expected impact easy for the jury to understand.",
             outcome: "Outcome",
             items: [
-                ["Identify the Problem", "Start with your community", "School · village · town · district · workplace", "Start with a problem you have actually seen in your school, village, town, district, workplace or community.", "A clear, grounded problem statement"],
-                ["Develop the Solution", "Before submission", "Build · improve · change", "Explain what you want to build, improve or change, and why your approach can work.", "A practical solution approach"],
-                ["Submit Your Proposal", "", "Online Innovation & Implementation Plan", "Complete the online Innovation & Implementation Plan and upload supporting material, if available.", "Complete proposal submitted"],
-                ["Screening & Shortlisting", "", "Eligibility · completeness · technical merit", "Entries will be checked for eligibility, completeness and technical merit.", "Shortlisted entries move to regional evaluation"],
-                ["Regional Evaluation", "", "Expert jury presentation", "Shortlisted participants will present their solution, model, prototype or implementation plan before an expert jury.", "Promising innovators identified"],
-                ["Mentoring & Prototype Support", "After shortlisting", "Guidance · refinement · next-stage preparation", "Selected innovators may receive guidance to strengthen the solution and prepare it for the next stage.", "Stronger prototype, pilot or implementation plan"],
-                ["Final Evaluation", "", "Final challenge evaluation", "The strongest entries will move forward through the Challenge evaluation process.", "Leading innovations selected for recognition"],
-                ["Pilot & Adoption", "After the Challenge", "Institutions · departments · industry partners", "Promising solutions may be connected with institutions, government departments, industry or implementation partners for further development and possible pilot use.", "Pathway to prototype, pilot, incubation or adoption"],
+                [
+                    "Identify the Problem",
+                    "Start with your community",
+                    "School · village · town · district · workplace",
+                    "Start with a problem you have actually seen in your school, village, town, district, workplace or community.",
+                    "A clear, grounded problem statement",
+                ],
+                [
+                    "Develop the Solution",
+                    "Before submission",
+                    "Build · improve · change",
+                    "Explain what you want to build, improve or change, and why your approach can work.",
+                    "A practical solution approach",
+                ],
+                [
+                    "Submit Your Proposal",
+                    "",
+                    "Online Innovation & Implementation Plan",
+                    "Complete the online Innovation & Implementation Plan and upload supporting material, if available.",
+                    "Complete proposal submitted",
+                ],
+                [
+                    "Screening & Shortlisting",
+                    "",
+                    "Eligibility · completeness · technical merit",
+                    "Entries will be checked for eligibility, completeness and technical merit.",
+                    "Shortlisted entries move to regional evaluation",
+                ],
+                [
+                    "Regional Evaluation",
+                    "",
+                    "Expert jury presentation",
+                    "Shortlisted participants will present their solution, model, prototype or implementation plan before an expert jury.",
+                    "Promising innovators identified",
+                ],
+                [
+                    "Mentoring & Prototype Support",
+                    "After shortlisting",
+                    "Guidance · refinement · next-stage preparation",
+                    "Selected innovators may receive guidance to strengthen the solution and prepare it for the next stage.",
+                    "Stronger prototype, pilot or implementation plan",
+                ],
+                [
+                    "Final Evaluation",
+                    "",
+                    "Final challenge evaluation",
+                    "The strongest entries will move forward through the Challenge evaluation process.",
+                    "Leading innovations selected for recognition",
+                ],
+                [
+                    "Pilot & Adoption",
+                    "After the Challenge",
+                    "Institutions · departments · industry partners",
+                    "Promising solutions may be connected with institutions, government departments, industry or implementation partners for further development and possible pilot use.",
+                    "Pathway to prototype, pilot, incubation or adoption",
+                ],
             ],
         },
         recognition: {
@@ -696,30 +803,65 @@ export const enContent = {
                 "We help promising ideas move beyond the award — with mentorship, prototype support, pilot opportunities and a pathway to real-world impact.",
             flow: [
                 { title: "Mentorship", note: "Guidance from experts" },
-                { title: "Prototype Support", note: "Turn ideas into working solutions" },
+                {
+                    title: "Prototype Support",
+                    note: "Turn ideas into working solutions",
+                },
                 { title: "Pilot", note: "Test and validate in real settings" },
-                { title: "Adoption Opportunities", note: "Pathways to real-world impact" },
+                {
+                    title: "Adoption Opportunities",
+                    note: "Pathways to real-world impact",
+                },
                 { title: "Incubation", note: "Resources to help you grow" },
             ],
             selected: "Selected innovations",
             subject: "Subject to final Challenge guidelines",
             main: "Recognition + Support",
-            body:
-                "Depending on the stage and programme guidelines, selected innovations may receive recognition, mentoring, incubation, prototype or pilot support and opportunities to work with potential implementation partners.",
+            body: "Depending on the stage and programme guidelines, selected innovations may receive recognition, mentoring, incubation, prototype or pilot support and opportunities to work with potential implementation partners.",
             beyond: "Beyond the award",
             finalist: "What every finalist gets",
             awards: [
-                ["Recognition", "Final structure TBA", "For leading innovations"],
-                ["Mentorship", "Expert guidance", "Subject to final Challenge guidelines"],
-                ["Pilot support", "Adoption pathways", "With potential implementation partners"],
+                [
+                    "Recognition",
+                    "Final structure TBA",
+                    "For leading innovations",
+                ],
+                [
+                    "Mentorship",
+                    "Expert guidance",
+                    "Subject to final Challenge guidelines",
+                ],
+                [
+                    "Pilot support",
+                    "Adoption pathways",
+                    "With potential implementation partners",
+                ],
             ],
             benefits: [
-                ["Expert mentorship", "Selected innovators may receive mentoring and technical guidance to strengthen the solution."],
-                ["Incubation support", "Promising ideas may be connected with incubation and prototype-development opportunities."],
-                ["Pilot opportunities", "Practical solutions may be connected with institutions, departments, industry or implementation partners."],
-                ["Research support", "Guidance can help participants improve evidence, feasibility and implementation plans."],
-                ["Ecosystem access", "Kolkata serves as the regional hub for bringing ideas from West Bengal, Bihar and Jharkhand together."],
-                ["National recognition", "Strong local solutions can earn visibility through the Seva First Innovation Challenge platform."],
+                [
+                    "Expert mentorship",
+                    "Selected innovators may receive mentoring and technical guidance to strengthen the solution.",
+                ],
+                [
+                    "Incubation support",
+                    "Promising ideas may be connected with incubation and prototype-development opportunities.",
+                ],
+                [
+                    "Pilot opportunities",
+                    "Practical solutions may be connected with institutions, departments, industry or implementation partners.",
+                ],
+                [
+                    "Research support",
+                    "Guidance can help participants improve evidence, feasibility and implementation plans.",
+                ],
+                [
+                    "Ecosystem access",
+                    "Kolkata serves as the regional hub for bringing ideas from West Bengal, Bihar and Jharkhand together.",
+                ],
+                [
+                    "National recognition",
+                    "Strong local solutions can earn visibility through the Seva First Innovation Challenge platform.",
+                ],
             ],
         },
         submission: {
@@ -734,16 +876,46 @@ export const enContent = {
             ],
             detailedInfoLink: "View/Download Detailed Information",
             items: [
-                ["Problem & Location", "What is the problem, and where have you observed it?"],
-                ["Proposed Solution", "What are you proposing to build, change or introduce?"],
-                ["Technology or Method", "How will the solution work, and why is this approach suitable?"],
-                ["Implementation Plan", "Who needs to do what, and in what order?"],
-                ["Cost & Funding", "What would it realistically cost to develop and implement the solution?"],
-                ["Beneficiaries", "Who will benefit, and approximately how many people could it help?"],
-                ["Timeline", "How long would it take to reach a working prototype or pilot?"],
-                ["Expected Impact", "What social, economic or environmental difference can the solution make?"],
-                ["Scalability", "Could the solution work in another district, state or community? What would need to change?"],
-                ["Prototype or Pilot", "If you already have a model, prototype or pilot, share photographs, documents, results or other evidence."],
+                [
+                    "Problem & Location",
+                    "What is the problem, and where have you observed it?",
+                ],
+                [
+                    "Proposed Solution",
+                    "What are you proposing to build, change or introduce?",
+                ],
+                [
+                    "Technology or Method",
+                    "How will the solution work, and why is this approach suitable?",
+                ],
+                [
+                    "Implementation Plan",
+                    "Who needs to do what, and in what order?",
+                ],
+                [
+                    "Cost & Funding",
+                    "What would it realistically cost to develop and implement the solution?",
+                ],
+                [
+                    "Beneficiaries",
+                    "Who will benefit, and approximately how many people could it help?",
+                ],
+                [
+                    "Timeline",
+                    "How long would it take to reach a working prototype or pilot?",
+                ],
+                [
+                    "Expected Impact",
+                    "What social, economic or environmental difference can the solution make?",
+                ],
+                [
+                    "Scalability",
+                    "Could the solution work in another district, state or community? What would need to change?",
+                ],
+                [
+                    "Prototype or Pilot",
+                    "If you already have a model, prototype or pilot, share photographs, documents, results or other evidence.",
+                ],
             ],
         },
         evaluation: {
@@ -752,11 +924,26 @@ export const enContent = {
             description:
                 "The jury may consider the relevance of the problem, originality of the solution, practicality, technical feasibility, cost, expected impact, sustainability, scalability and the quality of any prototype or pilot.",
             items: [
-                ["Problem relevance", "The jury looks for grounded problem understanding and relevance to beneficiaries."],
-                ["Originality & practicality", "A simple, affordable solution that works can be stronger than unnecessary complexity."],
-                ["Implementation feasibility", "Implementation plan, cost, timeline and dependencies all matter."],
-                ["Expected impact", "Clear beneficiaries and realistic impact estimates strengthen the submission."],
-                ["Scalability & evidence", "A model, prototype, pilot, photographs, results or supporting documents add weight."],
+                [
+                    "Problem relevance",
+                    "The jury looks for grounded problem understanding and relevance to beneficiaries.",
+                ],
+                [
+                    "Originality & practicality",
+                    "A simple, affordable solution that works can be stronger than unnecessary complexity.",
+                ],
+                [
+                    "Implementation feasibility",
+                    "Implementation plan, cost, timeline and dependencies all matter.",
+                ],
+                [
+                    "Expected impact",
+                    "Clear beneficiaries and realistic impact estimates strengthen the submission.",
+                ],
+                [
+                    "Scalability & evidence",
+                    "A model, prototype, pilot, photographs, results or supporting documents add weight.",
+                ],
             ],
         },
         faq: {
@@ -766,20 +953,62 @@ export const enContent = {
                 "Start with the essentials, then review the final Challenge guidelines before you apply.",
         },
         faqItems: [
-            ["What is the Seva First Innovation Challenge?", "It is a platform for young people to identify real problems around them and develop practical solutions that can be implemented and, where possible, scaled."],
-            ["Who can participate?", "School and college students, ITI and polytechnic students, graduates, young professionals, researchers, early-stage startups, independent innovators and community groups may participate, subject to the final Challenge guidelines."],
-            ["Which states are covered by the Eastern Region?", "West Bengal, Bihar and Jharkhand."],
-            ["Do I need to have a startup?", "No. You can participate as a student, professional, independent innovator, startup or community group."],
-            ["Do I need a working prototype?", "Not in every case. Junior participants may submit a strong idea with a clear implementation plan. Open-category participants are expected to present a stronger implementation case, and a prototype or pilot is preferred."],
-            ["Does my solution have to use AI?", "No. Use the technology or method that fits the problem. A simple, affordable solution that works is better than using AI where it is not needed."],
-            ["What kind of problem should I choose?", "Choose a specific problem you have observed in a real place or community. The clearer and more grounded the problem is, the stronger your submission will be."],
-            ["Can I submit an idea outside the listed themes?", "Yes. The themes are meant to guide you. Other ideas may also be considered if they address a genuine problem and have a practical route to implementation."],
-            ["Can I submit in an Indian language?", "The Challenge is intended to encourage participation in Indian languages, subject to the final portal and evaluation arrangements."],
-            ["What will the jury look for?", "The jury may consider the relevance of the problem, originality of the solution, practicality, technical feasibility, cost, expected impact, sustainability, scalability and the quality of any prototype or pilot."],
-            ["Will selected participants receive mentoring?", "Selected innovators may receive mentoring, technical guidance, incubation or pilot support, subject to the final Challenge guidelines."],
-            ["Are there prizes?", "The Challenge proposes financial recognition along with mentorship, prototype or pilot support, incubation and adoption opportunities. The final prize structure will be announced separately."],
-            ["What happens if my idea is selected?", "Depending on the stage and programme guidelines, selected innovations may receive recognition, mentoring, incubation, prototype or pilot support and opportunities to work with potential implementation partners."],
-            ["Can I participate as a team?", "Yes. Applications may be submitted individually or as a team, subject to the final Challenge guidelines."],
+            [
+                "What is the Seva First Innovation Challenge?",
+                "It is a platform for young people to identify real problems around them and develop practical solutions that can be implemented and, where possible, scaled.",
+            ],
+            [
+                "Who can participate?",
+                "School and college students, ITI and polytechnic students, graduates, young professionals, researchers, early-stage startups, independent innovators and community groups may participate, subject to the final Challenge guidelines.",
+            ],
+            [
+                "Which states are covered by the Eastern Region?",
+                "West Bengal, Bihar and Jharkhand.",
+            ],
+            [
+                "Do I need to have a startup?",
+                "No. You can participate as a student, professional, independent innovator, startup or community group.",
+            ],
+            [
+                "Do I need a working prototype?",
+                "Not in every case. Junior participants may submit a strong idea with a clear implementation plan. Open-category participants are expected to present a stronger implementation case, and a prototype or pilot is preferred.",
+            ],
+            [
+                "Does my solution have to use AI?",
+                "No. Use the technology or method that fits the problem. A simple, affordable solution that works is better than using AI where it is not needed.",
+            ],
+            [
+                "What kind of problem should I choose?",
+                "Choose a specific problem you have observed in a real place or community. The clearer and more grounded the problem is, the stronger your submission will be.",
+            ],
+            [
+                "Can I submit an idea outside the listed themes?",
+                "Yes. The themes are meant to guide you. Other ideas may also be considered if they address a genuine problem and have a practical route to implementation.",
+            ],
+            [
+                "Can I submit in an Indian language?",
+                "The Challenge is intended to encourage participation in Indian languages, subject to the final portal and evaluation arrangements.",
+            ],
+            [
+                "What will the jury look for?",
+                "The jury may consider the relevance of the problem, originality of the solution, practicality, technical feasibility, cost, expected impact, sustainability, scalability and the quality of any prototype or pilot.",
+            ],
+            [
+                "Will selected participants receive mentoring?",
+                "Selected innovators may receive mentoring, technical guidance, incubation or pilot support, subject to the final Challenge guidelines.",
+            ],
+            [
+                "Are there prizes?",
+                "The Challenge proposes financial recognition along with mentorship, prototype or pilot support, incubation and adoption opportunities. The final prize structure will be announced separately.",
+            ],
+            [
+                "What happens if my idea is selected?",
+                "Depending on the stage and programme guidelines, selected innovations may receive recognition, mentoring, incubation, prototype or pilot support and opportunities to work with potential implementation partners.",
+            ],
+            [
+                "Can I participate as a team?",
+                "Yes. Applications may be submitted individually or as a team, subject to the final Challenge guidelines.",
+            ],
         ],
     },
     participantLogin: {
@@ -795,8 +1024,7 @@ export const enContent = {
         verificationCode: "Verification Code",
         emailHelp:
             "Enter the email address used in your submitted application.",
-        codeHelp:
-            "A 6 digit verification code has been generated for {email}.",
+        codeHelp: "A 6 digit verification code has been generated for {email}.",
         codeSent:
             "Verification code sent. Enter the 6 digit code from your email within {minutes} minutes.",
         codeResent:
@@ -812,9 +1040,11 @@ export const enContent = {
         errors: {
             email: "Enter a valid email address.",
             verificationCode: "Enter the 6 digit verification code.",
-            requestFailed: "Unable to send verification code. Please try again.",
+            requestFailed:
+                "Unable to send verification code. Please try again.",
             verifyFailed: "Unable to verify login code. Please try again.",
-            resendFailed: "Unable to resend verification code. Please try again.",
+            resendFailed:
+                "Unable to resend verification code. Please try again.",
         },
         dashboard: {
             label: "Participant Workspace",
@@ -851,8 +1081,7 @@ export const enContent = {
         verificationCode: "Verification Code",
         emailHelp:
             "Enter the email address assigned to your programme administration account.",
-        codeHelp:
-            "A 6 digit verification code has been generated for {email}.",
+        codeHelp: "A 6 digit verification code has been generated for {email}.",
         codeSent:
             "Verification code sent. Enter the 6 digit code from your email within {minutes} minutes.",
         codeResent:
@@ -868,9 +1097,11 @@ export const enContent = {
         errors: {
             email: "Enter a valid email address.",
             verificationCode: "Enter the 6 digit verification code.",
-            requestFailed: "Unable to send verification code. Please try again.",
+            requestFailed:
+                "Unable to send verification code. Please try again.",
             verifyFailed: "Unable to verify login code. Please try again.",
-            resendFailed: "Unable to resend verification code. Please try again.",
+            resendFailed:
+                "Unable to resend verification code. Please try again.",
         },
     },
     register: {
@@ -890,7 +1121,8 @@ export const enContent = {
         junior: "Junior",
         juniorDescription: "School, ITI and undergraduate.",
         open: "Open",
-        openDescription: "Graduates, professionals, startups and community groups.",
+        openDescription:
+            "Graduates, professionals, startups and community groups.",
         fullName: "Full Name",
         dateOfBirth: "Date of Birth",
         ageYears: "Years",
@@ -921,8 +1153,7 @@ export const enContent = {
             "The previous code expired. Click Continue to receive a fresh verification code.",
         registrationNotFound:
             "Registration was not found. Please submit Step 1 again.",
-        unableVerifyCode:
-            "Unable to verify email code. Please try again.",
+        unableVerifyCode: "Unable to verify email code. Please try again.",
         unableResendCode:
             "Unable to resend verification code. Please try again.",
         continueAfterVerification: "Continue After Verification",
@@ -932,8 +1163,7 @@ export const enContent = {
         pinCode: "PIN Code",
         address: "Address",
         highestEducationalQualification: "Highest Educational Qualification",
-        lastAttendedEducationalInstitute:
-            "Last Attended Educational Institute",
+        lastAttendedEducationalInstitute: "Last Attended Educational Institute",
         yearOfPassing: "Year of Passing",
         instituteName: "Present Organisation Name",
         instituteType: "Organisation Type",
@@ -998,16 +1228,43 @@ export const enContent = {
         },
         supportingDocuments: "Supporting Documents",
         proposalElements: [
-            ["Problem and Location", "A specific, observed problem in a named place, not a general condition."],
-            ["Proposed Solution", "What is actually being built or done, described plainly."],
-            ["Technology or Method", "The means, and why it suits the setting and the budget."],
-            ["Implementation Route", "Who does what, in what order, and with whose permission."],
-            ["Cost and Funding", "An honest estimate, including what is not yet funded."],
-            ["Beneficiaries", "Who benefits, how many, and how that number was arrived at."],
+            [
+                "Problem and Location",
+                "A specific, observed problem in a named place, not a general condition.",
+            ],
+            [
+                "Proposed Solution",
+                "What is actually being built or done, described plainly.",
+            ],
+            [
+                "Technology or Method",
+                "The means, and why it suits the setting and the budget.",
+            ],
+            [
+                "Implementation Route",
+                "Who does what, in what order, and with whose permission.",
+            ],
+            [
+                "Cost and Funding",
+                "An honest estimate, including what is not yet funded.",
+            ],
+            [
+                "Beneficiaries",
+                "Who benefits, how many, and how that number was arrived at.",
+            ],
             ["Timeline", "A realistic period to a working pilot."],
-            ["Expected Impact", "Social, economic or environmental, stated in measurable terms."],
-            ["Scalability", "Whether it can travel to another district, and what would have to change."],
-            ["Prototype or Pilot", "Where one exists, evidence rather than description."],
+            [
+                "Expected Impact",
+                "Social, economic or environmental, stated in measurable terms.",
+            ],
+            [
+                "Scalability",
+                "Whether it can travel to another district, and what would have to change.",
+            ],
+            [
+                "Prototype or Pilot",
+                "Where one exists, evidence rather than description.",
+            ],
         ],
         intellectualPropertyPublication:
             "Intellectual Property / Publication (optional)",
@@ -1046,13 +1303,17 @@ export const enContent = {
             challengeCategory: "Select a challenge category.",
             proposalCharacters: "Enter 50 to 1000 characters.",
             videoUrl: "Enter a valid URL beginning with http:// or https://.",
-            supportingDocumentRequired: "Upload at least one supporting document.",
+            supportingDocumentRequired:
+                "Upload at least one supporting document.",
             pdfOnly: "Upload PDF files only.",
-            supportingDocumentSize: "Each supporting document must be {size} MB or smaller.",
+            supportingDocumentSize:
+                "Each supporting document must be {size} MB or smaller.",
             supportingDocumentMax: "Upload a maximum of {count} PDF files.",
-            teamLeadEmailMatch: "Team member email cannot match the Team Lead email.",
+            teamLeadEmailMatch:
+                "Team member email cannot match the Team Lead email.",
             teamEmailUnique: "Team member email IDs must be unique.",
-            teamLeadPhoneMatch: "Team member phone cannot match the Team Lead phone.",
+            teamLeadPhoneMatch:
+                "Team member phone cannot match the Team Lead phone.",
             teamPhoneUnique: "Team member phone numbers must be unique.",
             duplicateRegistration:
                 "This email ID or mobile number has already been used for an application. Please continue with the verification email already sent, or contact support if you need help.",

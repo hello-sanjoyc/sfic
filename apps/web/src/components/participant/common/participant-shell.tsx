@@ -3,7 +3,9 @@
 import {
   ClipboardList,
   LogOut,
+  Menu,
   User,
+  X,
 } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
@@ -82,6 +84,7 @@ export function ParticipantShell({
   const router = useRouter();
   const [participant, setParticipant] = useState(defaultParticipant);
   const [isSessionChecked, setIsSessionChecked] = useState(false);
+  const [isNavOpen, setIsNavOpen] = useState(false);
 
   useEffect(() => {
     const token = localStorage.getItem(PARTICIPANT_TOKEN_KEY);
@@ -105,9 +108,14 @@ export function ParticipantShell({
   const logout = () => {
     localStorage.removeItem(PARTICIPANT_TOKEN_KEY);
     sessionStorage.removeItem(PARTICIPANT_TOKEN_KEY);
+    setIsNavOpen(false);
     router.replace("/en/participants/login");
     router.refresh();
   };
+
+  useEffect(() => {
+    setIsNavOpen(false);
+  }, [pathname]);
 
   if (!isSessionChecked) {
     return (
@@ -119,9 +127,9 @@ export function ParticipantShell({
 
   return (
     <div
-      className={`${naturalScroll ? "min-h-screen" : "h-screen overflow-hidden"} bg-[#f5f8fc] text-[#0b1f3a]`}
+      className={`${naturalScroll ? "min-h-dvh" : "h-dvh overflow-hidden"} bg-[#f5f8fc] text-[#0b1f3a]`}
     >
-      <div className={`${naturalScroll ? "min-h-screen" : "h-screen"} lg:pl-[17rem]`}>
+      <div className={`${naturalScroll ? "min-h-dvh" : "h-dvh"} lg:pl-[17rem]`}>
         <aside className="fixed inset-y-0 left-0 z-30 hidden w-[17rem] overflow-hidden bg-[#08213c] text-white lg:flex lg:flex-col">
           <div className="flex items-center gap-3 p-7">
             <Image
@@ -195,13 +203,88 @@ export function ParticipantShell({
           </div>
         </aside>
 
+        {isNavOpen && (
+          <div className="fixed inset-0 z-50 lg:hidden">
+            <button
+              aria-label="Close navigation"
+              className="absolute inset-0 bg-slate-950/45"
+              onClick={() => setIsNavOpen(false)}
+              type="button"
+            />
+            <aside className="relative flex h-full w-[min(20rem,86vw)] flex-col overflow-y-auto bg-[#08213c] text-white shadow-2xl">
+              <div className="flex items-center justify-between gap-3 p-5">
+                <div className="flex min-w-0 items-center gap-3">
+                  <Image
+                    alt="Seva First Innovation Challenge"
+                    className="size-11 rounded-md bg-white object-contain p-1"
+                    height={48}
+                    src="/images/logo.webp"
+                    width={48}
+                  />
+                  <div className="min-w-0">
+                    <p className="text-xl font-black leading-none">SFIC</p>
+                    <p className="mt-1 text-xs font-semibold text-blue-100">
+                      Participant Workspace
+                    </p>
+                  </div>
+                </div>
+                <button
+                  aria-label="Close navigation"
+                  className="grid size-10 place-items-center rounded-lg text-blue-100 hover:bg-white/10"
+                  onClick={() => setIsNavOpen(false)}
+                  type="button"
+                >
+                  <X size={22} />
+                </button>
+              </div>
+
+              <nav className="grid gap-2 px-3">
+                {navItems.map(([label, Icon, href]) => {
+                  const active = pathname === href || pathname.startsWith(href);
+
+                  return (
+                    <Link
+                      className={`flex min-h-12 items-center gap-4 rounded-lg px-5 py-3 text-left text-sm font-semibold transition ${
+                        active
+                          ? "bg-blue-600 text-white shadow-lg shadow-blue-950/30"
+                          : "text-blue-100 hover:bg-white/10"
+                      }`}
+                      href={href}
+                      key={label}
+                    >
+                      <Icon size={21} />
+                      <span>{label}</span>
+                    </Link>
+                  );
+                })}
+                <button
+                  className="flex min-h-12 items-center gap-4 rounded-lg px-5 py-3 text-left text-sm font-semibold text-blue-100 transition hover:bg-white/10"
+                  onClick={logout}
+                  type="button"
+                >
+                  <LogOut size={21} />
+                  <span>Logout</span>
+                </button>
+              </nav>
+            </aside>
+          </div>
+        )}
+
         <main
           className={`flex min-w-0 flex-col ${
-            naturalScroll ? "min-h-screen" : "h-screen overflow-hidden"
+            naturalScroll ? "min-h-dvh" : "h-dvh overflow-hidden"
           }`}
         >
           <header className="sticky top-0 z-20 border-b border-slate-200 bg-white px-5 py-4 md:px-10">
             <div className="flex min-h-16 items-center gap-4">
+              <button
+                aria-label="Open navigation"
+                className="grid size-11 shrink-0 place-items-center rounded-lg border border-slate-200 text-[#0b1f3a] hover:bg-slate-50 lg:hidden"
+                onClick={() => setIsNavOpen(true)}
+                type="button"
+              >
+                <Menu size={23} />
+              </button>
               <div className="min-w-0">
                 <h1 className="truncate text-2xl font-black tracking-normal text-black md:text-3xl">
                   {title}
@@ -211,8 +294,8 @@ export function ParticipantShell({
                 </p>
               </div>
 
-              <div className="ml-auto flex items-center gap-4">
-                <div className="grid h-14 w-14 place-items-center rounded-full bg-gradient-to-br from-[#f7eee6] to-[#edf2f7] text-base font-black text-[#0b1f3a]">
+              <div className="ml-auto flex items-center gap-2 sm:gap-4">
+                <div className="hidden h-14 w-14 place-items-center rounded-full bg-gradient-to-br from-[#f7eee6] to-[#edf2f7] text-base font-black text-[#0b1f3a] sm:grid">
                   {initials(participant.memberName)}
                 </div>
                 <div className="hidden min-w-40 sm:block">

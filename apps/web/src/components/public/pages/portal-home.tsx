@@ -29,6 +29,11 @@ import {
 } from "@/mocks/public";
 import { getSiteContent } from "@/content";
 import { challengeDates } from "@/lib/challenge-dates";
+import {
+    getAppSettings,
+    registrationPeriodText,
+    settingsMap,
+} from "@/lib/registration-settings";
 import { FAQAccordion } from "../common/faq-accordion";
 import { HeroSlider } from "../common/hero-slider";
 import { LandingScrollRestorer } from "../common/landing-scroll-restorer";
@@ -144,10 +149,48 @@ const eventJsonLd = {
     },
 };
 
-export function PortalHome({ locale }: { locale: string }) {
+const registrationOpenLabels: Record<string, string> = {
+    bn: "নিবন্ধন খোলা",
+    en: "Registration Open",
+    hi: "पंजीकरण खुला",
+};
+
+const registrationDateLocales: Record<string, string> = {
+    bn: "bn-IN",
+    en: "en-IN",
+    hi: "hi-IN",
+};
+
+export async function PortalHome({ locale }: { locale: string }) {
     const content = getSiteContent(locale);
     const home = content.home;
     const link = (path: string) => `/${locale}${path}`;
+    const appSettings = await getAppSettings()
+        .then(settingsMap)
+        .catch(() => ({}));
+    const registrationPeriod = registrationPeriodText(
+        appSettings,
+        registrationDateLocales[locale] ?? registrationDateLocales.en,
+    );
+    const fallbackQuickItem = (
+        item: string[] | undefined,
+        fallback: [string, string],
+    ): [string, string] => [item?.[0] ?? fallback[0], item?.[1] ?? fallback[1]];
+    const quickInfo: Array<[string, string]> = [
+        [
+            registrationOpenLabels[locale] ?? registrationOpenLabels.en,
+            registrationPeriod,
+        ],
+        fallbackQuickItem(home.quick[1], ["Regional hub", "Kolkata"]),
+        fallbackQuickItem(home.quick[2], [
+            "Open to",
+            "West Bengal, Bihar and Jharkhand",
+        ]),
+        fallbackQuickItem(home.quick[3], [
+            "Need assistance?",
+            "Contact the helpdesk",
+        ]),
+    ];
     const guidelinesPdfByLocale: Record<string, string> = {
         bn: "/documents/SFIC-Guidelines-BN.pdf",
         en: "/documents/SFIC-Guidelines-EN.pdf",
@@ -227,7 +270,7 @@ export function PortalHome({ locale }: { locale: string }) {
                 tabIndex={-1}
             >
                 <div className="mx-auto grid max-w-7xl divide-y divide-slate-200 px-4 sm:px-6 md:grid-cols-[1.3fr_1fr_1fr_1fr] md:divide-x md:divide-y-0">
-                    {home.quick.map(([label, value], index) => (
+                    {quickInfo.map(([label, value], index) => (
                         <div
                             data-motion="card"
                             className="relative flex min-h-[90px] flex-col justify-center py-3 md:px-6"
@@ -848,7 +891,7 @@ export function PortalHome({ locale }: { locale: string }) {
                 href={link("/register")}
                 label={content.common.applyNow}
                 statusText={content.common.applicationsOpen}
-                hint={challengeDates.shortDisplay[locale as keyof typeof challengeDates.shortDisplay] ?? challengeDates.shortDisplay.en}
+                hint={registrationPeriod}
                 hideWhenVisible="apply"
             />
         </>

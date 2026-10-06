@@ -3,6 +3,7 @@ import localFont from "next/font/local";
 import { challengeDates } from "@/lib/challenge-dates";
 import "./globals.css";
 import PageVisitorTracker from "@/components/PageVisitorTracker";
+import Script from "next/dist/client/script";
 
 const archivoBlack = localFont({
     src: "../fonts/ArchivoBlack-Regular.ttf",
@@ -115,7 +116,7 @@ export const metadata: Metadata = {
     openGraph: {
         type: "website",
         url: siteUrl,
-        title: "Seva First Innovation Challenge - Eastern Region",
+        title: "Seva First Innovation Challenge - Eastern Region - SFIC East",
         description: `Join the Seva First Innovation Challenge 2026. Submit innovative solutions to real-world problems. Challenge open: ${challengeDates.display.en}.`,
         siteName: "Seva First Innovation Challenge - Eastern Region",
         images: [
@@ -144,6 +145,9 @@ export const metadata: Metadata = {
         capable: true,
         statusBarStyle: "black-translucent",
         title: "Seva First Innovation Challenge - Eastern Region",
+    },
+    verification: {
+        google: "n6V5IRG34AKp-x5S0t1f5GLoR6OxaiMbPpw_BGUzklo",
     },
 };
 
@@ -185,6 +189,20 @@ export default function RootLayout({
             <body>
                 {children}
                 <PageVisitorTracker />
+
+                <Script
+                    src="https://www.googletagmanager.com/gtag/js?id=G-XYZ0ST3CNP"
+                    strategy="afterInteractive"
+                />
+
+                <Script id="google-analytics" strategy="afterInteractive">
+                    {`
+                        window.dataLayer = window.dataLayer || [];
+                        function gtag(){dataLayer.push(arguments);}
+                        gtag('js', new Date());
+                        gtag('config', 'G-XYZ0ST3CNP');
+                    `}
+                </Script>
             </body>
         </html>
     );

@@ -10,14 +10,17 @@ import {
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { AdminShell } from "@/components/admin/common/admin-shell";
+import { AUTH_STORAGE_KEY } from "@/components/auth";
 import { apiClient } from "@/lib/api-client";
 import { endpoints } from "@/lib/endpoints";
 
 type DashboardCountKey =
   | "bihar"
+  | "districtApplications"
   | "jharkhand"
   | "junior"
   | "open"
+  | "stateApplications"
   | "single"
   | "team"
   | "totalApplications"
@@ -59,9 +62,12 @@ type ChallengeCategoryCountCard = {
   biharCount: number;
   count: number;
   detail: "Challenge Category";
+  districtCount?: number;
   jharkhandCount: number;
   key: string;
   label: string;
+  regionCount?: number;
+  stateCount?: number;
   stateCounts?: {
     bihar: number;
     jharkhand: number;
@@ -72,6 +78,25 @@ type ChallengeCategoryCountCard = {
 
 type ChallengeCategoryCountsResponse = {
   cards: ChallengeCategoryCountCard[];
+};
+
+type DashboardDistrictCountRow = {
+  count: number;
+  districtId: number;
+  districtName: string;
+  stateId: number;
+  stateName: string;
+};
+
+type DashboardDistrictCountsResponse = {
+  rows: DashboardDistrictCountRow[];
+};
+
+type AdminSession = {
+  actor?: string;
+  admin?: {
+    role?: string;
+  };
 };
 
 const defaultCountCards: DashboardCountCard[] = [
@@ -142,6 +167,14 @@ const countCardStyles = {
     accent: "bg-emerald-50 text-emerald-600",
     icon: Tags,
   },
+  districtApplications: {
+    accent: "bg-emerald-50 text-emerald-600",
+    icon: MapPinned,
+  },
+  stateApplications: {
+    accent: "bg-orange-50 text-orange-600",
+    icon: MapPinned,
+  },
   single: {
     accent: "bg-indigo-50 text-indigo-600",
     icon: User,
@@ -172,6 +205,12 @@ const participantCountKeys: DashboardCountKey[] = [
   "open",
   "single",
   "team",
+];
+
+const districtTopCountKeys: DashboardCountKey[] = [
+  "totalApplications",
+  "stateApplications",
+  "districtApplications",
 ];
 
 const defaultOrganisationTypeCards: OrganisationTypeCountCard[] = [
@@ -338,7 +377,19 @@ function MetricCard({
   );
 }
 
+function parseAdminRole() {
+  if (typeof window === "undefined") return "";
+
+  try {
+    const session = JSON.parse(localStorage.getItem(AUTH_STORAGE_KEY) ?? "null") as AdminSession | null;
+    return session?.actor === "admin" ? (session.admin?.role ?? "") : "";
+  } catch {
+    return "";
+  }
+}
+
 export function AdminDashboardPage() {
+  const [adminRole, setAdminRole] = useState("");
   const [countCards, setCountCards] =
     useState<DashboardCountCard[]>(defaultCountCards);
   const [organisationTypeCards, setOrganisationTypeCards] = useState<
@@ -347,8 +398,13 @@ export function AdminDashboardPage() {
   const [challengeCategoryCards, setChallengeCategoryCards] = useState<
     ChallengeCategoryCountCard[]
   >(defaultChallengeCategoryCards);
+  const [districtCountRows, setDistrictCountRows] = useState<
+    DashboardDistrictCountRow[]
+  >([]);
   const countCardMap = new Map(countCards.map((card) => [card.key, card]));
-  const topCountCards = topCountKeys.map(
+  const visibleTopCountKeys =
+    adminRole === "ADMIN_DISTRICT" ? districtTopCountKeys : topCountKeys;
+  const topCountCards = visibleTopCountKeys.map(
     (key) => countCardMap.get(key) ?? defaultCountCards.find((card) => card.key === key),
   );
   const participantCountCards = participantCountKeys.map(
@@ -357,16 +413,20 @@ export function AdminDashboardPage() {
 
   useEffect(() => {
     let isMounted = true;
+    setAdminRole(parseAdminRole());
 
     void Promise.allSettled([
       apiClient.get<DashboardCountsResponse>(endpoints.admin.dashboardCounts),
+      apiClient.get<DashboardDistrictCountsResponse>(
+        endpoints.admin.dashboardDistrictCounts,
+      ),
       apiClient.get<OrganisationTypeCountsResponse>(
         endpoints.admin.dashboardOrganisationTypeCounts,
       ),
       apiClient.get<ChallengeCategoryCountsResponse>(
         endpoints.admin.dashboardChallengeCategoryCounts,
       ),
-    ]).then(([dashboardCounts, organisationTypeCounts, challengeCategoryCounts]) => {
+    ]).then(([dashboardCounts, districtCounts, organisationTypeCounts, challengeCategoryCounts]) => {
       if (!isMounted) return;
 
       if (
@@ -376,6 +436,15 @@ export function AdminDashboardPage() {
         setCountCards(dashboardCounts.value.cards);
       } else {
         setCountCards(defaultCountCards);
+      }
+
+      if (
+        districtCounts.status === "fulfilled" &&
+        districtCounts.value.rows.length
+      ) {
+        setDistrictCountRows(districtCounts.value.rows);
+      } else {
+        setDistrictCountRows([]);
       }
 
       if (
@@ -461,6 +530,41 @@ export function AdminDashboardPage() {
         </div>
       </section>
 
+      {(adminRole === "ADMIN_STATE" || adminRole === "ADMIN_DISTRICT") &&
+        districtCountRows.length > 0 && (
+          <section>
+            <h2 className="mb-4 text-lg font-black text-[#0b1f3a]">
+              District wise count
+            </h2>
+            <div className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
+              <div className="overflow-x-auto">
+                <table className="min-w-[640px] w-full border-collapse text-left text-sm">
+                  <thead className="bg-slate-50 text-xs font-black uppercase tracking-wide text-slate-600">
+                    <tr>
+                      <th className="px-5 py-4">State</th>
+                      <th className="px-5 py-4">District</th>
+                      <th className="px-5 py-4 text-center">Count</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-200">
+                    {districtCountRows.map((row) => (
+                      <tr key={row.districtId} className="text-slate-700">
+                        <td className="px-5 py-4 font-semibold text-[#0b1f3a]">
+                          {row.stateName}
+                        </td>
+                        <td className="px-5 py-4">{row.districtName}</td>
+                        <td className="px-5 py-4 text-center font-black text-[#0b1f3a]">
+                          {row.count}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </section>
+        )}
+
       <section>
         <h2 className="mb-4 text-lg font-black text-[#0b1f3a]">
           Challenge Category wise count
@@ -471,10 +575,22 @@ export function AdminDashboardPage() {
               <thead className="bg-slate-50 text-xs font-black uppercase tracking-wide text-slate-600">
                 <tr>
                   <th className="px-5 py-4">Category Name</th>
-                  <th className="px-5 py-4 text-center">Count of Bihar</th>
-                  <th className="px-5 py-4 text-center">Count of Jharkhand</th>
-                  <th className="px-5 py-4 text-center">Count of West Bengal</th>
-                  <th className="px-5 py-4 text-center">Total Count</th>
+                  {adminRole === "ADMIN_STATE" || adminRole === "ADMIN_DISTRICT" ? (
+                    <>
+                      <th className="px-5 py-4 text-center">Region Count</th>
+                      <th className="px-5 py-4 text-center">State Count</th>
+                      {adminRole === "ADMIN_DISTRICT" && (
+                        <th className="px-5 py-4 text-center">District Count</th>
+                      )}
+                    </>
+                  ) : (
+                    <>
+                      <th className="px-5 py-4 text-center">Count of Bihar</th>
+                      <th className="px-5 py-4 text-center">Count of Jharkhand</th>
+                      <th className="px-5 py-4 text-center">Count of West Bengal</th>
+                      <th className="px-5 py-4 text-center">Total Count</th>
+                    </>
+                  )}
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-200">
@@ -483,18 +599,36 @@ export function AdminDashboardPage() {
                     <td className="px-5 py-4 font-semibold text-[#0b1f3a]">
                       {card.label}
                     </td>
-                    <td className="px-5 py-4 text-center font-bold">
-                      {card.stateCounts?.bihar ?? card.biharCount}
-                    </td>
-                    <td className="px-5 py-4 text-center font-bold">
-                      {card.stateCounts?.jharkhand ?? card.jharkhandCount}
-                    </td>
-                    <td className="px-5 py-4 text-center font-bold">
-                      {card.stateCounts?.westBengal ?? card.westBengalCount}
-                    </td>
-                    <td className="px-5 py-4 text-center font-black text-[#0b1f3a]">
-                      {card.count}
-                    </td>
+                    {adminRole === "ADMIN_STATE" || adminRole === "ADMIN_DISTRICT" ? (
+                      <>
+                        <td className="px-5 py-4 text-center font-bold">
+                          {card.regionCount ?? card.count}
+                        </td>
+                        <td className="px-5 py-4 text-center font-bold">
+                          {card.stateCount ?? 0}
+                        </td>
+                        {adminRole === "ADMIN_DISTRICT" && (
+                          <td className="px-5 py-4 text-center font-black text-[#0b1f3a]">
+                            {card.districtCount ?? 0}
+                          </td>
+                        )}
+                      </>
+                    ) : (
+                      <>
+                        <td className="px-5 py-4 text-center font-bold">
+                          {card.stateCounts?.bihar ?? card.biharCount}
+                        </td>
+                        <td className="px-5 py-4 text-center font-bold">
+                          {card.stateCounts?.jharkhand ?? card.jharkhandCount}
+                        </td>
+                        <td className="px-5 py-4 text-center font-bold">
+                          {card.stateCounts?.westBengal ?? card.westBengalCount}
+                        </td>
+                        <td className="px-5 py-4 text-center font-black text-[#0b1f3a]">
+                          {card.count}
+                        </td>
+                      </>
+                    )}
                   </tr>
                 ))}
               </tbody>

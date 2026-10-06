@@ -89,6 +89,18 @@ export const participantRoutes: FastifyPluginAsync = async (app) => {
         },
         participantController.downloadApplicationDocument,
     );
+    app.delete<{
+        Params: {
+            applicationHash?: string;
+            documentId?: string;
+        };
+    }>(
+        "/applications/:applicationHash/documents/:documentId",
+        {
+            preHandler: authenticateParticipant,
+        },
+        participantController.deleteApplicationDocument,
+    );
     app.get<{
         Params: {
             applicationHash?: string;
@@ -99,6 +111,28 @@ export const participantRoutes: FastifyPluginAsync = async (app) => {
             preHandler: authenticateParticipant,
         },
         participantController.downloadApplicationPdf,
+    );
+    app.patch<{
+        Params: {
+            applicationHash?: string;
+        };
+    }>(
+        "/applications/:applicationHash",
+        {
+            preHandler: authenticateParticipant,
+        },
+        participantController.updateApplicationSubmission,
+    );
+    app.put<{
+        Params: {
+            applicationHash?: string;
+        };
+    }>(
+        "/applications/:applicationHash",
+        {
+            preHandler: authenticateParticipant,
+        },
+        participantController.updateApplicationSubmission,
     );
     app.get<{
         Params: {

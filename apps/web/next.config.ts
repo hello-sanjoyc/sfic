@@ -6,12 +6,20 @@ const isDev = process.env.NODE_ENV !== "production";
 
 const contentSecurityPolicy = [
     "default-src 'self'",
-    // 'unsafe-eval' is required in dev for Turbopack/React Fast Refresh; never included in production.
-    `script-src 'self' 'unsafe-inline'${isDev ? " 'unsafe-eval'" : ""}`,
+
+    // Allow Google Analytics / Google Tag Manager scripts
+    `script-src 'self' 'unsafe-inline'${isDev ? " 'unsafe-eval'" : ""} https://www.googletagmanager.com`,
+
     "style-src 'self' 'unsafe-inline'",
-    "img-src 'self' data: blob:",
+
+    // GA may use image/beacon requests
+    "img-src 'self' data: blob: https://www.google-analytics.com https://www.googletagmanager.com",
+
     "font-src 'self' data:",
-    `connect-src 'self' ${apiUrl}${isDev ? " ws:" : ""}`,
+
+    // Allow your API + Google Analytics data collection
+    `connect-src 'self' ${apiUrl}${isDev ? " ws:" : ""} https://www.google-analytics.com https://region1.google-analytics.com https://www.googletagmanager.com`,
+
     "frame-ancestors 'none'",
     "base-uri 'self'",
     "form-action 'self'",
@@ -27,7 +35,6 @@ const securityHeaders = [
 const nextConfig: NextConfig = {
     reactStrictMode: true,
 
-    // Add this to allow HMR from your connecting machine
     allowedDevOrigins: [],
 
     async headers() {

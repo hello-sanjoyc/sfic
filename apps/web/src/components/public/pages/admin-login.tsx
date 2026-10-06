@@ -23,10 +23,17 @@ type LoginCodeResponse = {
 
 type VerifyLoginResponse = {
   admin: {
+    analyticsAccess: string;
+    applicationsAccess: string;
+    districtId: number | null;
     email: string;
     id: number;
     name: string;
     role: string;
+    scope: string;
+    settingsAccess: string;
+    stateId: number | null;
+    usersAccess: string;
   };
   session: {
     token: string;

@@ -1,7 +1,10 @@
 import type { FastifyPluginAsync } from "fastify";
+import { authenticateAdmin } from "./admin-auth.js";
 import { adminController } from "./admin.controller.js";
 
 export const adminRoutes: FastifyPluginAsync = async (app) => {
+    app.addHook("preHandler", authenticateAdmin);
+
     app.get("/applications", adminController.getApplications);
     app.patch("/applications/:applicationId", adminController.updateApplication);
     app.put("/applications/:applicationId", adminController.updateApplication);
@@ -26,6 +29,10 @@ export const adminRoutes: FastifyPluginAsync = async (app) => {
     app.get(
         "/dashboard-organisation-type-counts",
         adminController.getDashboardOrganisationTypeCounts,
+    );
+    app.get(
+        "/dashboard-district-counts",
+        adminController.getDashboardDistrictCounts,
     );
     app.get(
         "/dashboard-challenge-category-counts",
@@ -80,6 +87,11 @@ export const adminRoutes: FastifyPluginAsync = async (app) => {
     app.patch("/settings/user-roles/:role", adminController.updateSettingsUserRole);
     app.put("/settings/user-roles/:role", adminController.updateSettingsUserRole);
     app.delete("/settings/user-roles/:role", adminController.deleteSettingsUserRole);
+    app.get("/settings/rbac", adminController.getRbacRules);
+    app.post("/settings/rbac", adminController.createRbacRule);
+    app.get("/settings/rbac/:id", adminController.getRbacRule);
+    app.patch("/settings/rbac/:id", adminController.updateRbacRule);
+    app.put("/settings/rbac/:id", adminController.updateRbacRule);
     app.post("/login", adminController.requestLoginCode);
     app.post("/resend-login-code", adminController.resendLoginCode);
     app.post("/verify-login", adminController.verifyLoginCode);

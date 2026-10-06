@@ -83,6 +83,8 @@ type SettingFormValues = {
   value: string;
 };
 
+const lockedUserRoles = new Set(["JURY_L1", "JURY_L2"]);
+
 type ResourceConfig = {
   collectionKey: string;
   detailKey: string;
@@ -218,6 +220,10 @@ function isUserRole(item: SettingItem): item is UserRoleSetting {
 
 function isNamedSetting(item: SettingItem): item is NamedSetting {
   return !isUserRole(item) && !isConfiguration(item);
+}
+
+function isLockedUserRole(item: SettingItem | SettingFormValues) {
+  return "role" in item && lockedUserRoles.has(item.role);
 }
 
 function itemId(item: SettingItem) {
@@ -517,13 +523,19 @@ export function AdminSettingsResourceListPage({
                     </td>
                   )}
                   <td className="px-4 py-3">
-                    <Link
-                      aria-label={`Edit ${itemName(item)}`}
-                      className="grid h-9 w-9 place-items-center rounded-lg border border-slate-200 text-blue-600 hover:bg-blue-50"
-                      href={`${config.path}/${encodeURIComponent(String(itemId(item)))}/edit`}
-                    >
-                      <Edit size={17} />
-                    </Link>
+                    {isLockedUserRole(item) ? (
+                      <span className="inline-flex h-9 items-center rounded-lg border border-slate-200 px-3 text-xs font-bold text-slate-500">
+                        Locked
+                      </span>
+                    ) : (
+                      <Link
+                        aria-label={`Edit ${itemName(item)}`}
+                        className="grid h-9 w-9 place-items-center rounded-lg border border-slate-200 text-blue-600 hover:bg-blue-50"
+                        href={`${config.path}/${encodeURIComponent(String(itemId(item)))}/edit`}
+                      >
+                        <Edit size={17} />
+                      </Link>
+                    )}
                   </td>
                 </tr>
               ))}
@@ -620,6 +632,11 @@ export function AdminSettingsResourceFormPage({
 
   const submit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    if (mode === "edit" && config.usesRole && isLockedUserRole(form)) {
+      setErrorMessage(`${form.role} cannot be edited.`);
+      return;
+    }
+
     setIsSaving(true);
     setErrorMessage("");
 
@@ -662,13 +679,19 @@ export function AdminSettingsResourceFormPage({
                 {errorMessage}
               </div>
             )}
+            {mode === "edit" && config.usesRole && isLockedUserRole(form) && (
+              <div className="rounded-lg border border-amber-100 bg-amber-50 p-3 text-sm font-semibold text-amber-800">
+                {form.role} is a protected system role and cannot be edited.
+              </div>
+            )}
 
             <div className="grid gap-4 md:grid-cols-2">
               {config.usesRole && (
                 <label className="grid gap-2 text-sm font-bold text-[#0b1f3a]">
                   Role
                   <input
-                    className="h-11 rounded-lg border border-slate-200 px-3 font-normal text-slate-700 outline-none focus:border-blue-500"
+                    className="h-11 rounded-lg border border-slate-200 px-3 font-normal text-slate-700 outline-none focus:border-blue-500 disabled:bg-slate-100 disabled:text-slate-500"
+                    disabled={mode === "edit" && isLockedUserRole(form)}
                     onChange={(event) => updateField("role", event.target.value.toUpperCase())}
                     required
                     value={form.role}
@@ -807,6 +830,7 @@ export function AdminSettingsResourceFormPage({
               <input
                 checked={form.isActive}
                 className="h-4 w-4 rounded border-slate-300 text-blue-600"
+                disabled={mode === "edit" && config.usesRole && isLockedUserRole(form)}
                 onChange={(event) => updateField("isActive", event.target.checked)}
                 type="checkbox"
               />
@@ -823,7 +847,10 @@ export function AdminSettingsResourceFormPage({
               </Link>
               <button
                 className="inline-flex h-11 items-center gap-2 rounded-lg bg-blue-600 px-5 text-sm font-bold text-white disabled:cursor-not-allowed disabled:opacity-60"
-                disabled={isSaving}
+                disabled={
+                  isSaving ||
+                  (mode === "edit" && config.usesRole && isLockedUserRole(form))
+                }
                 type="submit"
               >
                 <Save size={18} />

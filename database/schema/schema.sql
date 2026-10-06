@@ -329,6 +329,37 @@ CREATE TABLE public.user_roles (
     is_active boolean DEFAULT true NOT NULL
 );
 
+-- rbac_rules ------------------------------------------------------------
+
+CREATE TABLE public.rbac_rules (
+    id bigint NOT NULL,
+    role character varying(20) NOT NULL,
+    scope character varying(120) NOT NULL,
+    description text NOT NULL,
+    applications_access character varying(200) NOT NULL,
+    users_access character varying(200) NOT NULL,
+    settings_access character varying(200) NOT NULL,
+    analytics_access character varying(200) NOT NULL,
+    scope_notes text[] DEFAULT ARRAY[]::text[] NOT NULL,
+    is_active boolean DEFAULT true NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT ck_rbac_rules_analytics_access CHECK (((analytics_access)::text = ANY ((ARRAY['Full Access'::character varying, 'View Only'::character varying, 'No Access'::character varying])::text[]))),
+    CONSTRAINT ck_rbac_rules_applications_access CHECK (((applications_access)::text = ANY ((ARRAY['Full Access'::character varying, 'View Only'::character varying, 'No Access'::character varying])::text[]))),
+    CONSTRAINT ck_rbac_rules_scope CHECK (((scope)::text = ANY ((ARRAY['Application'::character varying, 'Region'::character varying, 'State'::character varying, 'District'::character varying])::text[]))),
+    CONSTRAINT ck_rbac_rules_settings_access CHECK (((settings_access)::text = ANY ((ARRAY['Full Access'::character varying, 'View Only'::character varying, 'No Access'::character varying])::text[]))),
+    CONSTRAINT ck_rbac_rules_users_access CHECK (((users_access)::text = ANY ((ARRAY['Full Access'::character varying, 'View Only'::character varying, 'No Access'::character varying])::text[])))
+);
+
+CREATE SEQUENCE public.rbac_rules_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+ALTER SEQUENCE public.rbac_rules_id_seq OWNED BY public.rbac_rules.id;
+
 -- app_settings --------------------------------------------------
 
 CREATE TABLE public.app_settings (
@@ -377,6 +408,8 @@ CREATE TABLE public.users (
     mobile character varying(20) NOT NULL,
     role character varying(20) NOT NULL,
     is_active boolean DEFAULT true NOT NULL,
+    state_id bigint,
+    district_id bigint,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
     updated_at timestamp with time zone DEFAULT now() NOT NULL
 );
@@ -661,6 +694,15 @@ CREATE SEQUENCE public.user_login_verification_tokens_id_seq
 
 ALTER SEQUENCE public.user_login_verification_tokens_id_seq OWNED BY public.user_login_verification_tokens.id;
 
+-- admin_sessions --------------------------------------------------------
+
+CREATE TABLE public.admin_sessions (
+    token character varying(80) NOT NULL,
+    user_id bigint NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    expires_at timestamp with time zone NOT NULL
+);
+
 -- ============================================================================
 -- DEFAULT COLUMN VALUES (id SERIAL wiring)
 -- ============================================================================
@@ -672,6 +714,7 @@ ALTER TABLE ONLY public.institute_types ALTER COLUMN id SET DEFAULT nextval('pub
 ALTER TABLE ONLY public.participant_category_institute_types ALTER COLUMN id SET DEFAULT nextval('public.participant_category_institute_types_id_seq'::regclass);
 ALTER TABLE ONLY public.challenge_categories ALTER COLUMN id SET DEFAULT nextval('public.challenge_categories_id_seq'::regclass);
 ALTER TABLE ONLY public.challenges ALTER COLUMN id SET DEFAULT nextval('public.challenges_id_seq'::regclass);
+ALTER TABLE ONLY public.rbac_rules ALTER COLUMN id SET DEFAULT nextval('public.rbac_rules_id_seq'::regclass);
 ALTER TABLE ONLY public.participants ALTER COLUMN id SET DEFAULT nextval('public.participants_id_seq'::regclass);
 ALTER TABLE ONLY public.users ALTER COLUMN id SET DEFAULT nextval('public.users_id_seq'::regclass);
 ALTER TABLE ONLY public.participant_applications ALTER COLUMN id SET DEFAULT nextval('public.participant_applications_id_seq'::regclass);
@@ -726,6 +769,11 @@ ALTER TABLE ONLY public.challenges
 
 ALTER TABLE ONLY public.user_roles
     ADD CONSTRAINT user_roles_pkey PRIMARY KEY (role);
+
+ALTER TABLE ONLY public.rbac_rules
+    ADD CONSTRAINT rbac_rules_pkey PRIMARY KEY (id);
+ALTER TABLE ONLY public.rbac_rules
+    ADD CONSTRAINT rbac_rules_role_key UNIQUE (role);
 
 ALTER TABLE ONLY public.app_settings
     ADD CONSTRAINT app_settings_pkey PRIMARY KEY (setting_key);
@@ -795,6 +843,9 @@ ALTER TABLE ONLY public.user_login_verification_tokens
 ALTER TABLE ONLY public.user_login_verification_tokens
     ADD CONSTRAINT user_login_verification_tokens_token_hash_key UNIQUE (token_hash);
 
+ALTER TABLE ONLY public.admin_sessions
+    ADD CONSTRAINT admin_sessions_pkey PRIMARY KEY (token);
+
 -- ============================================================================
 -- FOREIGN KEY CONSTRAINTS
 -- ============================================================================
@@ -809,6 +860,12 @@ ALTER TABLE ONLY public.participant_category_institute_types
 
 ALTER TABLE ONLY public.users
     ADD CONSTRAINT fk_users_role FOREIGN KEY (role) REFERENCES public.user_roles(role) ON UPDATE CASCADE ON DELETE RESTRICT;
+ALTER TABLE ONLY public.rbac_rules
+    ADD CONSTRAINT fk_rbac_rules_role FOREIGN KEY (role) REFERENCES public.user_roles(role) ON UPDATE CASCADE ON DELETE CASCADE;
+ALTER TABLE ONLY public.users
+    ADD CONSTRAINT fk_users_state FOREIGN KEY (state_id) REFERENCES public.states(id) ON UPDATE CASCADE ON DELETE SET NULL;
+ALTER TABLE ONLY public.users
+    ADD CONSTRAINT fk_users_district FOREIGN KEY (district_id) REFERENCES public.districts(id) ON UPDATE CASCADE ON DELETE SET NULL;
 
 ALTER TABLE ONLY public.participant_applications
     ADD CONSTRAINT fk_applications_challenge FOREIGN KEY (challenge_id) REFERENCES public.challenges(id) ON UPDATE CASCADE ON DELETE RESTRICT;
@@ -855,6 +912,9 @@ ALTER TABLE ONLY public.participant_login_verification_tokens
 ALTER TABLE ONLY public.user_login_verification_tokens
     ADD CONSTRAINT fk_user_login_tokens_user FOREIGN KEY (user_id) REFERENCES public.users(id) ON UPDATE CASCADE ON DELETE CASCADE;
 
+ALTER TABLE ONLY public.admin_sessions
+    ADD CONSTRAINT fk_admin_sessions_user FOREIGN KEY (user_id) REFERENCES public.users(id) ON UPDATE CASCADE ON DELETE CASCADE;
+
 -- ============================================================================
 -- INDEXES
 -- ============================================================================
@@ -870,6 +930,9 @@ CREATE INDEX idx_pc_institute_category_id ON public.participant_category_institu
 CREATE INDEX idx_pc_institute_type_id ON public.participant_category_institute_types USING btree (institute_type_id);
 
 CREATE INDEX idx_users_role ON public.users USING btree (role);
+CREATE INDEX idx_users_state_district ON public.users USING btree (state_id, district_id);
+
+CREATE INDEX idx_rbac_rules_role ON public.rbac_rules USING btree (role);
 
 CREATE INDEX idx_applications_challenge_id ON public.participant_applications USING btree (challenge_id);
 CREATE INDEX idx_applications_participant_id ON public.participant_applications USING btree (participant_id);
@@ -903,6 +966,9 @@ CREATE INDEX idx_user_login_attempts_locked_until ON public.user_login_verificat
 CREATE INDEX idx_user_login_tokens_active ON public.user_login_verification_tokens USING btree (token_hash, expires_at) WHERE (consumed_at IS NULL);
 CREATE INDEX idx_user_login_tokens_email ON public.user_login_verification_tokens USING btree (email);
 
+CREATE INDEX idx_admin_sessions_expires_at ON public.admin_sessions USING btree (expires_at);
+CREATE INDEX idx_admin_sessions_user_id ON public.admin_sessions USING btree (user_id);
+
 -- ============================================================================
 -- TRIGGERS
 -- ============================================================================
@@ -911,6 +977,7 @@ CREATE TRIGGER trg_challenges_updated_at BEFORE UPDATE ON public.challenges FOR 
 CREATE TRIGGER trg_app_settings_updated_at BEFORE UPDATE ON public.app_settings FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
 CREATE TRIGGER trg_participants_updated_at BEFORE UPDATE ON public.participants FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
 CREATE TRIGGER trg_users_updated_at BEFORE UPDATE ON public.users FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
+CREATE TRIGGER trg_rbac_rules_updated_at BEFORE UPDATE ON public.rbac_rules FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
 CREATE TRIGGER trg_participant_applications_updated_at BEFORE UPDATE ON public.participant_applications FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
 CREATE TRIGGER trg_application_team_members_updated_at BEFORE UPDATE ON public.application_team_members FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
 CREATE TRIGGER trg_application_documents_updated_at BEFORE UPDATE ON public.application_documents FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();

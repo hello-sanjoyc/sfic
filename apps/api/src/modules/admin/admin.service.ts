@@ -6,13 +6,16 @@ import type {
     AdminApplicationDocumentDownload,
     AdminApplicationDetails,
     AdminApplicationsResult,
+    AdminAccessContext,
     AdminDashboardChallengeCategoryCountsResult,
     AdminDashboardCountsResult,
+    AdminDashboardDistrictCountsResult,
     AdminDashboardOrganisationTypeCountsResult,
     AdminLanguage,
     AdminManagedUser,
     AdminManagedUsersResult,
     AdminPageViewAnalyticsResult,
+    AdminRbacRule,
     AdminSettingsChallengeCategory,
     AdminSettingsConfiguration,
     AdminSettingsConfigurationType,
@@ -57,24 +60,48 @@ export class AdminRuleError extends Error {
 }
 
 type AdminUserRow = {
+    analytics_access?: string | null;
+    applications_access?: string | null;
+    district_id: string | null;
     email: string;
     fullname: string;
     id: string;
     is_active?: boolean;
     mobile: string;
     role: string;
+    scope?: string | null;
+    settings_access?: string | null;
+    state_id: string | null;
+    users_access?: string | null;
 };
 
 type AdminManagedUserRow = {
     created_at: Date | string;
+    district_id: string | null;
     email: string;
     fullname: string;
     id: string;
     is_active: boolean;
     mobile: string;
     role: string;
+    state_id: string | null;
     total_count?: string;
     updated_at: Date | string;
+};
+
+type AdminRbacRuleRow = QueryResultRow & {
+    analytics_access: string;
+    applications_access: string;
+    created_at: Date | string;
+    description: string;
+    id: string | number;
+    is_active: boolean;
+    role: string;
+    scope: string;
+    scope_notes: string[];
+    settings_access: string;
+    updated_at: Date | string;
+    users_access: string;
 };
 
 type ApplicationSummaryCountRow = {
@@ -129,10 +156,21 @@ type OrganisationTypeCountRow = {
 type ChallengeCategoryCountRow = {
     bihar_count: string;
     count: string;
+    district_count: string;
     jharkhand_count: string;
     key: string;
     label: string;
+    region_count: string;
+    state_count: string;
     west_bengal_count: string;
+};
+
+type DistrictApplicationCountRow = {
+    count: string;
+    district_id: string;
+    district_name: string;
+    state_id: string;
+    state_name: string;
 };
 
 type ApplicationDetailsRow = {
@@ -169,6 +207,7 @@ type AdminApplicationSortKey =
     | "title";
 
 type AdminApplicationQueryOptions = {
+    access?: AdminAccessContext;
     applicationId?: number;
     page?: number;
     pageSize?: number;
@@ -179,6 +218,7 @@ type AdminApplicationQueryOptions = {
 };
 
 type AdminManagedUserQueryOptions = {
+    access?: AdminAccessContext;
     page?: number;
     pageSize?: number;
     search?: string;
@@ -207,8 +247,191 @@ const applicationStatuses = new Set([
     "submitted",
     "withdrawn",
 ]);
+const rbacAccessValues = new Set(["Full Access", "View Only", "No Access"]);
+const rbacScopeValues = new Set(["Application", "Region", "State", "District"]);
 const hiddenAdminUserEmail = "sany.chowdhury@gmail.com";
 const hiddenAdminUserMobile = "9830799651";
+
+function hasScopedStateAccess(access?: AdminAccessContext) {
+    const scope = access?.scope?.trim().toLowerCase();
+    return (
+        scope === "state" ||
+        scope === "assigned state" ||
+        access?.role === "ADMIN_STATE" ||
+        access?.role === "JURY_STATE"
+    );
+}
+
+function hasScopedDistrictAccess(access?: AdminAccessContext) {
+    const scope = access?.scope?.trim().toLowerCase();
+    return (
+        scope === "district" ||
+        scope === "assigned district" ||
+        access?.role === "ADMIN_DISTRICT" ||
+        access?.role === "JURY_DISTRICT"
+    );
+}
+
+function hasRegionalAccess(access?: AdminAccessContext) {
+    const scope = access?.scope?.trim().toLowerCase();
+    return (
+        scope === "region" ||
+        scope === "regional" ||
+        access?.role === "ADMIN_REGION"
+    );
+}
+
+function appendUserScopeCondition(
+    conditions: string[],
+    params: unknown[],
+    access?: AdminAccessContext,
+) {
+    if (hasScopedDistrictAccess(access)) {
+        params.push(access?.stateId, access?.districtId);
+        conditions.push(
+            `state_id = $${params.length - 1} AND district_id = $${params.length}`,
+        );
+        return;
+    }
+
+    if (hasScopedStateAccess(access)) {
+        params.push(access?.stateId);
+        conditions.push(`state_id = $${params.length}`);
+        return;
+    }
+
+    if (hasRegionalAccess(access)) {
+        conditions.push(`
+            state_id IN (
+                SELECT id
+                FROM public.states
+                WHERE LOWER(TRIM(name_en)) IN ('west bengal', 'bihar', 'jharkhand')
+            )
+        `);
+    }
+}
+
+function appendApplicationScopeCondition(
+    conditions: string[],
+    params: unknown[],
+    access?: AdminAccessContext,
+    alias = "pa",
+) {
+    if (hasScopedDistrictAccess(access)) {
+        params.push(access?.stateId, access?.districtId);
+        conditions.push(
+            `${alias}.state_id = $${params.length - 1} AND ${alias}.district_id = $${params.length}`,
+        );
+        return;
+    }
+
+    if (hasScopedStateAccess(access)) {
+        params.push(access?.stateId);
+        conditions.push(`${alias}.state_id = $${params.length}`);
+        return;
+    }
+
+    if (hasRegionalAccess(access)) {
+        conditions.push(`
+            ${alias}.state_id IN (
+                SELECT id
+                FROM public.states
+                WHERE LOWER(TRIM(name_en)) IN ('west bengal', 'bihar', 'jharkhand')
+            )
+        `);
+    }
+}
+
+function applicationScopeAndSql(access: AdminAccessContext | undefined, alias: string) {
+    const values: unknown[] = [];
+    const conditions: string[] = [];
+    appendApplicationScopeCondition(conditions, values, access, alias);
+
+    return {
+        sql: conditions.length ? `AND ${conditions.join(" AND ")}` : "",
+        values,
+    };
+}
+
+function assertUserWithinScope(
+    access: AdminAccessContext | undefined,
+    values: { districtId?: number | null; stateId?: number | null },
+) {
+    if (hasScopedDistrictAccess(access)) {
+        if (
+            values.stateId !== access?.stateId ||
+            values.districtId !== access?.districtId
+        ) {
+            throw new AdminRuleError("Access is not available for this district.", 403);
+        }
+        return;
+    }
+
+    if (hasScopedStateAccess(access) && values.stateId !== access?.stateId) {
+        throw new AdminRuleError("Access is not available for this state.", 403);
+    }
+}
+
+function assertCanWriteManagedUserRole(
+    access: AdminAccessContext | undefined,
+    role?: string,
+) {
+    if (!role) return;
+
+    if (access?.role === "SUPERADMIN") return;
+
+    if (hasRegionalAccess(access)) {
+        if (role !== "ADMIN_STATE") {
+            throw new AdminRuleError(
+                "Region Admin can create or update State Admin users only.",
+                403,
+            );
+        }
+        return;
+    }
+
+    if (hasScopedStateAccess(access)) {
+        if (role !== "ADMIN_DISTRICT") {
+            throw new AdminRuleError(
+                "State Admin can create or update District Admin users only.",
+                403,
+            );
+        }
+        return;
+    }
+
+    if (hasScopedDistrictAccess(access)) {
+        throw new AdminRuleError("District Admin cannot manage users.", 403);
+    }
+}
+
+async function assertRegionalUserScope(
+    pg: DatabasePool,
+    access: AdminAccessContext | undefined,
+    stateId?: number | null,
+) {
+    if (!hasRegionalAccess(access) || stateId === undefined) return;
+
+    if (stateId === null) {
+        throw new AdminRuleError("Access is not available for this region.", 403);
+    }
+
+    const result = await pg.query<{ id: string }>(
+        `
+        SELECT id::text
+        FROM public.states
+        WHERE id = $1
+          AND LOWER(TRIM(name_en)) IN ('west bengal', 'bihar', 'jharkhand')
+        LIMIT 1
+        `,
+        [stateId],
+    );
+
+    if (!result.rows[0]) {
+        throw new AdminRuleError("Access is not available for this region.", 403);
+    }
+}
+
 function hiddenAdminUserCondition(emailParamIndex: number, mobileParamIndex: number) {
     return `
     NOT (
@@ -599,7 +822,7 @@ async function ensureAdminLoginTables(pg: DatabaseClient) {
 
     await pg.query(`
     INSERT INTO user_roles (role)
-    VALUES ('SUPERADMIN'), ('ADMIN'), ('JURY'), ('HELPDESK')
+    VALUES ('SUPERADMIN'), ('ADMIN'), ('ADMIN_STATE'), ('ADMIN_DISTRICT'), ('HELPDESK')
     ON CONFLICT (role) DO NOTHING
   `);
 
@@ -684,6 +907,28 @@ async function ensureAdminLoginTables(pg: DatabaseClient) {
   `);
 
     await pg.query(`
+    CREATE TABLE IF NOT EXISTS admin_sessions (
+      token      VARCHAR(80) PRIMARY KEY,
+      user_id    BIGINT NOT NULL,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      expires_at TIMESTAMPTZ NOT NULL,
+      CONSTRAINT fk_admin_sessions_user
+        FOREIGN KEY (user_id) REFERENCES users(id)
+        ON UPDATE CASCADE ON DELETE CASCADE
+    )
+  `);
+
+    await pg.query(`
+    CREATE INDEX IF NOT EXISTS idx_admin_sessions_user_id
+      ON admin_sessions(user_id)
+  `);
+
+    await pg.query(`
+    CREATE INDEX IF NOT EXISTS idx_admin_sessions_expires_at
+      ON admin_sessions(expires_at)
+  `);
+
+    await pg.query(`
     DROP TRIGGER IF EXISTS trg_user_login_attempts_updated_at
       ON user_login_verification_attempts
   `);
@@ -697,24 +942,50 @@ async function ensureAdminLoginTables(pg: DatabaseClient) {
 
 function toAdminUser(row: AdminUserRow): AdminUser {
     return {
+        analyticsAccess: row.analytics_access ?? "No Access",
+        applicationsAccess: row.applications_access ?? "No Access",
+        districtId: row.district_id === null ? null : Number(row.district_id),
         email: row.email,
         id: Number(row.id),
         mobile: row.mobile,
         name: row.fullname,
         role: row.role,
+        scope: row.scope ?? "Application",
+        settingsAccess: row.settings_access ?? "No Access",
+        stateId: row.state_id === null ? null : Number(row.state_id),
+        usersAccess: row.users_access ?? "No Access",
     };
 }
 
 function toAdminManagedUser(row: AdminManagedUserRow): AdminManagedUser {
     return {
         createdAt: new Date(row.created_at).toISOString(),
+        districtId: row.district_id === null ? null : Number(row.district_id),
         email: row.email,
         fullName: row.fullname,
         id: Number(row.id),
         isActive: row.is_active,
         mobile: row.mobile,
         role: row.role,
+        stateId: row.state_id === null ? null : Number(row.state_id),
         updatedAt: new Date(row.updated_at).toISOString(),
+    };
+}
+
+function toAdminRbacRule(row: AdminRbacRuleRow): AdminRbacRule {
+    return {
+        analyticsAccess: row.analytics_access,
+        applicationsAccess: row.applications_access,
+        createdAt: new Date(row.created_at).toISOString(),
+        description: row.description,
+        id: Number(row.id),
+        isActive: row.is_active,
+        role: row.role,
+        scope: row.scope,
+        scopeNotes: row.scope_notes ?? [],
+        settingsAccess: row.settings_access,
+        updatedAt: new Date(row.updated_at).toISOString(),
+        usersAccess: row.users_access,
     };
 }
 
@@ -726,6 +997,10 @@ function normalizeMobileValue(value: unknown) {
     }
 
     return mobile;
+}
+
+function adminSessionTtlSeconds() {
+    return Number(process.env.ADMIN_SESSION_TTL_SECONDS ?? 12 * 60 * 60);
 }
 
 function normalizeUserRole(value: unknown) {
@@ -746,6 +1021,20 @@ function normalizeBooleanValue(value: unknown) {
     throw new AdminRuleError("Expected a boolean value.");
 }
 
+function normalizeOptionalIdValue(value: unknown, label: string) {
+    if (value === undefined) return undefined;
+    if (value === null || value === "") return null;
+
+    const numericValue =
+        typeof value === "number" ? value : Number.parseInt(String(value), 10);
+
+    if (!Number.isInteger(numericValue) || numericValue <= 0) {
+        throw new AdminRuleError(`${label} is invalid.`);
+    }
+
+    return numericValue;
+}
+
 function normalizeAdminManagedUserInput(
     input: UpsertAdminManagedUserInput,
     options: { partial?: boolean } = {},
@@ -756,6 +1045,8 @@ function normalizeAdminManagedUserInput(
         isActive?: boolean;
         mobile?: string;
         role?: string;
+        districtId?: number | null;
+        stateId?: number | null;
     } = {};
 
     if ("fullName" in input || !options.partial) {
@@ -774,6 +1065,20 @@ function normalizeAdminManagedUserInput(
         values.role = normalizeUserRole(input.role);
     }
 
+    if ("stateId" in input || "state_id" in input || !options.partial) {
+        values.stateId = normalizeOptionalIdValue(
+            input.stateId ?? input.state_id,
+            "State",
+        );
+    }
+
+    if ("districtId" in input || "district_id" in input || !options.partial) {
+        values.districtId = normalizeOptionalIdValue(
+            input.districtId ?? input.district_id,
+            "District",
+        );
+    }
+
     if ("isActive" in input) {
         values.isActive = normalizeBooleanValue(input.isActive);
     }
@@ -783,6 +1088,59 @@ function normalizeAdminManagedUserInput(
     }
 
     return values;
+}
+
+async function validateAdminManagedUserLocation(
+    pg: DatabasePool,
+    values: {
+        districtId?: number | null;
+        role?: string;
+        stateId?: number | null;
+    },
+) {
+    if (values.role === "ADMIN_STATE" && !values.stateId) {
+        throw new AdminRuleError("State is required for ADMIN_STATE users.");
+    }
+
+    if (values.role === "ADMIN_DISTRICT") {
+        if (!values.stateId) {
+            throw new AdminRuleError("State is required for ADMIN_DISTRICT users.");
+        }
+        if (!values.districtId) {
+            throw new AdminRuleError("District is required for ADMIN_DISTRICT users.");
+        }
+    }
+
+    if (values.role !== "ADMIN_STATE" && values.role !== "ADMIN_DISTRICT") {
+        return;
+    }
+
+    if (values.stateId) {
+        const stateResult = await pg.query(
+            "SELECT 1 FROM states WHERE id = $1 AND is_active = TRUE LIMIT 1",
+            [values.stateId],
+        );
+        if (!stateResult.rows[0]) {
+            throw new AdminRuleError("State is invalid.");
+        }
+    }
+
+    if (values.districtId) {
+        const districtResult = await pg.query(
+            `
+            SELECT 1
+            FROM districts
+            WHERE id = $1
+              AND state_id = $2
+              AND is_active = TRUE
+            LIMIT 1
+            `,
+            [values.districtId, values.stateId],
+        );
+        if (!districtResult.rows[0]) {
+            throw new AdminRuleError("District is invalid for the selected state.");
+        }
+    }
 }
 
 function toUserWriteError(error: unknown) {
@@ -816,7 +1174,7 @@ function getResendAvailableAt(lastSentAt = new Date()) {
 async function findUserByEmail(client: PoolClient, email: string) {
     const result = await client.query<AdminUserRow>(
         `
-      SELECT id, fullname, email, mobile, role
+      SELECT id, fullname, email, mobile, role, state_id, district_id
       FROM users
       WHERE LOWER(email::text) = LOWER($1)
         AND is_active = TRUE
@@ -1055,9 +1413,24 @@ async function verifyLoginCode(
 
         const result = await client.query<AdminUserRow>(
             `
-        SELECT u.id, u.fullname, u.email, u.mobile, u.role
+        SELECT
+            u.id,
+            u.fullname,
+            u.email,
+            u.mobile,
+            u.role,
+            u.state_id,
+            u.district_id,
+            rr.scope,
+            rr.applications_access,
+            rr.users_access,
+            rr.settings_access,
+            rr.analytics_access
         FROM user_login_verification_tokens ulvt
         JOIN users u ON u.id = ulvt.user_id
+        LEFT JOIN rbac_rules rr
+            ON rr.role = u.role
+           AND rr.is_active = TRUE
         WHERE ulvt.token_hash = $1
           AND LOWER(ulvt.email::text) = LOWER($2)
           AND ulvt.consumed_at IS NULL
@@ -1084,12 +1457,21 @@ async function verifyLoginCode(
             [hashToken(input.code)],
         );
 
+        const sessionToken = randomUUID();
+        await client.query(
+            `
+            INSERT INTO admin_sessions (token, user_id, expires_at)
+            VALUES ($1, $2, NOW() + ($3::int * INTERVAL '1 second'))
+            `,
+            [sessionToken, row.id, adminSessionTtlSeconds()],
+        );
+
         await client.query("COMMIT");
 
         return {
             admin: toAdminUser(row),
             session: {
-                token: randomUUID(),
+                token: sessionToken,
             },
         };
     } catch (error) {
@@ -1112,6 +1494,7 @@ async function getUsers(
     const offset = (page - 1) * pageSize;
     const params: unknown[] = [hiddenAdminUserEmail, hiddenAdminUserMobile];
     const conditions: string[] = [hiddenAdminUserCondition(1, 2)];
+    appendUserScopeCondition(conditions, params, options.access);
 
     if (options.search?.trim()) {
         params.push(`%${options.search.trim()}%`);
@@ -1140,6 +1523,8 @@ async function getUsers(
             email,
             mobile,
             role,
+            state_id,
+            district_id,
             is_active,
             created_at,
             updated_at,
@@ -1168,7 +1553,15 @@ async function getUsers(
 async function getUser(
     pg: DatabasePool,
     userId: number,
+    access?: AdminAccessContext,
 ): Promise<AdminManagedUser | null> {
+    const params: unknown[] = [userId, hiddenAdminUserEmail, hiddenAdminUserMobile];
+    const conditions = [
+        "id = $1",
+        hiddenAdminUserCondition(2, 3),
+    ];
+    appendUserScopeCondition(conditions, params, access);
+
     const result = await pg.query<AdminManagedUserRow>(
         `
         SELECT
@@ -1177,15 +1570,16 @@ async function getUser(
             email,
             mobile,
             role,
+            state_id,
+            district_id,
             is_active,
             created_at,
             updated_at
         FROM users
-        WHERE id = $1
-          AND ${hiddenAdminUserCondition(2, 3)}
+        WHERE ${conditions.join(" AND ")}
         LIMIT 1
         `,
-        [userId, hiddenAdminUserEmail, hiddenAdminUserMobile],
+        params,
     );
 
     return result.rows[0] ? toAdminManagedUser(result.rows[0]) : null;
@@ -1194,8 +1588,13 @@ async function getUser(
 async function createUser(
     pg: DatabasePool,
     input: UpsertAdminManagedUserInput,
+    access?: AdminAccessContext,
 ): Promise<{ user: AdminManagedUser }> {
     const values = normalizeAdminManagedUserInput(input);
+    await validateAdminManagedUserLocation(pg, values);
+    assertCanWriteManagedUserRole(access, values.role);
+    assertUserWithinScope(access, values);
+    await assertRegionalUserScope(pg, access, values.stateId);
 
     if (isReservedAdminUserValue(values)) {
         throw new AdminRuleError("This user account is reserved.", 403);
@@ -1209,15 +1608,19 @@ async function createUser(
                 email,
                 mobile,
                 role,
+                state_id,
+                district_id,
                 is_active
             )
-            VALUES ($1, $2, $3, $4, $5)
+            VALUES ($1, $2, $3, $4, $5, $6, $7)
             RETURNING
                 id,
                 fullname,
                 email,
                 mobile,
                 role,
+                state_id,
+                district_id,
                 is_active,
                 created_at,
                 updated_at
@@ -1227,6 +1630,8 @@ async function createUser(
                 values.email,
                 values.mobile,
                 values.role,
+                values.stateId,
+                values.districtId,
                 values.isActive ?? true,
             ],
         );
@@ -1241,8 +1646,24 @@ async function updateUser(
     pg: DatabasePool,
     userId: number,
     input: UpsertAdminManagedUserInput,
+    access?: AdminAccessContext,
 ): Promise<{ user: AdminManagedUser } | null> {
     const values = normalizeAdminManagedUserInput(input, { partial: true });
+    const existing = await getUser(pg, userId, access);
+    if (!existing) return null;
+    const mergedValues = {
+        districtId:
+            values.districtId !== undefined
+                ? values.districtId
+                : existing.districtId,
+        role: values.role ?? existing.role,
+        stateId:
+            values.stateId !== undefined ? values.stateId : existing.stateId,
+    };
+    await validateAdminManagedUserLocation(pg, mergedValues);
+    assertCanWriteManagedUserRole(access, mergedValues.role);
+    assertUserWithinScope(access, mergedValues);
+    await assertRegionalUserScope(pg, access, mergedValues.stateId);
     const updates: string[] = [];
     const params: unknown[] = [];
 
@@ -1270,6 +1691,16 @@ async function updateUser(
         updates.push(`role = $${params.length}`);
     }
 
+    if (values.stateId !== undefined) {
+        params.push(values.stateId);
+        updates.push(`state_id = $${params.length}`);
+    }
+
+    if (values.districtId !== undefined) {
+        params.push(values.districtId);
+        updates.push(`district_id = $${params.length}`);
+    }
+
     if (values.isActive !== undefined) {
         params.push(values.isActive);
         updates.push(`is_active = $${params.length}`);
@@ -1291,6 +1722,8 @@ async function updateUser(
                 email,
                 mobile,
                 role,
+                state_id,
+                district_id,
                 is_active,
                 created_at,
                 updated_at
@@ -1307,8 +1740,9 @@ async function updateUser(
 async function deleteUser(
     pg: DatabasePool,
     userId: number,
+    access?: AdminAccessContext,
 ): Promise<{ user: AdminManagedUser } | null> {
-    return updateUser(pg, userId, { isActive: false });
+    return updateUser(pg, userId, { isActive: false }, access);
 }
 
 type AdminSettingsNamedRow = {
@@ -2081,12 +2515,257 @@ function normalizeUserRoleValue(value: unknown) {
     return normalizeUserRole(value);
 }
 
+function normalizeScopeNotes(value: unknown) {
+    if (value === undefined || value === null || value === "") return [];
+
+    if (Array.isArray(value)) {
+        return value
+            .map((item) => normalizeRequiredString(item))
+            .filter(Boolean);
+    }
+
+    return String(value)
+        .split("\n")
+        .map((item) => item.trim())
+        .filter(Boolean);
+}
+
+function normalizeRbacScope(value: unknown) {
+    const scope = normalizeRequiredString(value);
+    const match = [...rbacScopeValues].find(
+        (item) => item.toLowerCase() === scope.toLowerCase(),
+    );
+
+    if (!match) {
+        throw new AdminRuleError("Scope is invalid.");
+    }
+
+    return match;
+}
+
+function normalizeRbacAccessValue(value: unknown, label: string) {
+    const access = normalizeRequiredString(value);
+    const match = [...rbacAccessValues].find(
+        (item) => item.toLowerCase() === access.toLowerCase(),
+    );
+
+    if (!match) {
+        throw new AdminRuleError(`${label} is invalid.`);
+    }
+
+    return match;
+}
+
+function normalizeRbacRuleInput(input: UpsertAdminSettingsItemInput) {
+    return {
+        analyticsAccess: normalizeRbacAccessValue(
+            input.analyticsAccess,
+            "Reports & Analytics Access",
+        ),
+        applicationsAccess: normalizeRbacAccessValue(
+            input.applicationsAccess,
+            "Applications Access",
+        ),
+        description: normalizeRequiredString(input.description),
+        isActive: normalizeOptionalBoolean(input.isActive),
+        role: normalizeUserRoleValue(input.role),
+        scope: normalizeRbacScope(input.scope),
+        scopeNotes: normalizeScopeNotes(input.scopeNotes),
+        settingsAccess: normalizeRbacAccessValue(
+            input.settingsAccess,
+            "Settings Access",
+        ),
+        usersAccess: normalizeRbacAccessValue(input.usersAccess, "Users Access"),
+    };
+}
+
+async function assertActiveRbacRole(pg: DatabasePool, role: string) {
+    const result = await pg.query<{ role: string }>(
+        `
+        SELECT role
+        FROM user_roles
+        WHERE role = $1
+          AND is_active = TRUE
+        LIMIT 1
+        `,
+        [role],
+    );
+
+    if (!result.rows[0]) {
+        throw new AdminRuleError("Role must be an active user role.");
+    }
+}
+
+async function getRbacRules(
+    pg: DatabasePool,
+): Promise<{ rbacRules: AdminRbacRule[] }> {
+    const result = await pg.query<AdminRbacRuleRow>(`
+        SELECT
+            id,
+            role,
+            scope,
+            description,
+            applications_access,
+            users_access,
+            settings_access,
+            analytics_access,
+            scope_notes,
+            is_active,
+            created_at,
+            updated_at
+        FROM rbac_rules
+        ORDER BY role
+    `);
+
+    return { rbacRules: result.rows.map(toAdminRbacRule) };
+}
+
+async function getRbacRule(
+    pg: DatabasePool,
+    id: number,
+): Promise<{ rbacRule: AdminRbacRule } | null> {
+    const result = await pg.query<AdminRbacRuleRow>(
+        `
+        SELECT
+            id,
+            role,
+            scope,
+            description,
+            applications_access,
+            users_access,
+            settings_access,
+            analytics_access,
+            scope_notes,
+            is_active,
+            created_at,
+            updated_at
+        FROM rbac_rules
+        WHERE id = $1
+        LIMIT 1
+        `,
+        [id],
+    );
+
+    return result.rows[0] ? { rbacRule: toAdminRbacRule(result.rows[0]) } : null;
+}
+
+async function createRbacRule(
+    pg: DatabasePool,
+    input: UpsertAdminSettingsItemInput,
+): Promise<{ rbacRule: AdminRbacRule }> {
+    const values = normalizeRbacRuleInput(input);
+    await assertActiveRbacRole(pg, values.role);
+    const result = await pg.query<AdminRbacRuleRow>(
+        `
+        INSERT INTO rbac_rules (
+            role,
+            scope,
+            description,
+            applications_access,
+            users_access,
+            settings_access,
+            analytics_access,
+            scope_notes,
+            is_active
+        )
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+        RETURNING
+            id,
+            role,
+            scope,
+            description,
+            applications_access,
+            users_access,
+            settings_access,
+            analytics_access,
+            scope_notes,
+            is_active,
+            created_at,
+            updated_at
+        `,
+        [
+            values.role,
+            values.scope,
+            values.description,
+            values.applicationsAccess,
+            values.usersAccess,
+            values.settingsAccess,
+            values.analyticsAccess,
+            values.scopeNotes,
+            values.isActive,
+        ],
+    );
+
+    return { rbacRule: toAdminRbacRule(result.rows[0]) };
+}
+
+async function updateRbacRule(
+    pg: DatabasePool,
+    id: number,
+    input: UpsertAdminSettingsItemInput,
+): Promise<{ rbacRule: AdminRbacRule } | null> {
+    const values = normalizeRbacRuleInput(input);
+    await assertActiveRbacRole(pg, values.role);
+    const result = await pg.query<AdminRbacRuleRow>(
+        `
+        UPDATE rbac_rules
+        SET role = $1,
+            scope = $2,
+            description = $3,
+            applications_access = $4,
+            users_access = $5,
+            settings_access = $6,
+            analytics_access = $7,
+            scope_notes = $8,
+            is_active = $9,
+            updated_at = NOW()
+        WHERE id = $10
+        RETURNING
+            id,
+            role,
+            scope,
+            description,
+            applications_access,
+            users_access,
+            settings_access,
+            analytics_access,
+            scope_notes,
+            is_active,
+            created_at,
+            updated_at
+        `,
+        [
+            values.role,
+            values.scope,
+            values.description,
+            values.applicationsAccess,
+            values.usersAccess,
+            values.settingsAccess,
+            values.analyticsAccess,
+            values.scopeNotes,
+            values.isActive,
+            id,
+        ],
+    );
+
+    return result.rows[0] ? { rbacRule: toAdminRbacRule(result.rows[0]) } : null;
+}
+
+const lockedSettingsUserRoles = new Set(["JURY_L1", "JURY_L2"]);
+
+function assertSettingsUserRoleEditable(role: string) {
+    if (lockedSettingsUserRoles.has(role)) {
+        throw new AdminRuleError(`${role} cannot be edited.`);
+    }
+}
+
 async function getSettingsUserRoles(
     pg: DatabasePool,
 ): Promise<AdminSettingsUserRole[]> {
     const result = await pg.query<AdminSettingsUserRoleRow>(`
         SELECT role, is_active
         FROM user_roles
+        WHERE role NOT IN ('JURY_L1', 'JURY_L2')
         ORDER BY role
     `);
 
@@ -2141,8 +2820,10 @@ async function updateSettingsUserRole(
     input: UpsertAdminSettingsItemInput,
 ): Promise<{ userRole: AdminSettingsUserRole } | null> {
     const currentRole = normalizeUserRoleValue(role);
+    assertSettingsUserRoleEditable(currentRole);
     const nextRole =
         input.role === undefined ? currentRole : normalizeUserRoleValue(input.role);
+    assertSettingsUserRoleEditable(nextRole);
     const isActive = normalizeOptionalBoolean(input.isActive);
 
     const result = await pg.query<AdminSettingsUserRoleRow>(
@@ -2229,17 +2910,40 @@ async function getPageViewAnalytics(
 
 async function getDashboardCounts(
     pg: DatabasePool,
+    access?: AdminAccessContext,
 ): Promise<AdminDashboardCountsResult> {
+    const topRowUsesRegionalContext =
+        hasScopedStateAccess(access) || hasScopedDistrictAccess(access);
+    const summaryScope = topRowUsesRegionalContext
+        ? {
+              sql: `
+                AND pa.state_id IN (
+                    SELECT id
+                    FROM public.states
+                    WHERE LOWER(TRIM(name_en)) IN ('west bengal', 'bihar', 'jharkhand')
+                )
+              `,
+              values: [],
+          }
+        : applicationScopeAndSql(access, "pa");
+    const stateScope = topRowUsesRegionalContext
+        ? { sql: "", values: [] }
+        : applicationScopeAndSql(access, "pa");
+    const categoryScope = applicationScopeAndSql(access, "pa");
+    const modeScope = applicationScopeAndSql(access, "pa");
     const [
         summaryResult,
         stateResult,
         participantCategoryResult,
         participationModeResult,
+        scopedStateResult,
+        scopedDistrictResult,
     ] = await Promise.all([
         // =========================================================
         // 1. TOTAL APPLICATIONS + THIS WEEK
         // =========================================================
-        pg.query<ApplicationSummaryCountRow>(`
+        pg.query<ApplicationSummaryCountRow>(
+            `
             SELECT
                 COUNT(*)::text AS total,
 
@@ -2247,15 +2951,19 @@ async function getDashboardCounts(
                     WHERE submitted_at >= date_trunc('week', NOW())
                 )::text AS this_week
 
-            FROM public.participant_applications
+            FROM public.participant_applications pa
 
-            WHERE status = 'submitted'
-        `),
+            WHERE pa.status = 'submitted'
+              ${summaryScope.sql}
+        `,
+            summaryScope.values,
+        ),
 
         // =========================================================
         // 2. STATE-WISE APPLICATION COUNTS
         // =========================================================
-        pg.query<StateApplicationCountRow>(`
+        pg.query<StateApplicationCountRow>(
+            `
             WITH target_states(key, label, sort_order) AS (
                 VALUES
                     ('bihar', 'Bihar', 1),
@@ -2276,6 +2984,7 @@ async function getDashboardCounts(
             LEFT JOIN public.participant_applications pa
                 ON pa.state_id = s.id
                 AND pa.status = 'submitted'
+                ${stateScope.sql}
 
             GROUP BY
                 ts.key,
@@ -2283,13 +2992,16 @@ async function getDashboardCounts(
                 ts.sort_order
 
             ORDER BY ts.sort_order
-        `),
+        `,
+            stateScope.values,
+        ),
 
         // =========================================================
         // 3. PARTICIPANT CATEGORY COUNTS
         //    Junior / Open
         // =========================================================
-        pg.query<ParticipantCategoryCountRow>(`
+        pg.query<ParticipantCategoryCountRow>(
+            `
             WITH target_categories(key, code, label, sort_order) AS (
                 VALUES
                     ('junior', 'JUNIOR', 'Junior', 1),
@@ -2309,6 +3021,7 @@ async function getDashboardCounts(
             LEFT JOIN public.participant_applications pa
                 ON pa.participant_category_id = pc.id
                 AND pa.status = 'submitted'
+                ${categoryScope.sql}
 
             GROUP BY
                 tc.key,
@@ -2316,13 +3029,16 @@ async function getDashboardCounts(
                 tc.sort_order
 
             ORDER BY tc.sort_order
-        `),
+        `,
+            categoryScope.values,
+        ),
 
         // =========================================================
         // 4. PARTICIPATION MODE COUNTS
         //    Participation mode counts
         // =========================================================
-        pg.query<ParticipationModeCountRow>(`
+        pg.query<ParticipationModeCountRow>(
+            `
             WITH target_modes(key, db_value, label, sort_order) AS (
                 VALUES
                     ('single', 'Individual', 'Individual', 1),
@@ -2339,6 +3055,7 @@ async function getDashboardCounts(
             LEFT JOIN public.participant_applications pa
                 ON pa.participation_mode = tm.db_value
                 AND pa.status = 'submitted'
+                ${modeScope.sql}
 
             GROUP BY
                 tm.key,
@@ -2346,7 +3063,36 @@ async function getDashboardCounts(
                 tm.sort_order
 
             ORDER BY tm.sort_order
-        `),
+        `,
+            modeScope.values,
+        ),
+        pg.query<ApplicationSummaryCountRow>(
+            `
+            SELECT
+                COUNT(*)::text AS total,
+                COUNT(*) FILTER (
+                    WHERE submitted_at >= date_trunc('week', NOW())
+                )::text AS this_week
+            FROM public.participant_applications pa
+            WHERE pa.status = 'submitted'
+              AND pa.state_id = $1
+        `,
+            [access?.stateId ?? 0],
+        ),
+        pg.query<ApplicationSummaryCountRow>(
+            `
+            SELECT
+                COUNT(*)::text AS total,
+                COUNT(*) FILTER (
+                    WHERE submitted_at >= date_trunc('week', NOW())
+                )::text AS this_week
+            FROM public.participant_applications pa
+            WHERE pa.status = 'submitted'
+              AND pa.state_id = $1
+              AND pa.district_id = $2
+        `,
+            [access?.stateId ?? 0, access?.districtId ?? 0],
+        ),
     ]);
 
     // =============================================================
@@ -2362,14 +3108,36 @@ async function getDashboardCounts(
     // RESPONSE
     // =============================================================
 
-    return {
-        cards: [
+    const topCards: AdminDashboardCountsResult["cards"] = hasScopedDistrictAccess(access)
+        ? [
+              {
+                  key: "totalApplications" as const,
+                  label: "Total (Region)",
+                  count: Number(summary.total),
+                  detail: `+${Number(summary.this_week)} this week`,
+              },
+              {
+                  key: "stateApplications" as const,
+                  label: "State Count",
+                  count: Number(scopedStateResult.rows[0]?.total ?? 0),
+                  detail: "State wise count",
+              },
+              {
+                  key: "districtApplications" as const,
+                  label: "District Count",
+                  count: Number(scopedDistrictResult.rows[0]?.total ?? 0),
+                  detail: "District wise count",
+              },
+          ]
+        : [
             // -----------------------------------------------------
             // Total Applications
             // -----------------------------------------------------
             {
                 key: "totalApplications",
-                label: "Total Applications",
+                label: topRowUsesRegionalContext
+                    ? "Total (Region)"
+                    : "Total Applications",
                 count: Number(summary.total),
                 detail: `+${Number(summary.this_week)} this week`,
             },
@@ -2383,6 +3151,11 @@ async function getDashboardCounts(
                 count: Number(row.count),
                 detail: "State wise count",
             })),
+          ];
+
+    return {
+        cards: [
+            ...topCards,
 
             // -----------------------------------------------------
             // Participant Categories
@@ -2431,6 +3204,8 @@ async function getApplications(
         values.push(status);
         where.push(`pa.status = $${values.length}`);
     }
+
+    appendApplicationScopeCondition(where, values, options.access);
 
     if (search) {
         values.push(`%${search.toLowerCase()}%`);
@@ -3024,6 +3799,7 @@ function collectApplicationUpdateValues(values: Record<string, unknown>) {
 async function updateApplication(
     pg: DatabasePool,
     input: UpdateAdminApplicationInput,
+    access?: AdminAccessContext,
 ): Promise<UpdateAdminApplicationResult | null> {
     const { applicationUpdates, participantUpdates } =
         collectApplicationUpdateValues(input.values);
@@ -3037,14 +3813,17 @@ async function updateApplication(
     try {
         await client.query("BEGIN");
 
+        const existsValues: unknown[] = [input.applicationId];
+        const existsWhere = ["pa.id = $1"];
+        appendApplicationScopeCondition(existsWhere, existsValues, access, "pa");
         const exists = await client.query<{ id: string; participant_id: string }>(
             `
-            SELECT id, participant_id
-            FROM public.participant_applications
-            WHERE id = $1
+            SELECT pa.id, pa.participant_id
+            FROM public.participant_applications pa
+            WHERE ${existsWhere.join(" AND ")}
             LIMIT 1
             `,
-            [input.applicationId],
+            existsValues,
         );
 
         if (!exists.rows[0]) {
@@ -3103,6 +3882,7 @@ async function updateApplication(
     }
 
     const result = await getApplications(pg, {
+        access,
         applicationId: input.applicationId,
         pageSize: 1,
     });
@@ -3114,20 +3894,24 @@ async function updateApplication(
 async function deleteApplication(
     pg: DatabasePool,
     applicationId: number,
+    access?: AdminAccessContext,
 ): Promise<DeleteAdminApplicationResult | null> {
     const client = await pg.connect();
 
     try {
         await client.query("BEGIN");
 
+        const values: unknown[] = [applicationId];
+        const where = ["pa.id = $1"];
+        appendApplicationScopeCondition(where, values, access, "pa");
         const applicationResult = await client.query<DeletedApplicationRow>(
             `
-            SELECT id::text, application_number
-            FROM public.participant_applications
-            WHERE id = $1
+            SELECT pa.id::text, pa.application_number
+            FROM public.participant_applications pa
+            WHERE ${where.join(" AND ")}
             LIMIT 1
             `,
-            [applicationId],
+            values,
         );
         const application = applicationResult.rows[0];
 
@@ -3186,20 +3970,25 @@ async function getApplicationDocumentDownload(
         applicationId: number;
         documentId: number;
     },
+    access?: AdminAccessContext,
 ): Promise<AdminApplicationDocumentDownload | null> {
+    const values: unknown[] = [input.documentId, input.applicationId];
+    const where = ["ad.id = $1", "ad.application_id = $2"];
+    appendApplicationScopeCondition(where, values, access, "pa");
     const result = await pg.query<ApplicationDocumentDownloadRow>(
         `
         SELECT
-            file_size_bytes::text,
-            mime_type,
-            original_file_name,
-            storage_key
-        FROM public.application_documents
-        WHERE id = $1
-          AND application_id = $2
+            ad.file_size_bytes::text,
+            ad.mime_type,
+            ad.original_file_name,
+            ad.storage_key
+        FROM public.application_documents ad
+        JOIN public.participant_applications pa
+            ON pa.id = ad.application_id
+        WHERE ${where.join(" AND ")}
         LIMIT 1
         `,
-        [input.documentId, input.applicationId],
+        values,
     );
     const row = result.rows[0];
 
@@ -3219,24 +4008,29 @@ async function deleteApplicationDocument(
         applicationId: number;
         documentId: number;
     },
+    access?: AdminAccessContext,
 ): Promise<DeleteAdminApplicationDocumentResult | null> {
+    const values: unknown[] = [input.documentId, input.applicationId];
+    const where = ["ad.id = $1", "ad.application_id = $2"];
+    appendApplicationScopeCondition(where, values, access, "pa");
     const result = await pg.query<
         ApplicationDocumentDownloadRow & {
             id: string;
         }
     >(
         `
-        DELETE FROM public.application_documents
-        WHERE id = $1
-          AND application_id = $2
+        DELETE FROM public.application_documents ad
+        USING public.participant_applications pa
+        WHERE pa.id = ad.application_id
+          AND ${where.join(" AND ")}
         RETURNING
-            id::text,
-            file_size_bytes::text,
-            mime_type,
-            original_file_name,
-            storage_key
+            ad.id::text,
+            ad.file_size_bytes::text,
+            ad.mime_type,
+            ad.original_file_name,
+            ad.storage_key
         `,
-        [input.documentId, input.applicationId],
+        values,
     );
     const row = result.rows[0];
 
@@ -3255,8 +4049,11 @@ async function deleteApplicationDocument(
 
 async function getDashboardOrganisationTypeCounts(
     pg: DatabasePool,
+    access?: AdminAccessContext,
 ): Promise<AdminDashboardOrganisationTypeCountsResult> {
-    const result = await pg.query<OrganisationTypeCountRow>(`
+    const scope = applicationScopeAndSql(access, "pa");
+    const result = await pg.query<OrganisationTypeCountRow>(
+        `
         WITH target_organisation_types(
             key,
             participant_category_code,
@@ -3296,7 +4093,7 @@ async function getDashboardOrganisationTypeCounts(
         SELECT
             target_organisation_types.key,
             target_organisation_types.label,
-            COUNT(participant_applications.id)::text AS count
+            COUNT(pa.id)::text AS count
 
         FROM target_organisation_types
 
@@ -3308,11 +4105,12 @@ async function getDashboardOrganisationTypeCounts(
             ON LOWER(TRIM(institute_types.name_en)) =
                 LOWER(TRIM(target_organisation_types.institute_type_name))
 
-        LEFT JOIN public.participant_applications
-            ON participant_applications.participant_category_id =
+        LEFT JOIN public.participant_applications pa
+            ON pa.participant_category_id =
                 participant_categories.id
-            AND participant_applications.institute_type_id = institute_types.id
-            AND participant_applications.status = 'submitted'
+            AND pa.institute_type_id = institute_types.id
+            AND pa.status = 'submitted'
+            ${scope.sql}
 
         GROUP BY
             target_organisation_types.key,
@@ -3320,7 +4118,9 @@ async function getDashboardOrganisationTypeCounts(
             target_organisation_types.sort_order
 
         ORDER BY target_organisation_types.sort_order
-    `);
+    `,
+        scope.values,
+    );
 
     return {
         cards: result.rows.map((row) => ({
@@ -3332,10 +4132,70 @@ async function getDashboardOrganisationTypeCounts(
     };
 }
 
+async function getDashboardDistrictCounts(
+    pg: DatabasePool,
+    access?: AdminAccessContext,
+): Promise<AdminDashboardDistrictCountsResult> {
+    const values: unknown[] = [];
+    const districtConditions = ["d.is_active = TRUE"];
+
+    if (hasScopedDistrictAccess(access)) {
+        values.push(access?.stateId, access?.districtId);
+        districtConditions.push(
+            `d.state_id = $${values.length - 1} AND d.id = $${values.length}`,
+        );
+    } else if (hasScopedStateAccess(access)) {
+        values.push(access?.stateId);
+        districtConditions.push(`d.state_id = $${values.length}`);
+    } else if (hasRegionalAccess(access)) {
+        districtConditions.push(`
+            d.state_id IN (
+                SELECT id
+                FROM public.states
+                WHERE LOWER(TRIM(name_en)) IN ('west bengal', 'bihar', 'jharkhand')
+            )
+        `);
+    }
+
+    const result = await pg.query<DistrictApplicationCountRow>(
+        `
+        SELECT
+            d.id::text AS district_id,
+            d.name_en AS district_name,
+            s.id::text AS state_id,
+            s.name_en AS state_name,
+            COUNT(pa.id)::text AS count
+        FROM public.districts d
+        JOIN public.states s
+            ON s.id = d.state_id
+        LEFT JOIN public.participant_applications pa
+            ON pa.district_id = d.id
+           AND pa.state_id = d.state_id
+           AND pa.status = 'submitted'
+        WHERE ${districtConditions.join(" AND ")}
+        GROUP BY d.id, d.name_en, s.id, s.name_en
+        ORDER BY s.name_en, d.name_en
+        `,
+        values,
+    );
+
+    return {
+        rows: result.rows.map((row) => ({
+            count: Number(row.count),
+            districtId: Number(row.district_id),
+            districtName: row.district_name,
+            stateId: Number(row.state_id),
+            stateName: row.state_name,
+        })),
+    };
+}
+
 async function getDashboardChallengeCategoryCounts(
     pg: DatabasePool,
+    access?: AdminAccessContext,
 ): Promise<AdminDashboardChallengeCategoryCountsResult> {
-    const result = await pg.query<ChallengeCategoryCountRow>(`
+    const result = await pg.query<ChallengeCategoryCountRow>(
+        `
         WITH target_states(key, label, sort_order) AS (
             VALUES
                 ('bihar', 'Bihar', 1),
@@ -3348,7 +4208,7 @@ async function getDashboardChallengeCategoryCounts(
                 challenge_categories.name_en AS category_label,
                 challenge_categories.sort_order AS category_sort_order,
                 target_states.key AS state_key,
-                COUNT(participant_applications.id)::int AS count
+                COUNT(pa.id)::int AS count
 
             FROM public.challenge_categories
 
@@ -3357,11 +4217,11 @@ async function getDashboardChallengeCategoryCounts(
             LEFT JOIN public.states
                 ON LOWER(TRIM(states.name_en)) = LOWER(TRIM(target_states.label))
 
-            LEFT JOIN public.participant_applications
-                ON participant_applications.challenge_category_id =
+            LEFT JOIN public.participant_applications pa
+                ON pa.challenge_category_id =
                     challenge_categories.id
-                AND participant_applications.state_id = states.id
-                AND participant_applications.status = 'submitted'
+                AND pa.state_id = states.id
+                AND pa.status = 'submitted'
 
             WHERE challenge_categories.is_active = TRUE
 
@@ -3379,6 +4239,24 @@ async function getDashboardChallengeCategoryCounts(
             COALESCE(SUM(count) FILTER (WHERE state_key = 'bihar'), 0)::text AS bihar_count,
             COALESCE(SUM(count) FILTER (WHERE state_key = 'jharkhand'), 0)::text AS jharkhand_count,
             COALESCE(SUM(count) FILTER (WHERE state_key = 'westBengal'), 0)::text AS west_bengal_count,
+            COALESCE(SUM(count), 0)::text AS region_count,
+            COALESCE(SUM(count) FILTER (WHERE $1::int IS NOT NULL AND state_key IN (
+                SELECT ts_state.key
+                FROM target_states ts_state
+                JOIN public.states scoped_state
+                    ON LOWER(TRIM(scoped_state.name_en)) = LOWER(TRIM(ts_state.label))
+                WHERE scoped_state.id = $1
+            )), 0)::text AS state_count,
+            COALESCE((
+                SELECT COUNT(district_pa.id)
+                FROM public.participant_applications district_pa
+                WHERE district_pa.challenge_category_id = category_id
+                  AND district_pa.status = 'submitted'
+                  AND $1::int IS NOT NULL
+                  AND $2::int IS NOT NULL
+                  AND district_pa.state_id = $1
+                  AND district_pa.district_id = $2
+            ), 0)::text AS district_count,
             COALESCE(SUM(count), 0)::text AS count
 
         FROM category_state_counts
@@ -3391,7 +4269,9 @@ async function getDashboardChallengeCategoryCounts(
         ORDER BY
             category_sort_order,
             category_label
-    `);
+    `,
+        [access?.stateId ?? null, access?.districtId ?? null],
+    );
 
     return {
         cards: result.rows.map((row) => {
@@ -3402,10 +4282,18 @@ async function getDashboardChallengeCategoryCounts(
             return {
                 biharCount,
                 count: Number(row.count),
+                districtCount: hasScopedDistrictAccess(access)
+                    ? Number(row.district_count)
+                    : undefined,
                 detail: "Challenge Category",
                 jharkhandCount,
                 key: row.key,
                 label: row.label,
+                regionCount: Number(row.region_count),
+                stateCount:
+                    hasScopedStateAccess(access) || hasScopedDistrictAccess(access)
+                        ? Number(row.state_count)
+                        : undefined,
                 stateCounts: {
                     bihar: biharCount,
                     jharkhand: jharkhandCount,
@@ -3421,6 +4309,7 @@ export const adminService = {
     createSettingsChallengeCategory,
     createSettingsConfiguration,
     createSettingsDistrict,
+    createRbacRule,
     createSettingsInstituteType,
     createSettingsParticipantCategory,
     createSettingsState,
@@ -3441,8 +4330,11 @@ export const adminService = {
     getApplications,
     getDashboardChallengeCategoryCounts,
     getDashboardCounts,
+    getDashboardDistrictCounts,
     getDashboardOrganisationTypeCounts,
     getPageViewAnalytics,
+    getRbacRule,
+    getRbacRules,
     getSettingsChallengeCategories,
     getSettingsChallengeCategory,
     getSettingsConfiguration,
@@ -3465,6 +4357,7 @@ export const adminService = {
     updateSettingsChallengeCategory,
     updateSettingsConfiguration,
     updateSettingsDistrict,
+    updateRbacRule,
     updateSettingsInstituteType,
     updateSettingsParticipantCategory,
     updateSettingsState,

@@ -160,6 +160,12 @@ export type ParticipantApplicationDocumentDownload = {
   storageKey: string;
 };
 
+export type DeleteParticipantApplicationDocumentResult = {
+  document: ParticipantApplicationDocumentDownload & {
+    id: number;
+  };
+};
+
 export type ParticipantProfileResult = {
   profile: {
     address: string | null;
@@ -234,9 +240,11 @@ export type SubmitParticipantApplicationInput = {
   challengeCategoryId: number;
   city: string;
   costFunding: string;
+  dateOfBirth?: string;
   districtId: number;
   email: string;
   expectedImpact: string;
+  gender?: "Male" | "Female" | "Others";
   highestEducationalQualification: string;
   implementationRoute: string;
   intellectualPropertyPublication?: string;
@@ -262,6 +270,11 @@ export type SubmitParticipantApplicationInput = {
   yearOfPassing: string;
 };
 
+export type UpdateParticipantApplicationSubmissionInput =
+  SubmitParticipantApplicationInput & {
+    applicationHash: string;
+  };
+
 export type SubmitParticipantApplicationResult = {
   application: {
     applicationHash: string;
@@ -275,3 +288,6 @@ export type SubmitParticipantApplicationResult = {
     reason?: string;
   };
 };
+
+export type UpdateParticipantApplicationSubmissionResult =
+  SubmitParticipantApplicationResult;

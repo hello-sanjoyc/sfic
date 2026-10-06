@@ -28,6 +28,8 @@ export const endpoints = {
             documentId: string | number,
         ) =>
             `${api}/participants/applications/${encodeURIComponent(hash)}/documents/${documentId}/download`,
+        applicationDocument: (hash: string, documentId: string | number) =>
+            `${api}/participants/applications/${encodeURIComponent(hash)}/documents/${documentId}`,
         applicationDownload: (hash: string) =>
             `${api}/participants/applications/${encodeURIComponent(hash)}/download`,
         applications: `${api}/participants/applications`,
@@ -53,6 +55,7 @@ export const endpoints = {
         applications: `${api}/admin/applications`,
         dashboardChallengeCategoryCounts: `${api}/admin/dashboard-challenge-category-counts`,
         dashboardCounts: `${api}/admin/dashboard-counts`,
+        dashboardDistrictCounts: `${api}/admin/dashboard-district-counts`,
         dashboardOrganisationTypeCounts: `${api}/admin/dashboard-organisation-type-counts`,
         login: `${api}/admin/login`,
         pageViewAnalytics: `${api}/admin/page-view-analytics`,
@@ -76,6 +79,9 @@ export const endpoints = {
             states: `${api}/admin/settings/states`,
             state: (id: string | number) =>
                 `${api}/admin/settings/states/${id}`,
+            rbac: `${api}/admin/settings/rbac`,
+            rbacRule: (id: string | number) =>
+                `${api}/admin/settings/rbac/${id}`,
             userRoles: `${api}/admin/settings/user-roles`,
             userRole: (role: string) =>
                 `${api}/admin/settings/user-roles/${encodeURIComponent(role)}`,

@@ -6,6 +6,7 @@ import { createParticipantJwt } from "./participant-auth.js";
 import type {
     GetParticipantApplicationInput,
     GetParticipantApplicationsInput,
+    DeleteParticipantApplicationDocumentResult,
     ParticipantApplicationDocumentDownload,
     ParticipantApplicationDetailsResult,
     ParticipantApplicationsResult,
@@ -16,6 +17,8 @@ import type {
     RequestParticipantLoginCodeResult,
     SubmitParticipantApplicationInput,
     SubmitParticipantApplicationResult,
+    UpdateParticipantApplicationSubmissionInput,
+    UpdateParticipantApplicationSubmissionResult,
     VerifyParticipantLoginInput,
     VerifyParticipantLoginResult,
 } from "./participant.model.js";
@@ -84,6 +87,7 @@ type ParticipantProfileResultRow = {
 
 type ApplicationDocumentDownloadRow = {
     file_size_bytes: string;
+    id?: string;
     mime_type: string;
     original_file_name: string;
     storage_key: string;
@@ -150,6 +154,10 @@ const appSettingKeys = {
     sameCategoryMultipleLimit:
         "PARTICIPANT_APPLICATION_SAME_CATEGORY_MULTIPLE_LIMIT",
 } as const;
+
+const maxSupportingDocuments = Number(
+    process.env.SUPPORTING_DOCUMENT_MAX_FILES ?? 3,
+);
 
 const stateCodesByName = new Map(
     [
@@ -880,6 +888,41 @@ async function getParticipantProfile(client: PoolClient, email: string) {
     return result.rows[0] ?? null;
 }
 
+async function completeMissingParticipantBasics(
+    client: PoolClient,
+    applicant: ParticipantProfileRow,
+    input: Pick<SubmitParticipantApplicationInput, "dateOfBirth" | "gender">,
+) {
+    const shouldSetDateOfBirth = !applicant.date_of_birth && input.dateOfBirth;
+    const shouldSetGender = !applicant.gender && input.gender;
+
+    if (!shouldSetDateOfBirth && !shouldSetGender) return applicant;
+
+    const result = await client.query<{
+        date_of_birth: Date | string | null;
+        gender: string | null;
+    }>(
+        `
+      UPDATE public.participants
+      SET
+        date_of_birth = COALESCE(date_of_birth, $2::date),
+        gender = COALESCE(NULLIF(gender, ''), NULLIF($3, ''))
+      WHERE id = $1
+      RETURNING date_of_birth, gender
+    `,
+        [applicant.id, input.dateOfBirth ?? null, input.gender ?? null],
+    );
+    const updated = result.rows[0];
+
+    return updated
+        ? {
+              ...applicant,
+              date_of_birth: updated.date_of_birth,
+              gender: updated.gender,
+          }
+        : applicant;
+}
+
 async function getState(client: PoolClient, stateId: number) {
     const result = await client.query<StateRow>(
         `
@@ -1134,6 +1177,54 @@ async function insertApplicationDocuments(input: {
     }
 }
 
+async function getEditableApplicantApplication(input: {
+    applicationHash: string;
+    client: PoolClient;
+    participantId: string;
+}) {
+    const result = await input.client.query<{
+        application_hash: string;
+        application_number: string;
+        document_count: string;
+        document_names: string[] | null;
+        id: string;
+        participant_id: string;
+        status: string;
+        team_lead_team_member_id: string | null;
+    }>(
+        `
+      SELECT
+        md5(pa.id::text) AS application_hash,
+        pa.application_number,
+        (
+          SELECT COUNT(*)::text
+          FROM public.application_documents ad
+          WHERE ad.application_id = pa.id
+        ) AS document_count,
+        (
+          SELECT COALESCE(
+            ARRAY_AGG(ad.original_file_name ORDER BY ad.sort_order, ad.id)
+              FILTER (WHERE ad.original_file_name IS NOT NULL),
+            ARRAY[]::text[]
+          )
+          FROM public.application_documents ad
+          WHERE ad.application_id = pa.id
+        ) AS document_names,
+        pa.id,
+        pa.participant_id,
+        pa.status,
+        pa.team_lead_team_member_id
+      FROM public.participant_applications pa
+      WHERE md5(pa.id::text) = $1
+        AND pa.participant_id = $2
+      LIMIT 1
+    `,
+        [input.applicationHash, input.participantId],
+    );
+
+    return result.rows[0] ?? null;
+}
+
 function submittedDetails(input: {
     applicant: ParticipantProfileRow;
     applicationNumber: string;
@@ -1241,6 +1332,11 @@ async function submitApplication(
                 403,
             );
         }
+
+        applicant = await completeMissingParticipantBasics(client, applicant, {
+            dateOfBirth: input.dateOfBirth,
+            gender: input.gender,
+        });
 
         if (
             !isYearOfPassingAtLeast12YearsAfterDateOfBirth({
@@ -1465,6 +1561,363 @@ async function submitApplication(
             districtName: district.name_en,
             form: {
                 ...input,
+                theme: input.theme ?? challengeCategory.name_en,
+            },
+            stateName: state.name_en,
+        });
+
+        await client.query("COMMIT");
+    } catch (error) {
+        await client.query("ROLLBACK");
+        throw error;
+    } finally {
+        client.release();
+    }
+
+    const emailDelivery = await emailService.sendApplicationSubmittedEmail({
+        applicationNumber: application.applicationNumber,
+        details,
+        language,
+        participantEmail: applicant.email,
+        participantName: applicant.full_name,
+    });
+
+    const submittedTeamMembers =
+        input.participationMode === "Team" ? input.teamMembers : [];
+    const teamMemberEmailDeliveries = await Promise.all(
+        submittedTeamMembers.map((member) =>
+            emailService.sendTeamMemberAddedEmail({
+                applicationNumber: application.applicationNumber,
+                language,
+                participantEmail: member.email,
+                participantName: member.fullName,
+                teamLeadName: applicant.full_name,
+            }),
+        ),
+    );
+
+    if (!emailDelivery.delivered) {
+        console.info(
+            `Application submitted email for ${applicant.email}: ${application.applicationNumber}`,
+        );
+    }
+    teamMemberEmailDeliveries.forEach((delivery, index) => {
+        if (!delivery.delivered) {
+            console.info(
+                `Team member added email for ${submittedTeamMembers[index].email}: ${application.applicationNumber}`,
+            );
+        }
+    });
+
+    return {
+        application,
+        emailDelivery,
+    };
+}
+
+async function updateApplicationSubmission(
+    pg: DatabasePool,
+    input: UpdateParticipantApplicationSubmissionInput,
+): Promise<UpdateParticipantApplicationSubmissionResult> {
+    const language = normalizeLanguage(input.language);
+    const client = await pg.connect();
+    let application: UpdateParticipantApplicationSubmissionResult["application"];
+    let applicant: ParticipantProfileRow;
+    let details: Array<{ label: string; value?: string }>;
+
+    try {
+        await client.query("BEGIN");
+
+        applicant = await getParticipantProfile(client, input.email).then(
+            (row) => {
+                if (!row) {
+                    throw new ParticipantRuleError(
+                        getApiContent(language).api.participantNotFound,
+                        404,
+                    );
+                }
+                return row;
+            },
+        );
+
+        if (!applicant.email_verified) {
+            throw new ParticipantRuleError(
+                getApiContent(language).api.emailMustBeVerified,
+                403,
+            );
+        }
+
+        applicant = await completeMissingParticipantBasics(client, applicant, {
+            dateOfBirth: input.dateOfBirth,
+            gender: input.gender,
+        });
+
+        if (
+            !isYearOfPassingAtLeast12YearsAfterDateOfBirth({
+                dateOfBirth: applicant.date_of_birth,
+                yearOfPassing: input.yearOfPassing,
+            })
+        ) {
+            throw new ParticipantRuleError(
+                getApiContent(language).apiValidation.yearOfPassingAgeGap,
+            );
+        }
+
+        const existingApplication = await getEditableApplicantApplication({
+            applicationHash: input.applicationHash,
+            client,
+            participantId: applicant.id,
+        });
+
+        if (!existingApplication) {
+            throw new ParticipantRuleError(
+                "Application details were not found.",
+                404,
+            );
+        }
+
+        if (existingApplication.status === "submitted") {
+            throw new ParticipantRuleError(
+                "Submitted applications cannot be edited.",
+                409,
+            );
+        }
+
+        const existingDocumentCount = Number(
+            existingApplication.document_count ?? 0,
+        );
+        const newDocumentCount = input.supportingDocuments?.length ?? 0;
+
+        if (existingDocumentCount + newDocumentCount === 0) {
+            throw new ParticipantRuleError(
+                getApiContent(language).apiValidation
+                    .supportingDocumentRequired,
+            );
+        }
+
+        if (existingDocumentCount + newDocumentCount > maxSupportingDocuments) {
+            throw new ParticipantRuleError(
+                getApiContent(language).apiValidation.supportingDocumentMax(
+                    maxSupportingDocuments,
+                ),
+            );
+        }
+
+        const state = await getState(client, input.stateId);
+        if (!state) {
+            throw new ParticipantRuleError(
+                getApiContent(language).api.invalidState,
+            );
+        }
+        const applicationNumber = await nextApplicationNumber(
+            client,
+            language,
+            state.code,
+        );
+
+        const district = await getDistrict({
+            client,
+            districtId: input.districtId,
+            stateId: input.stateId,
+        });
+        if (!district) {
+            throw new ParticipantRuleError(
+                getApiContent(language).api.invalidDistrictForState,
+            );
+        }
+
+        const instituteType = await getInstituteType({
+            client,
+            instituteType: input.instituteType,
+            participantCategoryId: applicant.participant_category_id,
+        });
+        if (!instituteType) {
+            throw new ParticipantRuleError(
+                getApiContent(language).api
+                    .invalidInstituteTypeForParticipantCategory,
+            );
+        }
+
+        const challengeCategory = await getChallengeCategory({
+            challengeCategoryId: input.challengeCategoryId,
+            client,
+        });
+        if (!challengeCategory) {
+            throw new ParticipantRuleError(
+                getApiContent(language).api.invalidChallengeCategory,
+            );
+        }
+
+        const applicationResult =
+            await client.query<NewParticipantApplicationRow>(
+                `
+        UPDATE public.participant_applications
+        SET
+          application_number = $1,
+          participant_category_id = $2,
+          state_id = $3,
+          district_id = $4,
+          institute_type_id = $5,
+          challenge_category_id = $6,
+          form_language = $7,
+          participation_mode = $8,
+          status = 'submitted',
+          city = $9,
+          pin_code = $10,
+          address = $11,
+          institute_name = $12,
+          other_institute_type = NULLIF($13, ''),
+          highest_educational_qualification = $14,
+          last_attended_educational_institute = $15,
+          year_of_passing = $16,
+          problem_location = $17,
+          proposed_solution = $18,
+          technology_method = $19,
+          implementation_route = $20,
+          cost_funding = $21,
+          beneficiaries = $22,
+          project_timeline = $23,
+          expected_impact = $24,
+          scalability = $25,
+          prototype_pilot = $26,
+          mentor_acknowledge_to = NULLIF($27, ''),
+          intellectual_property_publication = NULLIF($28, ''),
+          video_url = NULLIF($29, ''),
+          submitted_at = NOW()
+        WHERE id = $30
+        RETURNING
+          id,
+          md5(id::text) AS application_hash,
+          application_number,
+          participant_id,
+          status
+      `,
+                [
+                    applicationNumber,
+                    applicant.participant_category_id,
+                    input.stateId,
+                    input.districtId,
+                    instituteType.id,
+                    challengeCategory.id,
+                    language,
+                    input.participationMode,
+                    input.city,
+                    input.pinCode,
+                    input.address,
+                    input.instituteName,
+                    input.otherInstituteType ?? "",
+                    input.highestEducationalQualification,
+                    input.lastAttendedEducationalInstitute,
+                    input.yearOfPassing,
+                    input.problemLocation,
+                    input.proposedSolution,
+                    input.technologyMethod,
+                    input.implementationRoute,
+                    input.costFunding,
+                    input.beneficiaries,
+                    input.projectTimeline,
+                    input.expectedImpact,
+                    input.scalability,
+                    input.prototypePilot,
+                    input.mentorAcknowledgeTo ?? "",
+                    input.intellectualPropertyPublication ?? "",
+                    input.videoUrl ?? "",
+                    existingApplication.id,
+                ],
+            );
+        const applicationRow = applicationResult.rows[0];
+
+        await client.query(
+            `
+        DELETE FROM public.application_team_members
+        WHERE application_id = $1
+          AND is_applicant = FALSE
+      `,
+            [applicationRow.id],
+        );
+
+        await insertTeamMembers({
+            applicationId: applicationRow.id,
+            client,
+            teamMembers:
+                input.participationMode === "Team" ? input.teamMembers : [],
+        });
+
+        if (!existingApplication.team_lead_team_member_id) {
+            const applicantMember = await insertApplicantTeamMember({
+                applicant,
+                applicationId: applicationRow.id,
+                client,
+            });
+            existingApplication.team_lead_team_member_id = applicantMember.id;
+        }
+
+        await insertApplicationDocuments({
+            applicationId: applicationRow.id,
+            client,
+            documents: input.supportingDocuments,
+            language,
+            uploadedByMemberId: existingApplication.team_lead_team_member_id,
+        });
+
+        await client.query(
+            `
+        UPDATE public.application_form_saves
+        SET is_current = FALSE
+        WHERE application_id = $1
+      `,
+            [applicationRow.id],
+        );
+
+        await client.query(
+            `
+        INSERT INTO public.application_form_saves (
+          application_id,
+          saved_by_member_id,
+          language_code,
+          form_data,
+          is_current
+        )
+        VALUES ($1, $2, $3, $4::jsonb, TRUE)
+      `,
+            [
+                applicationRow.id,
+                existingApplication.team_lead_team_member_id,
+                language,
+                JSON.stringify({
+                    step: 4,
+                    ...input,
+                    applicationNumber: applicationRow.application_number,
+                    challengeCategoryName: challengeCategory.name_en,
+                }),
+            ],
+        );
+
+        application = {
+            applicationHash: applicationRow.application_hash,
+            applicationNumber: applicationRow.application_number,
+            id: Number(applicationRow.id),
+            participantId: Number(applicationRow.participant_id),
+            status: applicationRow.status,
+        };
+        details = submittedDetails({
+            applicant,
+            applicationNumber: application.applicationNumber,
+            districtName: district.name_en,
+            form: {
+                ...input,
+                supportingDocuments: [
+                    ...(existingApplication.document_names ?? []).map(
+                        (originalFileName) => ({
+                            checksumSha256: "",
+                            mimeType: "",
+                            originalFileName,
+                            size: 0,
+                            storageKey: "",
+                        }),
+                    ),
+                    ...(input.supportingDocuments ?? []),
+                ],
                 theme: input.theme ?? challengeCategory.name_en,
             },
             stateName: state.name_en,
@@ -1807,6 +2260,7 @@ async function getApplication(
           'challengeCategory', CASE
             WHEN cc.id IS NULL THEN NULL
             ELSE jsonb_build_object(
+              'id', cc.id,
               'name', jsonb_build_object(
                 'en', cc.name_en,
                 'bn', cc.name_bn,
@@ -1916,6 +2370,53 @@ async function getApplicationDocumentDownload(
     };
 }
 
+async function deleteApplicationDocument(
+    pg: DatabasePool,
+    input: {
+        applicationHash: string;
+        documentId: number;
+        email: string;
+    },
+): Promise<DeleteParticipantApplicationDocumentResult | null> {
+    const result = await pg.query<
+        ApplicationDocumentDownloadRow & {
+            id: string;
+        }
+    >(
+        `
+      DELETE FROM public.application_documents ad
+      USING public.participant_applications pa,
+            public.participants p
+      WHERE ad.id = $1
+        AND ad.application_id = pa.id
+        AND pa.participant_id = p.id
+        AND md5(pa.id::text) = LOWER($2)
+        AND LOWER(p.email::text) = LOWER($3)
+        AND pa.status <> 'submitted'
+      RETURNING
+        ad.id::text,
+        ad.file_size_bytes::text,
+        ad.mime_type,
+        ad.original_file_name,
+        ad.storage_key
+    `,
+        [input.documentId, input.applicationHash, input.email],
+    );
+    const row = result.rows[0];
+
+    if (!row) return null;
+
+    return {
+        document: {
+            fileSizeBytes: Number(row.file_size_bytes),
+            id: Number(row.id),
+            mimeType: row.mime_type,
+            originalFileName: row.original_file_name,
+            storageKey: row.storage_key,
+        },
+    };
+}
+
 async function updateApplicationDocumentStorageKeys(
     pg: DatabasePool,
     input: {
@@ -1959,6 +2460,7 @@ async function updateApplicationDocumentStorageKeys(
 }
 
 export const participantService = {
+    deleteApplicationDocument,
     ensureParticipantLoginTables,
     getApplication,
     getApplicationDocumentDownload,
@@ -1968,6 +2470,7 @@ export const participantService = {
     requestLoginCode,
     resendLoginCode,
     submitApplication,
+    updateApplicationSubmission,
     updateApplicationDocumentStorageKeys,
     verifyLoginCode,
 };

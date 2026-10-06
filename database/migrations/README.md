@@ -1,8 +1,8 @@
 # Migrations
 
-This folder is for incremental schema changes made *after* the initial
-production rollout (`../schema/schema.sql`). There is no migration history
-yet - the current schema was applied as a single baseline script.
+This folder contains incremental schema and seed changes made after the
+baseline schema (`../schema/schema.sql`). Apply these migrations in numeric
+order when upgrading an existing database.
 
 ## Conventions
 

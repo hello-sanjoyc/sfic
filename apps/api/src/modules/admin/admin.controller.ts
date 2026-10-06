@@ -5,6 +5,7 @@ import { join, resolve } from "node:path";
 import { getApiContent } from "../../content/index.js";
 import { sendError, sendSuccess } from "../common/api-response.js";
 import { generateApplicationPdf } from "./admin-application-pdf.js";
+import type { AuthenticatedAdminRequest } from "./admin-auth.js";
 import type { AdminLanguage } from "./admin.model.js";
 import {
     AdminRuleError,
@@ -70,6 +71,10 @@ type SettingConfigurationParams = {
     key?: string;
 };
 
+type RbacRuleParams = {
+    id?: string;
+};
+
 type UpsertSettingBody = Record<string, unknown>;
 
 function requireDatabase(request: FastifyRequest, reply: FastifyReply) {
@@ -82,6 +87,10 @@ function requireDatabase(request: FastifyRequest, reply: FastifyReply) {
     });
 
     return null;
+}
+
+function getAdminAccess(request: FastifyRequest) {
+    return (request as AuthenticatedAdminRequest).adminAccess;
 }
 
 function isNonEmptyString(value: unknown): value is string {
@@ -364,7 +373,10 @@ async function getDashboardCounts(
     if (!pg) return reply;
 
     try {
-        const result = await adminService.getDashboardCounts(pg);
+        const result = await adminService.getDashboardCounts(
+            pg,
+            getAdminAccess(request),
+        );
 
         return sendSuccess(request, reply, {
             data: result,
@@ -395,6 +407,7 @@ async function getUsers(
 
     try {
         const result = await adminService.getUsers(pg, {
+            access: getAdminAccess(request),
             page,
             pageSize,
             search: request.query.search,
@@ -434,7 +447,7 @@ async function getUser(
     }
 
     try {
-        const user = await adminService.getUser(pg, userId);
+        const user = await adminService.getUser(pg, userId, getAdminAccess(request));
 
         if (!user) {
             return sendError(request, reply, {
@@ -472,7 +485,11 @@ async function createUser(
     }
 
     try {
-        const result = await adminService.createUser(pg, request.body);
+        const result = await adminService.createUser(
+            pg,
+            request.body,
+            getAdminAccess(request),
+        );
 
         return sendSuccess(request, reply, {
             data: result,
@@ -522,7 +539,12 @@ async function updateUser(
     }
 
     try {
-        const result = await adminService.updateUser(pg, userId, request.body);
+        const result = await adminService.updateUser(
+            pg,
+            userId,
+            request.body,
+            getAdminAccess(request),
+        );
 
         if (!result) {
             return sendError(request, reply, {
@@ -568,7 +590,11 @@ async function deleteUser(
     }
 
     try {
-        const result = await adminService.deleteUser(pg, userId);
+        const result = await adminService.deleteUser(
+            pg,
+            userId,
+            getAdminAccess(request),
+        );
 
         if (!result) {
             return sendError(request, reply, {
@@ -1180,6 +1206,63 @@ async function deleteSettingsUserRole(request: FastifyRequest<{ Params: SettingR
     }
 }
 
+async function getRbacRules(request: FastifyRequest, reply: FastifyReply) {
+    const pg = requireDatabase(request, reply);
+    if (!pg) return reply;
+    try {
+        return sendSuccess(request, reply, {
+            data: await adminService.getRbacRules(pg),
+            message: "RBAC rules fetched successfully.",
+        });
+    } catch (error) {
+        return handleAdminSettingsError(request, reply, error);
+    }
+}
+
+async function getRbacRule(request: FastifyRequest<{ Params: RbacRuleParams }>, reply: FastifyReply) {
+    const pg = requireDatabase(request, reply);
+    if (!pg) return reply;
+    const id = parsePositiveInteger(request.params.id);
+    if (!id) return sendError(request, reply, { message: "A valid id is required.", statusCode: 400 });
+    try {
+        const result = await adminService.getRbacRule(pg, id);
+        if (!result) return sendError(request, reply, { message: "RBAC rule not found.", statusCode: 404 });
+        return sendSuccess(request, reply, { data: result, message: "RBAC rule fetched successfully." });
+    } catch (error) {
+        return handleAdminSettingsError(request, reply, error);
+    }
+}
+
+async function createRbacRule(request: FastifyRequest<{ Body?: UpsertSettingBody }>, reply: FastifyReply) {
+    const pg = requireDatabase(request, reply);
+    const body = requireSettingBody(request, reply);
+    if (!pg || !body) return reply;
+    try {
+        return sendSuccess(request, reply, {
+            data: await adminService.createRbacRule(pg, body),
+            message: "RBAC rule created successfully.",
+            statusCode: 201,
+        });
+    } catch (error) {
+        return handleAdminSettingsError(request, reply, error);
+    }
+}
+
+async function updateRbacRule(request: FastifyRequest<{ Body?: UpsertSettingBody; Params: RbacRuleParams }>, reply: FastifyReply) {
+    const pg = requireDatabase(request, reply);
+    const body = requireSettingBody(request, reply);
+    const id = parsePositiveInteger(request.params.id);
+    if (!pg || !body) return reply;
+    if (!id) return sendError(request, reply, { message: "A valid id is required.", statusCode: 400 });
+    try {
+        const result = await adminService.updateRbacRule(pg, id, body);
+        if (!result) return sendError(request, reply, { message: "RBAC rule not found.", statusCode: 404 });
+        return sendSuccess(request, reply, { data: result, message: "RBAC rule updated successfully." });
+    } catch (error) {
+        return handleAdminSettingsError(request, reply, error);
+    }
+}
+
 async function getApplications(
     request: FastifyRequest<{ Querystring: ApplicationsQuery }>,
     reply: FastifyReply,
@@ -1192,6 +1275,7 @@ async function getApplications(
 
     try {
         const result = await adminService.getApplications(pg, {
+            access: getAdminAccess(request),
             page,
             pageSize,
             search: request.query.search,
@@ -1232,6 +1316,7 @@ async function getApplication(
 
     try {
         const result = await adminService.getApplications(pg, {
+            access: getAdminAccess(request),
             applicationId,
             pageSize: 1,
         });
@@ -1285,10 +1370,14 @@ async function updateApplication(
     }
 
     try {
-        const result = await adminService.updateApplication(pg, {
-            applicationId,
-            values: request.body,
-        });
+        const result = await adminService.updateApplication(
+            pg,
+            {
+                applicationId,
+                values: request.body,
+            },
+            getAdminAccess(request),
+        );
 
         if (!result) {
             return sendError(request, reply, {
@@ -1334,7 +1423,11 @@ async function deleteApplication(
     }
 
     try {
-        const result = await adminService.deleteApplication(pg, applicationId);
+        const result = await adminService.deleteApplication(
+            pg,
+            applicationId,
+            getAdminAccess(request),
+        );
 
         if (!result) {
             return sendError(request, reply, {
@@ -1397,10 +1490,14 @@ async function downloadApplicationDocument(
     }
 
     try {
-        const document = await adminService.getApplicationDocumentDownload(pg, {
-            applicationId,
-            documentId,
-        });
+        const document = await adminService.getApplicationDocumentDownload(
+            pg,
+            {
+                applicationId,
+                documentId,
+            },
+            getAdminAccess(request),
+        );
 
         if (!document) {
             return sendError(request, reply, {
@@ -1454,10 +1551,14 @@ async function deleteApplicationDocument(
     }
 
     try {
-        const result = await adminService.deleteApplicationDocument(pg, {
-            applicationId,
-            documentId,
-        });
+        const result = await adminService.deleteApplicationDocument(
+            pg,
+            {
+                applicationId,
+                documentId,
+            },
+            getAdminAccess(request),
+        );
 
         if (!result) {
             return sendError(request, reply, {
@@ -1509,6 +1610,7 @@ async function downloadApplicationPdf(
 
     try {
         const result = await adminService.getApplications(pg, {
+            access: getAdminAccess(request),
             applicationId,
             pageSize: 1,
         });
@@ -1577,7 +1679,37 @@ async function getDashboardOrganisationTypeCounts(
     if (!pg) return reply;
 
     try {
-        const result = await adminService.getDashboardOrganisationTypeCounts(pg);
+        const result = await adminService.getDashboardOrganisationTypeCounts(
+            pg,
+            getAdminAccess(request),
+        );
+
+        return sendSuccess(request, reply, {
+            data: result,
+            message: getApiContent("en").api.adminDashboardCountsFetched,
+        });
+    } catch (error) {
+        request.server.log.error(error);
+
+        return sendError(request, reply, {
+            message: getApiContent("en").api.internalServerError,
+            statusCode: 500,
+        });
+    }
+}
+
+async function getDashboardDistrictCounts(
+    request: FastifyRequest,
+    reply: FastifyReply,
+) {
+    const pg = requireDatabase(request, reply);
+    if (!pg) return reply;
+
+    try {
+        const result = await adminService.getDashboardDistrictCounts(
+            pg,
+            getAdminAccess(request),
+        );
 
         return sendSuccess(request, reply, {
             data: result,
@@ -1601,7 +1733,10 @@ async function getDashboardChallengeCategoryCounts(
     if (!pg) return reply;
 
     try {
-        const result = await adminService.getDashboardChallengeCategoryCounts(pg);
+        const result = await adminService.getDashboardChallengeCategoryCounts(
+            pg,
+            getAdminAccess(request),
+        );
 
         return sendSuccess(request, reply, {
             data: result,
@@ -1621,6 +1756,7 @@ export const adminController = {
     createSettingsChallengeCategory,
     createSettingsConfiguration,
     createSettingsDistrict,
+    createRbacRule,
     createSettingsInstituteType,
     createSettingsParticipantCategory,
     createSettingsState,
@@ -1642,8 +1778,11 @@ export const adminController = {
     getApplications,
     getDashboardChallengeCategoryCounts,
     getDashboardCounts,
+    getDashboardDistrictCounts,
     getDashboardOrganisationTypeCounts,
     getPageViewAnalytics,
+    getRbacRule,
+    getRbacRules,
     getSettingsChallengeCategories,
     getSettingsChallengeCategory,
     getSettingsConfiguration,
@@ -1665,6 +1804,7 @@ export const adminController = {
     updateSettingsChallengeCategory,
     updateSettingsConfiguration,
     updateSettingsDistrict,
+    updateRbacRule,
     updateSettingsInstituteType,
     updateSettingsParticipantCategory,
     updateSettingsState,
