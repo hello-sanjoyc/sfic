@@ -87,6 +87,12 @@ export function HeroSlider({ slides }: { slides: HeroSlide[] }) {
   }, [api, index, introMessageIndex, paused]);
 
   const introMessage = introMessages[introMessageIndex];
+  const hasSlideText = (slide: HeroSlide) =>
+    Boolean(slide.eyebrow.trim()) ||
+    Boolean(slide.title.trim()) ||
+    Boolean(slide.description.trim()) ||
+    Boolean(slide.primaryCTA.label.trim() && slide.primaryCTA.href.trim()) ||
+    Boolean(slide.secondaryCTA.label.trim() && slide.secondaryCTA.href.trim());
 
   return (
     <section aria-roledescription="carousel" aria-label="Challenge highlights" className="relative h-[570px] overflow-hidden bg-[#071426] md:h-[620px]" onMouseEnter={() => setPaused(true)} onMouseLeave={() => setPaused(false)} onFocus={() => setPaused(true)} onBlur={() => setPaused(false)}>
@@ -95,7 +101,7 @@ export function HeroSlider({ slides }: { slides: HeroSlide[] }) {
           {slides.map((slide, slideIndex) => (
             <article className="relative min-w-0 flex-[0_0_100%]" key={slide.id} aria-hidden={index !== slideIndex}>
               <Image data-motion="image" src={slide.desktopImage} alt={slide.imageAlt} fill priority={slideIndex === 0} sizes="100vw" className="object-cover" />
-              {slideIndex === 0 ? (
+              {slideIndex === 0 && hasSlideText(slide) ? (
                 <div className="relative mx-auto flex h-full max-w-7xl items-center px-5 py-16 sm:px-8 lg:px-12">
                   <div
                     aria-live={index === 0 ? "polite" : "off"}
@@ -123,23 +129,38 @@ export function HeroSlider({ slides }: { slides: HeroSlide[] }) {
                     </p>
                   </div>
                 </div>
-              ) : (
+              ) : hasSlideText(slide) ? (
                 <div className="relative mx-auto grid h-full max-w-7xl md:grid-cols-[1.18fr_.82fr]">
                   <div className="relative z-10 flex items-center px-5 py-16 sm:px-8 lg:px-12">
                     <span className="pointer-events-none absolute -left-6 -top-6 text-[12rem] font-black leading-none text-white/[.06] md:text-[16rem]">26</span>
                     <div data-motion="text" className="relative max-w-xl text-[#071426]">
-                      <p className="text-xs font-bold uppercase tracking-[.18em] text-[#5c2b00]">{slide.eyebrow}</p>
-                      <div className="tri-accent mt-4"><span /><span /><span /></div>
-                      <h1 className="mt-6 text-4xl font-extrabold tracking-tight sm:text-5xl md:text-[3.45rem] md:leading-[1.05]">{slide.title}</h1>
-                      <p className="mt-5 max-w-lg text-base leading-7 text-[#071426]/85 md:text-lg">{slide.description}</p>
-                      <div className="mt-8 flex flex-wrap gap-3">
-                        <Link href={slide.primaryCTA.href} className="rounded-full bg-[#ff9933] px-5 py-3 font-extrabold text-[#071426] transition hover:bg-[#f08a24]">{slide.primaryCTA.label}</Link>
-                        <Link href={slide.secondaryCTA.href} className="rounded-full border border-[#071426]/60 px-5 py-3 font-bold text-[#071426] transition hover:bg-[#071426]/10">{slide.secondaryCTA.label}</Link>
-                      </div>
+                      {slide.eyebrow.trim() && (
+                        <p className="text-xs font-bold uppercase tracking-[.18em] text-[#5c2b00]">{slide.eyebrow}</p>
+                      )}
+                      {(slide.title.trim() || slide.description.trim()) && (
+                        <div className="tri-accent mt-4"><span /><span /><span /></div>
+                      )}
+                      {slide.title.trim() && (
+                        <h1 className="mt-6 text-4xl font-extrabold tracking-tight sm:text-5xl md:text-[3.45rem] md:leading-[1.05]">{slide.title}</h1>
+                      )}
+                      {slide.description.trim() && (
+                        <p className="mt-5 max-w-lg text-base leading-7 text-[#071426]/85 md:text-lg">{slide.description}</p>
+                      )}
+                      {(slide.primaryCTA.label.trim() && slide.primaryCTA.href.trim()) ||
+                      (slide.secondaryCTA.label.trim() && slide.secondaryCTA.href.trim()) ? (
+                        <div className="mt-8 flex flex-wrap gap-3">
+                          {slide.primaryCTA.label.trim() && slide.primaryCTA.href.trim() && (
+                            <Link href={slide.primaryCTA.href} className="rounded-full bg-[#ff9933] px-5 py-3 font-extrabold text-[#071426] transition hover:bg-[#f08a24]">{slide.primaryCTA.label}</Link>
+                          )}
+                          {slide.secondaryCTA.label.trim() && slide.secondaryCTA.href.trim() && (
+                            <Link href={slide.secondaryCTA.href} className="rounded-full border border-[#071426]/60 px-5 py-3 font-bold text-[#071426] transition hover:bg-[#071426]/10">{slide.secondaryCTA.label}</Link>
+                          )}
+                        </div>
+                      ) : null}
                     </div>
                   </div>
                 </div>
-              )}
+              ) : null}
               <div className="absolute inset-x-0 bottom-0 h-2 tri-rule" />
             </article>
           ))}
