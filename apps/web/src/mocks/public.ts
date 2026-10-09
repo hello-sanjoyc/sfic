@@ -44,12 +44,32 @@ export type HeroSlide = {
 };
 export const heroSlides: HeroSlide[] = [
     {
+        id: "promo01",
+        eyebrow: "",
+        title: "",
+        description: "",
+        desktopImage: "/images/hero-slider-01.webp",
+        imageAlt: "",
+        primaryCTA: { label: "", href: "" },
+        secondaryCTA: { label: "", href: "" },
+    },
+    {
+        id: "promo02",
+        eyebrow: "",
+        title: "",
+        description: "",
+        desktopImage: "/images/hero-slider-02.webp",
+        imageAlt: "",
+        primaryCTA: { label: "", href: "" },
+        secondaryCTA: { label: "", href: "" },
+    },
+    {
         id: "launch",
         eyebrow: "Seva First Innovation Challenge",
         title: "Ideas that serve people.",
         description:
             "Join the challenge to turn everyday problems into practical innovations for communities across the Eastern Region.",
-        desktopImage: "/images/hero-slider-00.webp",
+        desktopImage: "/images/hero-slider-03.webp",
         imageAlt: "Seva First Innovation Challenge launch visual",
         primaryCTA: { label: "Register Now", href: "/en/register" },
         secondaryCTA: { label: "View Timeline", href: "/en/timeline" },
@@ -60,7 +80,7 @@ export const heroSlides: HeroSlide[] = [
         title: "Innovate Locally. Impact Nationally.",
         description:
             "Ideas from Eastern India can solve some of India's most pressing everyday problems. Identify a real problem around you and develop a practical solution that can work on the ground.",
-        desktopImage: "/images/hero-slider-01.webp",
+        desktopImage: "/images/hero-slider-04.webp",
         imageAlt: "Innovation challenge hero visual",
         primaryCTA: { label: "Register Now", href: "/en/register" },
         secondaryCTA: { label: "Explore Themes", href: "/en/themes" },
@@ -71,7 +91,7 @@ export const heroSlides: HeroSlide[] = [
         title: "Build practical solutions for real communities.",
         description:
             "Open to participants from West Bengal, Bihar and Jharkhand.",
-        desktopImage: "/images/hero-slider-02.webp",
+        desktopImage: "/images/hero-slider-05.webp",
         imageAlt: "Innovation technology hero visual",
         primaryCTA: { label: "Explore Themes", href: "/en/themes" },
         secondaryCTA: {
@@ -85,7 +105,7 @@ export const heroSlides: HeroSlide[] = [
         title: "From local problems to pilots and adoption.",
         description:
             "Identify a local problem, build a practical solution, show how it can work, explain the impact and take it further.",
-        desktopImage: "/images/hero-slider-03.webp",
+        desktopImage: "/images/hero-slider-06.webp",
         imageAlt: "Sustainable innovation hero visual",
         primaryCTA: { label: "Register Now", href: "/en/register" },
         secondaryCTA: {
@@ -464,13 +484,43 @@ export const awards = [
         note: "With potential implementation partners",
     },
 ];
-export type FlowNode = { title: string; note: string; icon: LucideIcon; color: string };
+export type FlowNode = {
+    title: string;
+    note: string;
+    icon: LucideIcon;
+    color: string;
+};
 export const flowNodes: FlowNode[] = [
-    { title: "Mentorship", note: "Guidance from experts", icon: Users2, color: "#138808" },
-    { title: "Prototype Support", note: "Turn ideas into working solutions", icon: Lightbulb, color: "#ff9933" },
-    { title: "Pilot", note: "Test and validate in real settings", icon: Settings, color: "#000080" },
-    { title: "Adoption Opportunities", note: "Pathways to real-world impact", icon: BarChart3, color: "#138808" },
-    { title: "Incubation", note: "Resources to help you grow", icon: Sprout, color: "#ff9933" },
+    {
+        title: "Mentorship",
+        note: "Guidance from experts",
+        icon: Users2,
+        color: "#138808",
+    },
+    {
+        title: "Prototype Support",
+        note: "Turn ideas into working solutions",
+        icon: Lightbulb,
+        color: "#ff9933",
+    },
+    {
+        title: "Pilot",
+        note: "Test and validate in real settings",
+        icon: Settings,
+        color: "#000080",
+    },
+    {
+        title: "Adoption Opportunities",
+        note: "Pathways to real-world impact",
+        icon: BarChart3,
+        color: "#138808",
+    },
+    {
+        title: "Incubation",
+        note: "Resources to help you grow",
+        icon: Sprout,
+        color: "#ff9933",
+    },
 ];
 export type Benefit = { title: string; description: string; icon: LucideIcon };
 export const benefits: Benefit[] = [
