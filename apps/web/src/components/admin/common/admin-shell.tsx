@@ -224,6 +224,9 @@ export function AdminShell({
   }, [pathname]);
 
   const visibleNavItems = navItems.filter(([label]) => {
+    if (label === "Email Notification") {
+      return normalizeAdminRole(admin.role) === "SUPERADMIN";
+    }
     if (label === "Applications") return hasAccess(admin.applicationsAccess);
     if (label === "Users") return hasAccess(admin.usersAccess);
     if (label === "Page Views") {
