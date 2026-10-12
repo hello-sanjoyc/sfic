@@ -54,24 +54,22 @@ const navItems = [
 ] as const;
 
 function adminRoleLabel(role: string) {
-  if (role === "SUPERADMIN") return "Super Admin";
-  if (role === "ADMIN_REGION") return "Region Admin";
-  if (role === "ADMIN_STATE") return "State Admin";
-  if (role === "ADMIN_DISTRICT") return "District Admin";
+  const normalizedRole = normalizeAdminRole(role);
+  if (normalizedRole === "SUPERADMIN") return "Super Admin";
+  if (normalizedRole === "ADMIN_REGION") return "Region Admin";
+  if (normalizedRole === "ADMIN_STATE") return "State Admin";
+  if (normalizedRole === "ADMIN_DISTRICT") return "District Admin";
   return role;
 }
 
-function defaultAccessForRole(role: string) {
-  if (role === "ADMIN_REGION") {
-    return {
-      analyticsAccess: "Full Access",
-      applicationsAccess: "Full Access",
-      settingsAccess: "View Only",
-      usersAccess: "Full Access",
-    };
-  }
+function normalizeAdminRole(role: string) {
+  return role.trim().toUpperCase().replace(/[\s-]+/g, "_");
+}
 
-  if (role === "ADMIN_STATE") {
+function defaultAccessForRole(role: string) {
+  const normalizedRole = normalizeAdminRole(role);
+
+  if (normalizedRole === "ADMIN_REGION" || normalizedRole === "REGION_ADMIN") {
     return {
       analyticsAccess: "Full Access",
       applicationsAccess: "Full Access",
@@ -80,7 +78,16 @@ function defaultAccessForRole(role: string) {
     };
   }
 
-  if (role === "ADMIN_DISTRICT") {
+  if (normalizedRole === "ADMIN_STATE" || normalizedRole === "STATE_ADMIN") {
+    return {
+      analyticsAccess: "Full Access",
+      applicationsAccess: "Full Access",
+      settingsAccess: "No Access",
+      usersAccess: "Full Access",
+    };
+  }
+
+  if (normalizedRole === "ADMIN_DISTRICT" || normalizedRole === "DISTRICT_ADMIN") {
     return {
       analyticsAccess: "Full Access",
       applicationsAccess: "Full Access",
@@ -99,6 +106,22 @@ function defaultAccessForRole(role: string) {
 
 function hasAccess(value?: string) {
   return value?.trim().toLowerCase() !== "no access";
+}
+
+function accessWithRoleFallback(input: {
+  fallbackAccess: string;
+  role: string;
+  sessionAccess?: string;
+}) {
+  if (
+    normalizeAdminRole(input.role) === "ADMIN_REGION" &&
+    input.fallbackAccess !== "No Access" &&
+    !hasAccess(input.sessionAccess)
+  ) {
+    return input.fallbackAccess;
+  }
+
+  return input.sessionAccess ?? input.fallbackAccess;
 }
 
 function parseSession(value: string | null): AdminSession | null {
@@ -152,25 +175,36 @@ export function AdminShell({
       return;
     }
 
+    const role = session?.admin?.role ?? defaultAdmin.role;
+    const roleDefaults = defaultAccessForRole(role);
+
     setAdmin({
       ...defaultAdmin,
-      ...defaultAccessForRole(session?.admin?.role ?? defaultAdmin.role),
+      ...roleDefaults,
       email: session?.admin?.email ?? defaultAdmin.email,
       name: session?.admin?.name ?? defaultAdmin.name,
-      role: session?.admin?.role ?? defaultAdmin.role,
-      analyticsAccess:
-        session?.admin?.analyticsAccess ??
-        defaultAccessForRole(session?.admin?.role ?? defaultAdmin.role).analyticsAccess,
-      applicationsAccess:
-        session?.admin?.applicationsAccess ??
-        defaultAccessForRole(session?.admin?.role ?? defaultAdmin.role).applicationsAccess,
+      role,
+      analyticsAccess: accessWithRoleFallback({
+        fallbackAccess: roleDefaults.analyticsAccess,
+        role,
+        sessionAccess: session?.admin?.analyticsAccess,
+      }),
+      applicationsAccess: accessWithRoleFallback({
+        fallbackAccess: roleDefaults.applicationsAccess,
+        role,
+        sessionAccess: session?.admin?.applicationsAccess,
+      }),
       scope: session?.admin?.scope ?? defaultAdmin.scope,
-      settingsAccess:
-        session?.admin?.settingsAccess ??
-        defaultAccessForRole(session?.admin?.role ?? defaultAdmin.role).settingsAccess,
-      usersAccess:
-        session?.admin?.usersAccess ??
-        defaultAccessForRole(session?.admin?.role ?? defaultAdmin.role).usersAccess,
+      settingsAccess: accessWithRoleFallback({
+        fallbackAccess: roleDefaults.settingsAccess,
+        role,
+        sessionAccess: session?.admin?.settingsAccess,
+      }),
+      usersAccess: accessWithRoleFallback({
+        fallbackAccess: roleDefaults.usersAccess,
+        role,
+        sessionAccess: session?.admin?.usersAccess,
+      }),
     });
     setIsSessionChecked(true);
   }, [router]);
@@ -191,9 +225,19 @@ export function AdminShell({
     if (label === "Applications") return hasAccess(admin.applicationsAccess);
     if (label === "Users") return hasAccess(admin.usersAccess);
     if (label === "Page Views") {
-      return admin.role === "SUPERADMIN" || admin.role === "ADMIN_REGION";
+      const role = normalizeAdminRole(admin.role);
+      return (
+        role === "SUPERADMIN" ||
+        role === "ADMIN_REGION" ||
+        hasAccess(admin.analyticsAccess)
+      );
     }
-    if (label === "Settings") return hasAccess(admin.settingsAccess);
+    if (label === "Settings") {
+      return (
+        normalizeAdminRole(admin.role) !== "ADMIN_REGION" &&
+        hasAccess(admin.settingsAccess)
+      );
+    }
     return true;
   });
 

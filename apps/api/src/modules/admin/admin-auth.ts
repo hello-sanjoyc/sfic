@@ -34,7 +34,11 @@ function getBearerToken(request: FastifyRequest) {
 function routeModule(request: FastifyRequest): AdminAccessModule | null {
     const path = new URL(request.url, "http://localhost").pathname;
 
-    if (path.includes("/dashboard") || path.includes("/analytics")) {
+    if (
+        path.includes("/dashboard") ||
+        path.includes("/analytics") ||
+        path.includes("/page-view-analytics")
+    ) {
         return "analytics";
     }
 
@@ -52,6 +56,12 @@ function isUserRolesRoute(request: FastifyRequest) {
     );
 }
 
+function isPageViewAnalyticsRoute(request: FastifyRequest) {
+    return new URL(request.url, "http://localhost").pathname.includes(
+        "/page-view-analytics",
+    );
+}
+
 function isPublicAdminRoute(request: FastifyRequest) {
     const path = new URL(request.url, "http://localhost").pathname;
 
@@ -63,6 +73,37 @@ function isPublicAdminRoute(request: FastifyRequest) {
 }
 
 function accessValueForModule(row: AdminSessionRow, module: AdminAccessModule) {
+    if (module === "analytics") return effectiveAccessValue(row, module);
+    if (module === "settings") return effectiveAccessValue(row, module);
+    if (module === "applications") return row.applications_access;
+    return row.users_access;
+}
+
+function normalizeAdminRole(role: string | null | undefined) {
+    return (role ?? "")
+        .trim()
+        .toUpperCase()
+        .replace(/[\s-]+/g, "_");
+}
+
+function isRegionAdmin(row: Pick<AdminSessionRow, "role" | "scope">) {
+    const role = normalizeAdminRole(row.role);
+    const scope = row.scope?.trim().toLowerCase();
+
+    return (
+        role === "ADMIN_REGION" || role === "REGION_ADMIN" || scope === "region"
+    );
+}
+
+function effectiveAccessValue(row: AdminSessionRow, module: AdminAccessModule) {
+    if (
+        isRegionAdmin(row) &&
+        module === "analytics" &&
+        normalizedAccessLevel(row.analytics_access) === "none"
+    ) {
+        return "Full Access";
+    }
+
     if (module === "analytics") return row.analytics_access;
     if (module === "applications") return row.applications_access;
     if (module === "settings") return row.settings_access;
@@ -83,6 +124,7 @@ function hasModuleAccess(
     request: FastifyRequest,
 ) {
     if (row.role === "SUPERADMIN") return true;
+    if (isPageViewAnalyticsRoute(request) && isRegionAdmin(row)) return true;
     if (!module) return false;
 
     if (isUserRolesRoute(request) && request.method.toUpperCase() === "GET") {
@@ -95,7 +137,10 @@ function hasModuleAccess(
     return normalizedAccessLevel(accessValueForModule(row, module)) !== "none";
 }
 
-function hasWriteAccess(row: AdminSessionRow, module: AdminAccessModule | null) {
+function hasWriteAccess(
+    row: AdminSessionRow,
+    module: AdminAccessModule | null,
+) {
     if (row.role === "SUPERADMIN") return true;
     if (!module) return false;
 
@@ -200,12 +245,12 @@ export async function authenticateAdmin(
     }
 
     (request as AuthenticatedAdminRequest).adminAccess = {
-        analyticsAccess: row.analytics_access ?? "No Access",
+        analyticsAccess: effectiveAccessValue(row, "analytics") ?? "No Access",
         applicationsAccess: row.applications_access ?? "No Access",
         districtId: row.district_id === null ? null : Number(row.district_id),
         role: row.role,
         scope: row.scope ?? "Application",
-        settingsAccess: row.settings_access ?? "No Access",
+        settingsAccess: effectiveAccessValue(row, "settings") ?? "No Access",
         stateId: row.state_id === null ? null : Number(row.state_id),
         userId: Number(row.user_id),
         usersAccess: row.users_access ?? "No Access",

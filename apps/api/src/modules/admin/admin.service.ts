@@ -941,8 +941,23 @@ async function ensureAdminLoginTables(pg: DatabaseClient) {
 }
 
 function toAdminUser(row: AdminUserRow): AdminUser {
+    const normalizedRole = row.role.trim().toUpperCase().replace(/[\s-]+/g, "_");
+    const isRegionAdmin =
+        normalizedRole === "ADMIN_REGION" ||
+        normalizedRole === "REGION_ADMIN" ||
+        row.scope?.trim().toLowerCase() === "region";
+    const analyticsAccess =
+        isRegionAdmin &&
+        (row.analytics_access ?? "No Access").trim().toLowerCase() ===
+            "no access"
+            ? "Full Access"
+            : (row.analytics_access ?? "No Access");
+    const settingsAccess = isRegionAdmin
+        ? "No Access"
+        : (row.settings_access ?? "No Access");
+
     return {
-        analyticsAccess: row.analytics_access ?? "No Access",
+        analyticsAccess,
         applicationsAccess: row.applications_access ?? "No Access",
         districtId: row.district_id === null ? null : Number(row.district_id),
         email: row.email,
@@ -951,7 +966,7 @@ function toAdminUser(row: AdminUserRow): AdminUser {
         name: row.fullname,
         role: row.role,
         scope: row.scope ?? "Application",
-        settingsAccess: row.settings_access ?? "No Access",
+        settingsAccess,
         stateId: row.state_id === null ? null : Number(row.state_id),
         usersAccess: row.users_access ?? "No Access",
     };

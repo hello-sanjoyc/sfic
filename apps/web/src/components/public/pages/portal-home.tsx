@@ -198,29 +198,38 @@ export async function PortalHome({ locale }: { locale: string }) {
     };
     const guidelinesPdfHref =
         guidelinesPdfByLocale[locale] ?? guidelinesPdfByLocale.en;
-    const slides = heroSlides.map((slide) => ({
-        ...slide,
-        eyebrow: home.heroSlides.find((item) => item.eyebrow === slide.eyebrow)
-            ?.eyebrow ?? home.heroSlides[heroSlides.indexOf(slide)]?.eyebrow ?? slide.eyebrow,
-        title: home.heroSlides[heroSlides.indexOf(slide)]?.title ?? slide.title,
-        description:
-            home.heroSlides[heroSlides.indexOf(slide)]?.description ??
-            slide.description,
-        primaryCTA: {
-            ...slide.primaryCTA,
-            label:
-                home.heroSlides[heroSlides.indexOf(slide)]?.primaryCTA ??
-                slide.primaryCTA.label,
-            href: slide.primaryCTA.href.replace("/en", `/${locale}`),
-        },
-        secondaryCTA: {
-            ...slide.secondaryCTA,
-            label:
-                home.heroSlides[heroSlides.indexOf(slide)]?.secondaryCTA ??
-                slide.secondaryCTA.label,
-            href: slide.secondaryCTA.href.replace("/en", `/${locale}`),
-        },
-    }));
+    const slides = heroSlides.map((slide) => {
+        const hasSlideContent =
+            Boolean(slide.eyebrow.trim()) ||
+            Boolean(slide.title.trim()) ||
+            Boolean(slide.description.trim()) ||
+            Boolean(slide.primaryCTA.label.trim() && slide.primaryCTA.href.trim()) ||
+            Boolean(slide.secondaryCTA.label.trim() && slide.secondaryCTA.href.trim());
+        const localizedSlide = hasSlideContent
+            ? home.heroSlides.find((item) => item.eyebrow === slide.eyebrow)
+            : undefined;
+
+        return {
+            ...slide,
+            eyebrow: localizedSlide?.eyebrow ?? slide.eyebrow,
+            title: localizedSlide?.title ?? slide.title,
+            description: localizedSlide?.description ?? slide.description,
+            primaryCTA: {
+                ...slide.primaryCTA,
+                label: localizedSlide?.primaryCTA ?? slide.primaryCTA.label,
+                href: slide.primaryCTA.href
+                    ? slide.primaryCTA.href.replace("/en", `/${locale}`)
+                    : "",
+            },
+            secondaryCTA: {
+                ...slide.secondaryCTA,
+                label: localizedSlide?.secondaryCTA ?? slide.secondaryCTA.label,
+                href: slide.secondaryCTA.href
+                    ? slide.secondaryCTA.href.replace("/en", `/${locale}`)
+                    : "",
+            },
+        };
+    });
     const localizedThemes = themes.map((theme, index) => ({
         ...theme,
         title: home.themes.items[index]?.[0] ?? theme.title,
