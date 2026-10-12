@@ -11,6 +11,12 @@ import type {
     AdminDashboardCountsResult,
     AdminDashboardDistrictCountsResult,
     AdminDashboardOrganisationTypeCountsResult,
+    AdminEmailNotification,
+    AdminEmailNotificationAnalyticsResult,
+    AdminEmailNotificationDetailsResult,
+    AdminEmailNotificationRecipient,
+    AdminEmailNotificationRecipientsResult,
+    AdminEmailNotificationsResult,
     AdminLanguage,
     AdminManagedUser,
     AdminManagedUsersResult,
@@ -28,6 +34,7 @@ import type {
     AdminUser,
     DeleteAdminApplicationDocumentResult,
     DeleteAdminApplicationResult,
+    CreateAdminEmailNotificationInput,
     RequestAdminLoginCodeInput,
     RequestAdminLoginCodeResult,
     UpsertAdminSettingsItemInput,
@@ -87,6 +94,41 @@ type AdminManagedUserRow = {
     state_id: string | null;
     total_count?: string;
     updated_at: Date | string;
+};
+
+type AdminEmailNotificationRow = {
+    body: string;
+    created_at: Date | string;
+    created_by_user_id: string;
+    delivered_count: string | null;
+    delivery_mode: "immediate" | "scheduled";
+    failed_count: string;
+    id: string;
+    mode: "individual" | "bulk";
+    name: string | null;
+    processing_count: string;
+    queued_count: string;
+    reply_to_email: string;
+    scheduled_for: Date | string | null;
+    sender_name: string;
+    sent_count: string;
+    skipped_count: string;
+    status: AdminEmailNotification["status"];
+    subject: string;
+    total_count?: string;
+    total_recipients: string;
+    updated_at: Date | string;
+};
+
+type AdminEmailNotificationRecipientRow = {
+    attempt_count: string;
+    delivery_status: AdminEmailNotificationRecipient["deliveryStatus"];
+    email: string;
+    failure_reason: string | null;
+    id: string;
+    last_attempt_at: Date | string | null;
+    recipient_name: string | null;
+    total_count?: string;
 };
 
 type AdminRbacRuleRow = QueryResultRow & {
@@ -4395,6 +4437,799 @@ async function getDashboardChallengeCategoryCounts(
     };
 }
 
+async function ensureAdminEmailNotificationTables(pg: DatabaseClient) {
+    await pg.query(`
+        CREATE TABLE IF NOT EXISTS admin_email_notifications (
+            id BIGSERIAL PRIMARY KEY,
+            mode VARCHAR(20) NOT NULL,
+            name VARCHAR(255),
+            sender_name VARCHAR(255) NOT NULL,
+            reply_to_email VARCHAR(255) NOT NULL,
+            subject VARCHAR(500) NOT NULL,
+            body TEXT NOT NULL,
+            delivery_mode VARCHAR(20) NOT NULL,
+            scheduled_for TIMESTAMPTZ,
+            status VARCHAR(30) NOT NULL DEFAULT 'draft',
+            total_recipients INTEGER NOT NULL DEFAULT 0,
+            queued_count INTEGER NOT NULL DEFAULT 0,
+            processing_count INTEGER NOT NULL DEFAULT 0,
+            sent_count INTEGER NOT NULL DEFAULT 0,
+            delivered_count INTEGER,
+            failed_count INTEGER NOT NULL DEFAULT 0,
+            skipped_count INTEGER NOT NULL DEFAULT 0,
+            created_by_user_id BIGINT NOT NULL,
+            created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+            updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+            sent_at TIMESTAMPTZ,
+            CONSTRAINT fk_admin_email_notifications_created_by
+                FOREIGN KEY (created_by_user_id) REFERENCES users(id)
+                ON UPDATE CASCADE ON DELETE RESTRICT
+        )
+    `);
+    await pg.query(`
+        CREATE TABLE IF NOT EXISTS admin_email_notification_recipients (
+            id BIGSERIAL PRIMARY KEY,
+            notification_id BIGINT NOT NULL,
+            recipient_name VARCHAR(255),
+            email VARCHAR(255) NOT NULL,
+            delivery_status VARCHAR(30) NOT NULL DEFAULT 'Queued',
+            attempt_count INTEGER NOT NULL DEFAULT 0,
+            last_attempt_at TIMESTAMPTZ,
+            failure_reason TEXT,
+            created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+            updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+            CONSTRAINT fk_admin_email_notification_recipients_notification
+                FOREIGN KEY (notification_id) REFERENCES admin_email_notifications(id)
+                ON UPDATE CASCADE ON DELETE CASCADE
+        )
+    `);
+    await pg.query(`
+        CREATE INDEX IF NOT EXISTS idx_admin_email_notifications_created_at
+            ON admin_email_notifications(created_at DESC)
+    `);
+    await pg.query(`
+        CREATE INDEX IF NOT EXISTS idx_admin_email_recipients_notification
+            ON admin_email_notification_recipients(notification_id)
+    `);
+}
+
+function dateToIso(value: Date | string | null) {
+    if (!value) return null;
+    const date = value instanceof Date ? value : new Date(value);
+    return Number.isNaN(date.getTime()) ? null : date.toISOString();
+}
+
+function toAdminEmailNotification(
+    row: AdminEmailNotificationRow,
+): AdminEmailNotification {
+    return {
+        body: row.body,
+        createdAt: dateToIso(row.created_at) ?? "",
+        createdByUserId: Number(row.created_by_user_id),
+        delivered: row.delivered_count === null ? null : Number(row.delivered_count),
+        deliveryMode: row.delivery_mode,
+        failed: Number(row.failed_count),
+        id: Number(row.id),
+        mode: row.mode,
+        name: row.name ?? row.subject,
+        processing: Number(row.processing_count),
+        queued: Number(row.queued_count),
+        replyToEmail: row.reply_to_email,
+        scheduledFor: dateToIso(row.scheduled_for),
+        senderName: row.sender_name,
+        sent: Number(row.sent_count),
+        skipped: Number(row.skipped_count),
+        status: row.status,
+        subject: row.subject,
+        totalRecipients: Number(row.total_recipients),
+        updatedAt: dateToIso(row.updated_at) ?? "",
+    };
+}
+
+function toAdminEmailNotificationRecipient(
+    row: AdminEmailNotificationRecipientRow,
+): AdminEmailNotificationRecipient {
+    return {
+        attemptCount: Number(row.attempt_count),
+        deliveryStatus: row.delivery_status,
+        email: row.email,
+        failureReason: row.failure_reason,
+        id: Number(row.id),
+        lastAttempt: dateToIso(row.last_attempt_at),
+        recipientName: row.recipient_name,
+    };
+}
+
+function normalizeEmailList(input: CreateAdminEmailNotificationInput) {
+    const rawEmails =
+        input.mode === "individual"
+            ? [input.recipientEmail ?? ""]
+            : input.recipientEmails ?? [];
+    const skipInvalid = input.safeguards?.skipInvalidSuppressed !== false;
+    const excludeDuplicates = input.safeguards?.excludeDuplicates !== false;
+    const seen = new Set<string>();
+    const recipients: Array<{
+        email: string;
+        failureReason: string | null;
+        status: AdminEmailNotificationRecipient["deliveryStatus"];
+    }> = [];
+
+    rawEmails.forEach((emailValue) => {
+        const email = String(emailValue).trim().toLowerCase();
+        if (!email) return;
+
+        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+            if (skipInvalid) {
+                recipients.push({
+                    email,
+                    failureReason: "Invalid email address",
+                    status: "Skipped",
+                });
+            }
+            return;
+        }
+
+        if (seen.has(email)) {
+            if (excludeDuplicates) {
+                recipients.push({
+                    email,
+                    failureReason: "Duplicate recipient",
+                    status: "Skipped",
+                });
+                return;
+            }
+        }
+
+        seen.add(email);
+        recipients.push({
+            email,
+            failureReason: null,
+            status: "Queued",
+        });
+    });
+
+    return recipients;
+}
+
+function scheduledFor(input: CreateAdminEmailNotificationInput) {
+    if (input.deliveryMode !== "scheduled") return null;
+    if (!input.scheduledDate || !input.scheduledTime) {
+        throw new AdminRuleError("Scheduled date and time are required.");
+    }
+
+    const date = new Date(`${input.scheduledDate}T${input.scheduledTime}:00+05:30`);
+    if (Number.isNaN(date.getTime())) {
+        throw new AdminRuleError("Scheduled date and time are invalid.");
+    }
+
+    return date;
+}
+
+function emailNotificationRecipientSignature(
+    recipients: ReturnType<typeof normalizeEmailList>,
+) {
+    return recipients
+        .map((recipient) =>
+            [
+                recipient.email,
+                recipient.status,
+                recipient.failureReason ?? "",
+            ].join("|"),
+        )
+        .sort()
+        .join("\n");
+}
+
+async function assertUniqueEmailNotification(input: {
+    body: string;
+    client: DatabaseClient;
+    deliveryMode: "immediate" | "scheduled";
+    excludeNotificationId?: number;
+    mode: "individual" | "bulk";
+    name: string;
+    recipients: ReturnType<typeof normalizeEmailList>;
+    replyToEmail: string;
+    scheduledFor: Date | null;
+    senderName: string;
+    subject: string;
+}) {
+    const recipientSignature = emailNotificationRecipientSignature(
+        input.recipients,
+    );
+    const result = await input.client.query<{ id: string }>(
+        `
+        SELECT n.id::text
+        FROM admin_email_notifications n
+        JOIN LATERAL (
+            SELECT string_agg(
+                r.email || '|' || r.delivery_status || '|' || COALESCE(r.failure_reason, ''),
+                E'\n'
+                ORDER BY r.email, r.delivery_status, COALESCE(r.failure_reason, '')
+            ) AS recipient_signature
+            FROM admin_email_notification_recipients r
+            WHERE r.notification_id = n.id
+        ) recipients ON TRUE
+        WHERE n.mode = $1
+          AND n.name = $2
+          AND n.sender_name = $3
+          AND n.reply_to_email = $4
+          AND n.subject = $5
+          AND n.body = $6
+          AND n.delivery_mode = $7
+          AND (
+            (n.scheduled_for IS NULL AND $8::timestamptz IS NULL)
+            OR n.scheduled_for = $8::timestamptz
+          )
+          AND recipients.recipient_signature = $9
+          AND ($10::bigint IS NULL OR n.id <> $10::bigint)
+        LIMIT 1
+    `,
+        [
+            input.mode,
+            input.name.trim(),
+            input.senderName.trim(),
+            input.replyToEmail.trim().toLowerCase(),
+            input.subject.trim(),
+            input.body,
+            input.deliveryMode,
+            input.scheduledFor,
+            recipientSignature,
+            input.excludeNotificationId ?? null,
+        ],
+    );
+
+    if (result.rows[0]) {
+        throw new AdminRuleError(
+            "This email notification already exists. Change at least one field before saving.",
+            409,
+        );
+    }
+}
+
+async function recalculateNotificationCounts(
+    pg: DatabaseClient,
+    notificationId: number,
+) {
+    await pg.query(
+        `
+        UPDATE admin_email_notifications n
+        SET total_recipients = counts.total_count,
+            queued_count = counts.queued_count,
+            processing_count = counts.processing_count,
+            sent_count = counts.sent_count,
+            failed_count = counts.failed_count,
+            skipped_count = counts.skipped_count,
+            delivered_count = counts.delivered_count,
+            updated_at = NOW()
+        FROM (
+            SELECT
+                COUNT(*)::integer AS total_count,
+                COUNT(*) FILTER (WHERE delivery_status = 'Queued')::integer AS queued_count,
+                COUNT(*) FILTER (WHERE delivery_status = 'Processing')::integer AS processing_count,
+                COUNT(*) FILTER (WHERE delivery_status = 'Sent')::integer AS sent_count,
+                COUNT(*) FILTER (WHERE delivery_status = 'Failed')::integer AS failed_count,
+                COUNT(*) FILTER (WHERE delivery_status = 'Skipped')::integer AS skipped_count,
+                COUNT(*) FILTER (WHERE delivery_status = 'Delivered')::integer AS delivered_count
+            FROM admin_email_notification_recipients
+            WHERE notification_id = $1
+        ) counts
+        WHERE n.id = $1
+    `,
+        [notificationId],
+    );
+}
+
+async function getEmailNotifications(
+    pg: DatabasePool,
+    input: {
+        page: number;
+        pageSize: number;
+        sortBy: string;
+        sortDirection: "asc" | "desc";
+    },
+): Promise<AdminEmailNotificationsResult> {
+    const sortColumns: Record<string, string> = {
+        createdAt: "created_at",
+        failed: "failed_count",
+        name: "name",
+        scheduledFor: "scheduled_for",
+        sent: "sent_count",
+        subject: "subject",
+        totalRecipients: "total_recipients",
+    };
+    const sortColumn = sortColumns[input.sortBy] ?? "created_at";
+    const offset = (input.page - 1) * input.pageSize;
+    const result = await pg.query<AdminEmailNotificationRow>(
+        `
+        SELECT *, COUNT(*) OVER()::text AS total_count
+        FROM admin_email_notifications
+        ORDER BY ${sortColumn} ${input.sortDirection === "asc" ? "ASC" : "DESC"} NULLS LAST
+        LIMIT $1 OFFSET $2
+    `,
+        [input.pageSize, offset],
+    );
+    const total = Number(result.rows[0]?.total_count ?? 0);
+
+    return {
+        notifications: result.rows.map(toAdminEmailNotification),
+        pagination: {
+            page: input.page,
+            pageSize: input.pageSize,
+            total,
+            totalPages: Math.max(1, Math.ceil(total / input.pageSize)),
+        },
+    };
+}
+
+async function getEmailNotificationAnalytics(
+    pg: DatabasePool,
+    notificationId: number,
+): Promise<AdminEmailNotificationAnalyticsResult | null> {
+    const result = await pg.query<AdminEmailNotificationRow>(
+        `SELECT * FROM admin_email_notifications WHERE id = $1`,
+        [notificationId],
+    );
+    const row = result.rows[0];
+    if (!row) return null;
+
+    return { notification: toAdminEmailNotification(row) };
+}
+
+async function getEmailNotification(
+    pg: DatabasePool,
+    notificationId: number,
+): Promise<AdminEmailNotificationDetailsResult | null> {
+    const notificationResult = await pg.query<AdminEmailNotificationRow>(
+        `SELECT * FROM admin_email_notifications WHERE id = $1`,
+        [notificationId],
+    );
+    const notificationRow = notificationResult.rows[0];
+    if (!notificationRow) return null;
+
+    const recipientResult = await pg.query<AdminEmailNotificationRecipientRow>(
+        `
+        SELECT *
+        FROM admin_email_notification_recipients
+        WHERE notification_id = $1
+        ORDER BY id ASC
+    `,
+        [notificationId],
+    );
+
+    return {
+        notification: toAdminEmailNotification(notificationRow),
+        recipients: recipientResult.rows.map(toAdminEmailNotificationRecipient),
+    };
+}
+
+async function getEmailNotificationRecipients(
+    pg: DatabasePool,
+    input: {
+        notificationId: number;
+        page: number;
+        pageSize: number;
+        sortBy: string;
+        sortDirection: "asc" | "desc";
+    },
+): Promise<AdminEmailNotificationRecipientsResult> {
+    const sortColumns: Record<string, string> = {
+        attemptCount: "attempt_count",
+        deliveryStatus: "delivery_status",
+        email: "email",
+        lastAttempt: "last_attempt_at",
+        recipientName: "recipient_name",
+    };
+    const sortColumn = sortColumns[input.sortBy] ?? "recipient_name";
+    const offset = (input.page - 1) * input.pageSize;
+    const result = await pg.query<AdminEmailNotificationRecipientRow>(
+        `
+        SELECT *, COUNT(*) OVER()::text AS total_count
+        FROM admin_email_notification_recipients
+        WHERE notification_id = $1
+        ORDER BY ${sortColumn} ${input.sortDirection === "asc" ? "ASC" : "DESC"} NULLS LAST
+        LIMIT $2 OFFSET $3
+    `,
+        [input.notificationId, input.pageSize, offset],
+    );
+    const total = Number(result.rows[0]?.total_count ?? 0);
+
+    return {
+        pagination: {
+            page: input.page,
+            pageSize: input.pageSize,
+            total,
+            totalPages: Math.max(1, Math.ceil(total / input.pageSize)),
+        },
+        recipients: result.rows.map(toAdminEmailNotificationRecipient),
+    };
+}
+
+async function sendNotificationRecipients(
+    pg: DatabasePool,
+    notificationId: number,
+) {
+    const notificationResult = await pg.query<AdminEmailNotificationRow>(
+        `SELECT * FROM admin_email_notifications WHERE id = $1`,
+        [notificationId],
+    );
+    const notification = notificationResult.rows[0];
+    if (!notification) return;
+
+    const recipientResult = await pg.query<AdminEmailNotificationRecipientRow>(
+        `
+        SELECT *
+        FROM admin_email_notification_recipients
+        WHERE notification_id = $1
+          AND delivery_status = 'Queued'
+    `,
+        [notificationId],
+    );
+
+    await pg.query(
+        `UPDATE admin_email_notifications SET status = 'processing', updated_at = NOW() WHERE id = $1`,
+        [notificationId],
+    );
+
+    for (const recipient of recipientResult.rows) {
+        await pg.query(
+            `
+            UPDATE admin_email_notification_recipients
+            SET delivery_status = 'Processing',
+                attempt_count = attempt_count + 1,
+                last_attempt_at = NOW(),
+                updated_at = NOW()
+            WHERE id = $1
+        `,
+            [recipient.id],
+        );
+
+        try {
+            const delivery = await emailService.sendAdminNotificationEmail({
+                body: notification.body,
+                recipientEmail: recipient.email,
+                replyToEmail: notification.reply_to_email,
+                senderName: notification.sender_name,
+                subject: notification.subject,
+            });
+
+            await pg.query(
+                `
+                UPDATE admin_email_notification_recipients
+                SET delivery_status = $2,
+                    failure_reason = $3,
+                    updated_at = NOW()
+                WHERE id = $1
+            `,
+                [
+                    recipient.id,
+                    delivery.delivered ? "Sent" : "Failed",
+                    delivery.delivered ? null : delivery.reason ?? "Email was not delivered.",
+                ],
+            );
+        } catch (error) {
+            await pg.query(
+                `
+                UPDATE admin_email_notification_recipients
+                SET delivery_status = 'Failed',
+                    failure_reason = $2,
+                    updated_at = NOW()
+                WHERE id = $1
+            `,
+                [
+                    recipient.id,
+                    error instanceof Error ? error.message : "Email sending failed.",
+                ],
+            );
+        }
+    }
+
+    await recalculateNotificationCounts(pg, notificationId);
+    await pg.query(
+        `
+        UPDATE admin_email_notifications
+        SET status = CASE WHEN failed_count > 0 THEN 'failed' ELSE 'sent' END,
+            sent_at = NOW(),
+            updated_at = NOW()
+        WHERE id = $1
+    `,
+        [notificationId],
+    );
+}
+
+async function createEmailNotification(
+    pg: DatabasePool,
+    input: CreateAdminEmailNotificationInput & { createdByUserId: number },
+): Promise<AdminEmailNotificationAnalyticsResult> {
+    const recipients = normalizeEmailList(input);
+    const queuedCount = recipients.filter((recipient) => recipient.status === "Queued").length;
+    const skippedCount = recipients.filter((recipient) => recipient.status === "Skipped").length;
+    const sendNow = input.action === "send" && input.deliveryMode === "immediate";
+    const scheduleDate = scheduledFor(input);
+    const client = await pg.connect();
+    let notificationId = 0;
+
+    if (!input.subject.trim()) throw new AdminRuleError("Subject is required.");
+    if (!input.name.trim()) {
+        throw new AdminRuleError("Notification/Campaign Name is required.");
+    }
+    if (!input.body.trim()) throw new AdminRuleError("Message body is required.");
+    if (!input.senderName.trim()) throw new AdminRuleError("Sender name is required.");
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(input.replyToEmail.trim())) {
+        throw new AdminRuleError("A valid reply-to email is required.");
+    }
+    if (recipients.length === 0) {
+        throw new AdminRuleError("At least one recipient email is required.");
+    }
+
+    try {
+        await client.query("BEGIN");
+        await assertUniqueEmailNotification({
+            body: input.body,
+            client,
+            deliveryMode: input.deliveryMode,
+            mode: input.mode,
+            name: input.name,
+            recipients,
+            replyToEmail: input.replyToEmail,
+            scheduledFor: scheduleDate,
+            senderName: input.senderName,
+            subject: input.subject,
+        });
+        const created = await client.query<{ id: string }>(
+            `
+            INSERT INTO admin_email_notifications (
+                mode,
+                name,
+                sender_name,
+                reply_to_email,
+                subject,
+                body,
+                delivery_mode,
+                scheduled_for,
+                status,
+                total_recipients,
+                queued_count,
+                skipped_count,
+                created_by_user_id
+            )
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+            RETURNING id::text
+        `,
+            [
+                input.mode,
+                input.name.trim(),
+                input.senderName.trim(),
+                input.replyToEmail.trim().toLowerCase(),
+                input.subject.trim(),
+                input.body,
+                input.deliveryMode,
+                scheduleDate,
+                input.action === "draft" ? "draft" : "queued",
+                recipients.length,
+                queuedCount,
+                skippedCount,
+                input.createdByUserId,
+            ],
+        );
+        notificationId = Number(created.rows[0].id);
+
+        for (const recipient of recipients) {
+            await client.query(
+                `
+                INSERT INTO admin_email_notification_recipients (
+                    notification_id,
+                    email,
+                    delivery_status,
+                    failure_reason
+                )
+                VALUES ($1, $2, $3, $4)
+            `,
+                [
+                    notificationId,
+                    recipient.email,
+                    recipient.status,
+                    recipient.failureReason,
+                ],
+            );
+        }
+
+        await client.query("COMMIT");
+    } catch (error) {
+        await client.query("ROLLBACK");
+        throw error;
+    } finally {
+        client.release();
+    }
+
+    if (sendNow) {
+        await sendNotificationRecipients(pg, notificationId);
+    }
+
+    const result = await getEmailNotificationAnalytics(pg, notificationId);
+    if (!result) throw new AdminRuleError("Notification could not be created.", 500);
+    return result;
+}
+
+async function updateEmailNotification(
+    pg: DatabasePool,
+    input: Partial<CreateAdminEmailNotificationInput> & {
+        createdByUserId: number;
+        notificationId: number;
+    },
+): Promise<AdminEmailNotificationAnalyticsResult> {
+    const existing = await getEmailNotification(pg, input.notificationId);
+    if (!existing) {
+        throw new AdminRuleError("Email notification was not found.", 404);
+    }
+    if (existing.notification.status !== "draft") {
+        throw new AdminRuleError("Only draft notifications can be modified.", 409);
+    }
+
+    const merged: CreateAdminEmailNotificationInput = {
+        action: input.action === "send" ? "send" : "draft",
+        body: input.body ?? existing.notification.body,
+        deliveryMode: input.deliveryMode ?? existing.notification.deliveryMode,
+        mode: input.mode ?? existing.notification.mode,
+        name: input.name ?? existing.notification.name,
+        recipientEmail:
+            input.recipientEmail ??
+            existing.recipients.find((recipient) => recipient.deliveryStatus !== "Skipped")?.email,
+        recipientEmails:
+            input.recipientEmails ??
+            existing.recipients.map((recipient) => recipient.email),
+        replyToEmail: input.replyToEmail ?? existing.notification.replyToEmail,
+        safeguards: input.safeguards ?? {
+            excludeDuplicates: true,
+            retryTemporaryErrors: true,
+            skipInvalidSuppressed: true,
+        },
+        scheduledDate: input.scheduledDate,
+        scheduledTime: input.scheduledTime,
+        senderName: input.senderName ?? existing.notification.senderName,
+        subject: input.subject ?? existing.notification.subject,
+    };
+    const scheduleDate =
+        merged.deliveryMode === "scheduled"
+            ? input.scheduledDate || input.scheduledTime
+                ? scheduledFor(merged)
+                : existing.notification.scheduledFor
+                  ? new Date(existing.notification.scheduledFor)
+                  : null
+            : null;
+    const recipients = normalizeEmailList(merged);
+    const queuedCount = recipients.filter((recipient) => recipient.status === "Queued").length;
+    const skippedCount = recipients.filter((recipient) => recipient.status === "Skipped").length;
+    const sendNow = merged.action === "send" && merged.deliveryMode === "immediate";
+    const client = await pg.connect();
+
+    if (!merged.subject.trim()) throw new AdminRuleError("Subject is required.");
+    if (!merged.name.trim()) {
+        throw new AdminRuleError("Notification/Campaign Name is required.");
+    }
+    if (!merged.body.trim()) throw new AdminRuleError("Message body is required.");
+    if (!merged.senderName.trim()) throw new AdminRuleError("Sender name is required.");
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(merged.replyToEmail.trim())) {
+        throw new AdminRuleError("A valid reply-to email is required.");
+    }
+    if (recipients.length === 0) {
+        throw new AdminRuleError("At least one recipient email is required.");
+    }
+
+    try {
+        await client.query("BEGIN");
+        await assertUniqueEmailNotification({
+            body: merged.body,
+            client,
+            deliveryMode: merged.deliveryMode,
+            excludeNotificationId: input.notificationId,
+            mode: merged.mode,
+            name: merged.name,
+            recipients,
+            replyToEmail: merged.replyToEmail,
+            scheduledFor: scheduleDate,
+            senderName: merged.senderName,
+            subject: merged.subject,
+        });
+        await client.query(
+            `
+            UPDATE admin_email_notifications
+            SET mode = $2,
+                name = $3,
+                sender_name = $4,
+                reply_to_email = $5,
+                subject = $6,
+                body = $7,
+                delivery_mode = $8,
+                scheduled_for = $9,
+                status = $10,
+                total_recipients = $11,
+                queued_count = $12,
+                processing_count = 0,
+                sent_count = 0,
+                delivered_count = NULL,
+                failed_count = 0,
+                skipped_count = $13,
+                updated_at = NOW()
+            WHERE id = $1
+        `,
+            [
+                input.notificationId,
+                merged.mode,
+                merged.name.trim(),
+                merged.senderName.trim(),
+                merged.replyToEmail.trim().toLowerCase(),
+                merged.subject.trim(),
+                merged.body,
+                merged.deliveryMode,
+                scheduleDate,
+                merged.action === "draft" ? "draft" : "queued",
+                recipients.length,
+                queuedCount,
+                skippedCount,
+            ],
+        );
+        await client.query(
+            `DELETE FROM admin_email_notification_recipients WHERE notification_id = $1`,
+            [input.notificationId],
+        );
+
+        for (const recipient of recipients) {
+            await client.query(
+                `
+                INSERT INTO admin_email_notification_recipients (
+                    notification_id,
+                    email,
+                    delivery_status,
+                    failure_reason
+                )
+                VALUES ($1, $2, $3, $4)
+            `,
+                [
+                    input.notificationId,
+                    recipient.email,
+                    recipient.status,
+                    recipient.failureReason,
+                ],
+            );
+        }
+
+        await client.query("COMMIT");
+    } catch (error) {
+        await client.query("ROLLBACK");
+        throw error;
+    } finally {
+        client.release();
+    }
+
+    if (sendNow) {
+        await sendNotificationRecipients(pg, input.notificationId);
+    }
+
+    const result = await getEmailNotificationAnalytics(pg, input.notificationId);
+    if (!result) throw new AdminRuleError("Notification could not be updated.", 500);
+    return result;
+}
+
+async function deleteEmailNotification(
+    pg: DatabasePool,
+    notificationId: number,
+): Promise<AdminEmailNotificationAnalyticsResult> {
+    const existing = await getEmailNotificationAnalytics(pg, notificationId);
+    if (!existing) {
+        throw new AdminRuleError("Email notification was not found.", 404);
+    }
+    if (existing.notification.status !== "draft") {
+        throw new AdminRuleError("Only draft notifications can be deleted.", 409);
+    }
+
+    await pg.query(
+        `DELETE FROM admin_email_notifications WHERE id = $1`,
+        [notificationId],
+    );
+
+    return existing;
+}
+
 export const adminService = {
     createSettingsChallengeCategory,
     createSettingsConfiguration,
@@ -4404,9 +5239,11 @@ export const adminService = {
     createSettingsParticipantCategory,
     createSettingsState,
     createSettingsUserRole,
+    createEmailNotification,
     createUser,
     deleteApplication,
     deleteApplicationDocument,
+    deleteEmailNotification,
     deleteSettingsChallengeCategory,
     deleteSettingsConfiguration,
     deleteSettingsDistrict,
@@ -4416,12 +5253,17 @@ export const adminService = {
     deleteSettingsUserRole,
     deleteUser,
     ensureAdminLoginTables,
+    ensureAdminEmailNotificationTables,
     getApplicationDocumentDownload,
     getApplications,
     getDashboardChallengeCategoryCounts,
     getDashboardCounts,
     getDashboardDistrictCounts,
     getDashboardOrganisationTypeCounts,
+    getEmailNotification,
+    getEmailNotificationAnalytics,
+    getEmailNotificationRecipients,
+    getEmailNotifications,
     getPageViewAnalytics,
     getRbacRule,
     getRbacRules,
@@ -4452,6 +5294,7 @@ export const adminService = {
     updateSettingsParticipantCategory,
     updateSettingsState,
     updateSettingsUserRole,
+    updateEmailNotification,
     updateApplication,
     updateUser,
     verifyLoginCode,

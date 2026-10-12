@@ -61,6 +61,13 @@ export const endpoints = {
         dashboardCounts: `${api}/admin/dashboard-counts`,
         dashboardDistrictCounts: `${api}/admin/dashboard-district-counts`,
         dashboardOrganisationTypeCounts: `${api}/admin/dashboard-organisation-type-counts`,
+        emailNotificationAnalytics: (id: string | number) =>
+            `${api}/admin/email-notifications/${id}/analytics`,
+        emailNotification: (id: string | number) =>
+            `${api}/admin/email-notifications/${id}`,
+        emailNotificationRecipients: (id: string | number) =>
+            `${api}/admin/email-notifications/${id}/recipients`,
+        emailNotifications: `${api}/admin/email-notifications`,
         login: `${api}/admin/login`,
         pageViewAnalytics: `${api}/admin/page-view-analytics`,
         resendLoginCode: `${api}/admin/resend-login-code`,

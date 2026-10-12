@@ -5,6 +5,7 @@ import {
   LineChart,
   Home,
   LogOut,
+  Mail,
   Menu,
   Settings,
   ShieldCheck,
@@ -49,6 +50,7 @@ const navItems = [
   ["Dashboards", Home, "/admin/dashboard"],
   ["Applications", ClipboardList, "/admin/applications"],
   ["Users", Users, "/admin/users"],
+  ["Email Notification", Mail, "/admin/email-notifications"],
   ["Page Views", LineChart, "/admin/analytics"],
   ["Settings", Settings, "/admin/settings"],
 ] as const;

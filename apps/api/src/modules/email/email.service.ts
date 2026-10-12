@@ -8,7 +8,9 @@ import {
 } from "./email-template.js";
 
 type SendEmailInput = {
+    fromName?: string;
     html: string;
+    replyTo?: string;
     subject: string;
     text: string;
     to: string;
@@ -21,13 +23,14 @@ function envFlag(name: string, defaultValue = false) {
     return ["1", "true", "yes", "on"].includes(value.toLowerCase());
 }
 
-function getMailFrom() {
+function getMailFrom(fromName?: string) {
     const email =
         process.env.MAIL_FROM_EMAIL ??
         process.env.SMTP_FROM ??
         process.env.SMTP_USER ??
         "";
     const name =
+        fromName ??
         process.env.MAIL_FROM_NAME ??
         process.env.NEXT_PUBLIC_APP_NAME ??
         process.env.APP_NAME ??
@@ -101,8 +104,9 @@ async function sendEmail(input: SendEmailInput) {
     }
 
     await transporter.sendMail({
-        from: getMailFrom(),
+        from: getMailFrom(input.fromName),
         html: input.html,
+        replyTo: input.replyTo,
         subject: input.subject,
         text: input.text,
         to: input.to,
@@ -357,8 +361,35 @@ async function sendTeamMemberAddedEmail(input: {
     });
 }
 
+async function sendAdminNotificationEmail(input: {
+    body: string;
+    recipientEmail: string;
+    replyToEmail: string;
+    senderName: string;
+    subject: string;
+}) {
+    const escapedBody = escapeHtml(input.body).replace(/\r?\n/g, "<br>");
+    const html = renderEmailTemplate({
+        bodyHtml: `<p style="margin:0;">${escapedBody}</p>`,
+        footerText:
+            "This email was sent by Seva First Innovation Challenge.",
+        preheader: input.subject,
+        title: input.subject,
+    });
+
+    return sendEmail({
+        fromName: input.senderName,
+        html,
+        replyTo: input.replyToEmail,
+        subject: input.subject,
+        text: input.body,
+        to: input.recipientEmail,
+    });
+}
+
 export const emailService = {
     sendAdminLoginVerificationEmail,
+    sendAdminNotificationEmail,
     sendApplicationSubmittedEmail,
     sendEmail,
     sendParticipantLoginVerificationEmail,

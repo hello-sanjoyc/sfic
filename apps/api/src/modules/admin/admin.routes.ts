@@ -39,6 +39,29 @@ export const adminRoutes: FastifyPluginAsync = async (app) => {
         adminController.getDashboardChallengeCategoryCounts,
     );
     app.get("/page-view-analytics", adminController.getPageViewAnalytics);
+    app.get("/email-notifications", adminController.getEmailNotifications);
+    app.post("/email-notifications", adminController.createEmailNotification);
+    app.get("/email-notifications/:notificationId", adminController.getEmailNotification);
+    app.patch(
+        "/email-notifications/:notificationId",
+        adminController.updateEmailNotification,
+    );
+    app.put(
+        "/email-notifications/:notificationId",
+        adminController.updateEmailNotification,
+    );
+    app.delete(
+        "/email-notifications/:notificationId",
+        adminController.deleteEmailNotification,
+    );
+    app.get(
+        "/email-notifications/:notificationId/analytics",
+        adminController.getEmailNotificationAnalytics,
+    );
+    app.get(
+        "/email-notifications/:notificationId/recipients",
+        adminController.getEmailNotificationRecipients,
+    );
     app.get("/users", adminController.getUsers);
     app.post("/users", adminController.createUser);
     app.get("/users/:userId", adminController.getUser);

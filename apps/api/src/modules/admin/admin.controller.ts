@@ -53,6 +53,37 @@ type UsersQuery = {
     search?: string;
 };
 
+type EmailNotificationsQuery = {
+    page?: string;
+    pageSize?: string;
+    sortBy?: string;
+    sortDirection?: string;
+};
+
+type EmailNotificationParams = {
+    notificationId?: string;
+};
+
+type CreateEmailNotificationBody = {
+    action?: string;
+    body?: string;
+    deliveryMode?: string;
+    mode?: string;
+    name?: string;
+    recipientEmail?: string;
+    recipientEmails?: string[] | string;
+    replyToEmail?: string;
+    safeguards?: {
+        excludeDuplicates?: boolean;
+        retryTemporaryErrors?: boolean;
+        skipInvalidSuppressed?: boolean;
+    };
+    scheduledDate?: string;
+    scheduledTime?: string;
+    senderName?: string;
+    subject?: string;
+};
+
 type UserParams = {
     userId?: string;
 };
@@ -159,6 +190,53 @@ function normalizeSortBy(value: string | undefined) {
 
 function normalizeSortDirection(value: string | undefined) {
     return value === "asc" ? "asc" : "desc";
+}
+
+function normalizeEmailNotificationSortBy(value: string | undefined) {
+    if (
+        value === "createdAt" ||
+        value === "failed" ||
+        value === "name" ||
+        value === "scheduledFor" ||
+        value === "sent" ||
+        value === "subject" ||
+        value === "totalRecipients"
+    ) {
+        return value;
+    }
+
+    return "createdAt";
+}
+
+function normalizeRecipientSortBy(value: string | undefined) {
+    if (
+        value === "attemptCount" ||
+        value === "deliveryStatus" ||
+        value === "email" ||
+        value === "lastAttempt" ||
+        value === "recipientName"
+    ) {
+        return value;
+    }
+
+    return "recipientName";
+}
+
+function parseNotificationId(value: string | undefined) {
+    const parsed = parsePositiveInteger(value);
+    if (!parsed) throw new AdminRuleError("A valid notification id is required.");
+    return parsed;
+}
+
+function normalizeRecipientEmails(value: string[] | string | undefined) {
+    if (Array.isArray(value)) return value.map((item) => String(item));
+    if (typeof value === "string") {
+        return value
+            .split(",")
+            .map((item) => item.trim())
+            .filter(Boolean);
+    }
+    return [];
 }
 
 function getUploadRoot() {
@@ -1755,6 +1833,355 @@ async function getDashboardChallengeCategoryCounts(
     }
 }
 
+async function getEmailNotifications(
+    request: FastifyRequest<{ Querystring: EmailNotificationsQuery }>,
+    reply: FastifyReply,
+) {
+    const pg = requireDatabase(request, reply);
+    if (!pg) return reply;
+
+    const page = parsePositiveInteger(request.query.page) ?? 1;
+    const pageSize = Math.min(
+        parsePositiveInteger(request.query.pageSize) ?? 10,
+        100,
+    );
+
+    try {
+        const result = await adminService.getEmailNotifications(pg, {
+            page,
+            pageSize,
+            sortBy: normalizeEmailNotificationSortBy(request.query.sortBy),
+            sortDirection: normalizeSortDirection(request.query.sortDirection),
+        });
+
+        return sendSuccess(request, reply, {
+            data: result,
+            message: "Email notifications fetched successfully.",
+        });
+    } catch (error) {
+        request.server.log.error(error);
+
+        return sendError(request, reply, {
+            message:
+                error instanceof Error
+                    ? error.message
+                    : "Unable to fetch email notifications.",
+            statusCode: getErrorStatusCode(error) ?? 500,
+        });
+    }
+}
+
+async function createEmailNotification(
+    request: FastifyRequest<{ Body?: CreateEmailNotificationBody }>,
+    reply: FastifyReply,
+) {
+    const pg = requireDatabase(request, reply);
+    if (!pg) return reply;
+
+    const body = request.body ?? {};
+    const errors: string[] = [];
+    const mode = body.mode === "bulk" ? "bulk" : "individual";
+    const action = body.action === "send" ? "send" : "draft";
+    const deliveryMode =
+        body.deliveryMode === "scheduled" ? "scheduled" : "immediate";
+    const senderName = isNonEmptyString(body.senderName)
+        ? body.senderName.trim()
+        : "";
+    const replyToEmail = isNonEmptyString(body.replyToEmail)
+        ? normalizeEmail(body.replyToEmail)
+        : "";
+    const name = isNonEmptyString(body.name) ? body.name.trim() : "";
+    const subject = isNonEmptyString(body.subject) ? body.subject.trim() : "";
+    const messageBody = isNonEmptyString(body.body) ? body.body.trim() : "";
+
+    if (!name) errors.push("Notification/Campaign Name is required.");
+    if (!senderName) errors.push("Sender name is required.");
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(replyToEmail)) {
+        errors.push("A valid reply-to email is required.");
+    }
+    if (!subject) errors.push("Subject is required.");
+    if (!messageBody) errors.push("Message body is required.");
+    if (
+        mode === "individual" &&
+        !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(
+            String(body.recipientEmail ?? "").trim(),
+        )
+    ) {
+        errors.push("A valid recipient email is required.");
+    }
+    if (
+        mode === "bulk" &&
+        normalizeRecipientEmails(body.recipientEmails).length === 0
+    ) {
+        errors.push("At least one recipient email is required.");
+    }
+    if (
+        deliveryMode === "scheduled" &&
+        (!body.scheduledDate || !body.scheduledTime)
+    ) {
+        errors.push("Scheduled date and time are required.");
+    }
+
+    if (errors.length) {
+        return sendError(request, reply, {
+            data: { errors },
+            messageKey: "validationError",
+            statusCode: 400,
+        });
+    }
+
+    try {
+        const result = await adminService.createEmailNotification(pg, {
+            action,
+            body: messageBody,
+            createdByUserId: getAdminAccess(request).userId,
+            deliveryMode,
+            mode,
+            name,
+            recipientEmail: isNonEmptyString(body.recipientEmail)
+                ? normalizeEmail(body.recipientEmail)
+                : undefined,
+            recipientEmails: normalizeRecipientEmails(body.recipientEmails),
+            replyToEmail,
+            safeguards: body.safeguards,
+            scheduledDate: body.scheduledDate,
+            scheduledTime: body.scheduledTime,
+            senderName,
+            subject,
+        });
+
+        return sendSuccess(request, reply, {
+            data: result,
+            message:
+                action === "send"
+                    ? "Email notification send request accepted."
+                    : "Email notification draft saved.",
+            statusCode: 201,
+        });
+    } catch (error) {
+        request.server.log.error(error);
+
+        return sendError(request, reply, {
+            message:
+                error instanceof Error
+                    ? error.message
+                    : "Unable to save email notification.",
+            statusCode: getErrorStatusCode(error) ?? 500,
+        });
+    }
+}
+
+async function getEmailNotificationAnalytics(
+    request: FastifyRequest<{ Params: EmailNotificationParams }>,
+    reply: FastifyReply,
+) {
+    const pg = requireDatabase(request, reply);
+    if (!pg) return reply;
+
+    try {
+        const result = await adminService.getEmailNotificationAnalytics(
+            pg,
+            parseNotificationId(request.params.notificationId),
+        );
+
+        if (!result) {
+            return sendError(request, reply, {
+                message: "Email notification was not found.",
+                statusCode: 404,
+            });
+        }
+
+        return sendSuccess(request, reply, {
+            data: result,
+            message: "Email notification analytics fetched successfully.",
+        });
+    } catch (error) {
+        request.server.log.error(error);
+
+        return sendError(request, reply, {
+            message:
+                error instanceof Error
+                    ? error.message
+                    : "Unable to fetch email notification analytics.",
+            statusCode: getErrorStatusCode(error) ?? 500,
+        });
+    }
+}
+
+async function getEmailNotification(
+    request: FastifyRequest<{ Params: EmailNotificationParams }>,
+    reply: FastifyReply,
+) {
+    const pg = requireDatabase(request, reply);
+    if (!pg) return reply;
+
+    try {
+        const result = await adminService.getEmailNotification(
+            pg,
+            parseNotificationId(request.params.notificationId),
+        );
+
+        if (!result) {
+            return sendError(request, reply, {
+                message: "Email notification was not found.",
+                statusCode: 404,
+            });
+        }
+
+        return sendSuccess(request, reply, {
+            data: result,
+            message: "Email notification fetched successfully.",
+        });
+    } catch (error) {
+        request.server.log.error(error);
+
+        return sendError(request, reply, {
+            message:
+                error instanceof Error
+                    ? error.message
+                    : "Unable to fetch email notification.",
+            statusCode: getErrorStatusCode(error) ?? 500,
+        });
+    }
+}
+
+async function updateEmailNotification(
+    request: FastifyRequest<{
+        Body?: CreateEmailNotificationBody;
+        Params: EmailNotificationParams;
+    }>,
+    reply: FastifyReply,
+) {
+    const pg = requireDatabase(request, reply);
+    if (!pg) return reply;
+
+    const body = request.body ?? {};
+
+    try {
+        const result = await adminService.updateEmailNotification(pg, {
+            action: body.action === "send" ? "send" : "draft",
+            body: isNonEmptyString(body.body) ? body.body.trim() : undefined,
+            createdByUserId: getAdminAccess(request).userId,
+            deliveryMode:
+                body.deliveryMode === "scheduled" ? "scheduled" : undefined,
+            mode:
+                body.mode === "bulk" || body.mode === "individual"
+                    ? body.mode
+                    : undefined,
+            notificationId: parseNotificationId(request.params.notificationId),
+            name: isNonEmptyString(body.name) ? body.name.trim() : undefined,
+            recipientEmail: isNonEmptyString(body.recipientEmail)
+                ? normalizeEmail(body.recipientEmail)
+                : undefined,
+            recipientEmails: body.recipientEmails
+                ? normalizeRecipientEmails(body.recipientEmails)
+                : undefined,
+            replyToEmail: isNonEmptyString(body.replyToEmail)
+                ? normalizeEmail(body.replyToEmail)
+                : undefined,
+            safeguards: body.safeguards,
+            scheduledDate: body.scheduledDate,
+            scheduledTime: body.scheduledTime,
+            senderName: isNonEmptyString(body.senderName)
+                ? body.senderName.trim()
+                : undefined,
+            subject: isNonEmptyString(body.subject)
+                ? body.subject.trim()
+                : undefined,
+        });
+
+        return sendSuccess(request, reply, {
+            data: result,
+            message:
+                body.action === "send"
+                    ? "Email notification submitted successfully."
+                    : "Email notification draft updated.",
+        });
+    } catch (error) {
+        request.server.log.error(error);
+
+        return sendError(request, reply, {
+            message:
+                error instanceof Error
+                    ? error.message
+                    : "Unable to update email notification.",
+            statusCode: getErrorStatusCode(error) ?? 500,
+        });
+    }
+}
+
+async function getEmailNotificationRecipients(
+    request: FastifyRequest<{
+        Params: EmailNotificationParams;
+        Querystring: EmailNotificationsQuery;
+    }>,
+    reply: FastifyReply,
+) {
+    const pg = requireDatabase(request, reply);
+    if (!pg) return reply;
+
+    const page = parsePositiveInteger(request.query.page) ?? 1;
+    const pageSize = Math.min(
+        parsePositiveInteger(request.query.pageSize) ?? 10,
+        100,
+    );
+
+    try {
+        const result = await adminService.getEmailNotificationRecipients(pg, {
+            notificationId: parseNotificationId(request.params.notificationId),
+            page,
+            pageSize,
+            sortBy: normalizeRecipientSortBy(request.query.sortBy),
+            sortDirection: normalizeSortDirection(request.query.sortDirection),
+        });
+
+        return sendSuccess(request, reply, {
+            data: result,
+            message: "Email notification recipients fetched successfully.",
+        });
+    } catch (error) {
+        request.server.log.error(error);
+
+        return sendError(request, reply, {
+            message:
+                error instanceof Error
+                    ? error.message
+                    : "Unable to fetch email notification recipients.",
+            statusCode: getErrorStatusCode(error) ?? 500,
+        });
+    }
+}
+
+async function deleteEmailNotification(
+    request: FastifyRequest<{ Params: EmailNotificationParams }>,
+    reply: FastifyReply,
+) {
+    const pg = requireDatabase(request, reply);
+    if (!pg) return reply;
+
+    try {
+        const result = await adminService.deleteEmailNotification(
+            pg,
+            parseNotificationId(request.params.notificationId),
+        );
+
+        return sendSuccess(request, reply, {
+            data: result,
+            message: "Email notification draft deleted successfully.",
+        });
+    } catch (error) {
+        request.server.log.error(error);
+
+        return sendError(request, reply, {
+            message:
+                error instanceof Error
+                    ? error.message
+                    : "Unable to delete email notification.",
+            statusCode: getErrorStatusCode(error) ?? 500,
+        });
+    }
+}
+
 export const adminController = {
     createSettingsChallengeCategory,
     createSettingsConfiguration,
@@ -1764,9 +2191,11 @@ export const adminController = {
     createSettingsParticipantCategory,
     createSettingsState,
     createSettingsUserRole,
+    createEmailNotification,
     createUser,
     deleteApplication,
     deleteApplicationDocument,
+    deleteEmailNotification,
     deleteSettingsChallengeCategory,
     deleteSettingsConfiguration,
     deleteSettingsDistrict,
@@ -1783,6 +2212,10 @@ export const adminController = {
     getDashboardCounts,
     getDashboardDistrictCounts,
     getDashboardOrganisationTypeCounts,
+    getEmailNotificationAnalytics,
+    getEmailNotification,
+    getEmailNotificationRecipients,
+    getEmailNotifications,
     getPageViewAnalytics,
     getRbacRule,
     getRbacRules,
@@ -1813,6 +2246,7 @@ export const adminController = {
     updateSettingsState,
     updateSettingsUserRole,
     updateApplication,
+    updateEmailNotification,
     updateUser,
     verifyLoginCode,
 };

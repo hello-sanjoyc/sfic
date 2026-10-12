@@ -205,6 +205,9 @@ export function buildApp() {
                         schemaClient,
                     );
                     await adminService.ensureAdminLoginTables(schemaClient);
+                    await adminService.ensureAdminEmailNotificationTables(
+                        schemaClient,
+                    );
                 } finally {
                     await schemaClient
                         .query("SELECT pg_advisory_unlock(hashtext($1))", [
