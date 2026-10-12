@@ -27,7 +27,9 @@ type StoredSupportingDocument = {
 
 type LoginBody = {
     email?: string;
+    identifier?: string;
     language?: string;
+    password?: string;
 };
 
 type VerifyLoginBody = LoginBody & {
@@ -695,6 +697,38 @@ function validateEmailBody(body: LoginBody = {}) {
     };
 }
 
+function validatePasswordLoginBody(body: LoginBody = {}) {
+    const errors: string[] = [];
+    const language = participantService.normalizeLanguage(
+        body.language ?? "en",
+    );
+    const validationMessages = getApiContent(language).apiValidation;
+    const identifier = isNonEmptyString(body.identifier)
+        ? body.identifier.trim()
+        : isNonEmptyString(body.email)
+          ? normalizeEmail(body.email)
+          : "";
+    const password = isNonEmptyString(body.password)
+        ? body.password.trim()
+        : "";
+
+    if (!identifier) {
+        errors.push("Email address or mobile number is required.");
+    }
+    if (!password) {
+        errors.push(validationMessages.fieldRequired("password"));
+    }
+
+    return {
+        errors,
+        value: {
+            identifier,
+            language,
+            password,
+        },
+    };
+}
+
 async function requestLoginCode(
     request: FastifyRequest<{ Body?: LoginBody }>,
     reply: FastifyReply,
@@ -732,6 +766,46 @@ async function requestLoginCode(
                     : getApiContent(validated.value.language).api
                           .participantLoginUnable,
             statusCode: getErrorStatusCode(error) ?? 500,
+        });
+    }
+}
+
+async function loginWithPassword(
+    request: FastifyRequest<{ Body?: LoginBody }>,
+    reply: FastifyReply,
+) {
+    const pg = requireDatabase(request, reply);
+    if (!pg) return reply;
+
+    const validated = validatePasswordLoginBody(request.body);
+    if (validated.errors.length) {
+        return sendError(request, reply, {
+            data: { errors: validated.errors },
+            messageKey: "validationError",
+            statusCode: 400,
+        });
+    }
+
+    try {
+        const result = await participantService.loginWithPassword(
+            pg,
+            validated.value,
+        );
+
+        return sendSuccess(request, reply, {
+            data: result,
+            messageKey: "participantLoginVerified",
+        });
+    } catch (error) {
+        request.server.log.error(error);
+
+        return sendError(request, reply, {
+            message:
+                error instanceof Error
+                    ? error.message
+                    : getApiContent(validated.value.language).api
+                          .participantLoginUnable,
+            statusCode: getErrorStatusCode(error) ?? 400,
         });
     }
 }
@@ -1037,6 +1111,43 @@ async function getProfile(request: FastifyRequest, reply: FastifyReply) {
     }
 }
 
+async function requestProfileVerificationLink(
+    request: FastifyRequest<{ Body?: { language?: string } }>,
+    reply: FastifyReply,
+) {
+    const pg = requireDatabase(request, reply);
+    if (!pg) return reply;
+    const participant = (request as AuthenticatedParticipantRequest).participant;
+    const language = participantService.normalizeLanguage(
+        request.body?.language ?? "en",
+    );
+
+    try {
+        const result = await participantService.requestProfileVerificationLink(
+            pg,
+            {
+                email: participant.email,
+                language,
+            },
+        );
+
+        return sendSuccess(request, reply, {
+            data: result,
+            message: "Verification link sent successfully.",
+        });
+    } catch (error) {
+        request.server.log.error(error);
+
+        return sendError(request, reply, {
+            message:
+                error instanceof Error
+                    ? error.message
+                    : getApiContent(language).api.unableVerifyEmail,
+            statusCode: getErrorStatusCode(error) ?? 400,
+        });
+    }
+}
+
 async function getApplication(
     request: FastifyRequest<{
         Params: ApplicationParams;
@@ -1285,6 +1396,8 @@ export const participantController = {
     getApplication,
     getApplications,
     getProfile,
+    loginWithPassword,
+    requestProfileVerificationLink,
     requestLoginCode,
     resendLoginCode,
     submitApplication,

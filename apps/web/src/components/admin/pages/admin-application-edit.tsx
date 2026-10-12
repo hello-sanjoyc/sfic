@@ -16,6 +16,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { AdminShell } from "@/components/admin/common/admin-shell";
+import { AUTH_STORAGE_KEY } from "@/components/auth";
 import { apiClient } from "@/lib/api-client";
 import { endpoints } from "@/lib/endpoints";
 
@@ -112,6 +113,25 @@ type EditApplicationForm = {
   videoUrl: string;
   yearOfPassing: string;
 };
+
+function getCurrentAdminRole() {
+  if (typeof window === "undefined") return "";
+
+  try {
+    const session = JSON.parse(localStorage.getItem(AUTH_STORAGE_KEY) ?? "{}") as {
+      actor?: string;
+      admin?: { role?: string };
+    };
+
+    return session.actor === "admin" ? (session.admin?.role ?? "") : "";
+  } catch {
+    return "";
+  }
+}
+
+function isSuperAdminRole(role: string) {
+  return role.trim().toUpperCase().replace(/[\s-]+/g, "_") === "SUPERADMIN";
+}
 
 function localizedName(value?: LocalizedText | null) {
   return value?.en ?? value?.bn ?? value?.hi ?? "Not available";
@@ -319,6 +339,7 @@ export function AdminApplicationEditPage({
   const [isDeletingDocument, setIsDeletingDocument] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
+  const [isSuperAdmin, setIsSuperAdmin] = useState(false);
   const [lookups, setLookups] = useState<LookupsResponse>({
     challengeCategories: [],
     districts: [],
@@ -329,9 +350,21 @@ export function AdminApplicationEditPage({
 
   useEffect(() => {
     let isMounted = true;
+    const canEditApplication = isSuperAdminRole(getCurrentAdminRole());
+    setIsSuperAdmin(canEditApplication);
 
     setIsLoading(true);
     setErrorMessage("");
+
+    if (!canEditApplication) {
+      setApplication(null);
+      setEditForm(null);
+      setErrorMessage("Only SUPERADMIN can edit applications.");
+      setIsLoading(false);
+      return () => {
+        isMounted = false;
+      };
+    }
 
     void Promise.all([
       apiClient.get<ApplicationDetailsResponse>(
@@ -408,7 +441,7 @@ export function AdminApplicationEditPage({
   };
 
   const saveApplication = () => {
-    if (!editForm) return;
+    if (!editForm || isSaving || !isSuperAdmin) return;
 
     setIsSaving(true);
     setErrorMessage("");
@@ -471,7 +504,7 @@ export function AdminApplicationEditPage({
   };
 
   const deleteDocument = () => {
-    if (!documentToDelete?.id || isDeletingDocument) return;
+    if (!documentToDelete?.id || isDeletingDocument || !isSuperAdmin) return;
 
     const documentId = documentToDelete.id;
 

@@ -179,6 +179,25 @@ function getAdminAuthorizationHeader() {
   }
 }
 
+function getCurrentAdminRole() {
+  if (typeof window === "undefined") return "";
+
+  try {
+    const session = JSON.parse(localStorage.getItem(AUTH_STORAGE_KEY) ?? "{}") as {
+      actor?: string;
+      admin?: { role?: string };
+    };
+
+    return session.actor === "admin" ? (session.admin?.role ?? "") : "";
+  } catch {
+    return "";
+  }
+}
+
+function isSuperAdminRole(role: string) {
+  return role.trim().toUpperCase().replace(/[\s-]+/g, "_") === "SUPERADMIN";
+}
+
 async function getDownloadErrorMessage(response: Response, fallback: string) {
   try {
     const body = (await response.json()) as {
@@ -253,12 +272,15 @@ export function AdminApplicationDetailsPage({
   >(null);
   const [downloadError, setDownloadError] = useState("");
   const [errorMessage, setErrorMessage] = useState("");
+  const [isSuperAdmin, setIsSuperAdmin] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [isDownloading, setIsDownloading] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
+    setIsSuperAdmin(isSuperAdminRole(getCurrentAdminRole()));
+
     let isMounted = true;
 
     setIsLoading(true);
@@ -686,24 +708,26 @@ export function AdminApplicationDetailsPage({
             </div>
           </Section>
 
-          <section className="flex flex-wrap items-center justify-end gap-2 rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
-            <Link
-              className="inline-flex h-11 items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 text-sm font-bold text-[#0b1f3a] disabled:cursor-not-allowed disabled:opacity-50"
-              href={`/admin/applications/${applicationId}/edit`}
-            >
-              <Pencil size={17} />
-              Edit
-            </Link>
-            <button
-              className="inline-flex h-11 items-center gap-2 rounded-lg border border-rose-200 bg-white px-4 text-sm font-bold text-rose-700 disabled:cursor-not-allowed disabled:opacity-50"
-              disabled={isDeleting}
-              onClick={() => setIsDeleteDialogOpen(true)}
-              type="button"
-            >
-              <Trash2 size={17} />
-              {isDeleting ? "Deleting..." : "Delete"}
-            </button>
-          </section>
+          {isSuperAdmin && (
+            <section className="flex flex-wrap items-center justify-end gap-2 rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
+              <Link
+                className="inline-flex h-11 items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 text-sm font-bold text-[#0b1f3a] disabled:cursor-not-allowed disabled:opacity-50"
+                href={`/admin/applications/${applicationId}/edit`}
+              >
+                <Pencil size={17} />
+                Edit
+              </Link>
+              <button
+                className="inline-flex h-11 items-center gap-2 rounded-lg border border-rose-200 bg-white px-4 text-sm font-bold text-rose-700 disabled:cursor-not-allowed disabled:opacity-50"
+                disabled={isDeleting}
+                onClick={() => setIsDeleteDialogOpen(true)}
+                type="button"
+              >
+                <Trash2 size={17} />
+                {isDeleting ? "Deleting..." : "Delete"}
+              </button>
+            </section>
+          )}
 
         </>
       )}

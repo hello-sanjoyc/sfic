@@ -36,9 +36,16 @@ export type VerifyParticipantLoginResult = {
   participant: ParticipantLoginApplication & {
     email: string;
   };
+  redirectTo: string;
   session: {
     token: string;
   };
+};
+
+export type ParticipantPasswordLoginInput = {
+  identifier: string;
+  language: ParticipantLanguage;
+  password: string;
 };
 
 export type ParticipantApplicationSummary = {
@@ -179,6 +186,7 @@ export type ParticipantProfileResult = {
       };
     } | null;
     email: string | null;
+    emailVerified: boolean | null;
     fullName: string | null;
     gender: string | null;
     highestEducationalQualification: string | null;

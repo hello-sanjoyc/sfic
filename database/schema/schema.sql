@@ -387,6 +387,7 @@ CREATE TABLE public.participants (
     email_verified_at timestamp with time zone,
     date_of_birth date,
     gender character varying(20),
+    password_hash character varying(255),
     CONSTRAINT ck_participants_gender CHECK (((gender IS NULL) OR ((gender)::text = ANY ((ARRAY['Male'::character varying, 'Female'::character varying, 'Others'::character varying])::text[]))))
 );
 

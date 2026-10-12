@@ -1,7 +1,8 @@
-import { createHash, randomBytes } from "node:crypto";
+import { createHash, randomBytes, scryptSync } from "node:crypto";
 import type { PoolClient, QueryResultRow } from "pg";
 import { getApiContent } from "../../content/index.js";
 import { emailService } from "../email/email.service.js";
+import { createParticipantJwt } from "../participants/participant-auth.js";
 import type {
     CreateRegistrationInput,
     CreateRegistrationResult,
@@ -69,6 +70,7 @@ type ExistingParticipantRow = {
 };
 
 type ApplicationRow = {
+    application_hash: string;
     application_number: string;
     date_of_birth?: Date | string | null;
     email_verified: boolean;
@@ -136,6 +138,13 @@ function normalizeLanguage(language: string): RegistrationLanguage {
 
 function hashToken(token: string) {
     return createHash("sha256").update(token).digest("hex");
+}
+
+function hashPassword(password: string) {
+    const salt = randomBytes(16).toString("hex");
+    const hash = scryptSync(password, salt, 64).toString("hex");
+
+    return `scrypt$${salt}$${hash}`;
 }
 
 function createVerificationCode() {
@@ -335,6 +344,7 @@ function toRegistrationApplication(
     row: ApplicationRow,
 ): RegistrationApplication {
     return {
+        applicationHash: row.application_hash,
         applicationNumber: row.application_number,
         emailVerified: row.email_verified,
         id: Number(row.id),
@@ -567,7 +577,7 @@ async function createOrUpdateApplication(input: {
     participantCategoryId: string;
     participantId: string;
 }) {
-    const status = "email_verification";
+    const status = "profile_completion";
     const result = await input.client.query<ApplicationRow>(
         `
       INSERT INTO participant_applications (
@@ -588,7 +598,8 @@ async function createOrUpdateApplication(input: {
           SELECT email_verified
           FROM participants
           WHERE participants.id = participant_applications.participant_id
-        ) AS email_verified
+        ) AS email_verified,
+        md5(id::text) AS application_hash
     `,
         [
             makeDraftApplicationNumber(input.challenge.code),
@@ -686,7 +697,13 @@ async function saveCurrentFormSnapshot(input: {
             input.language,
             JSON.stringify({
                 step: 1,
-                ...input.formData,
+                dateOfBirth: input.formData.dateOfBirth,
+                email: input.formData.email,
+                fullName: input.formData.fullName,
+                gender: input.formData.gender,
+                language: input.formData.language,
+                mobile: input.formData.mobile,
+                participantCategory: input.formData.participantCategory,
             }),
         ],
     );
@@ -771,17 +788,11 @@ async function createRegistration(
     const language = normalizeLanguage(input.language);
     const client = await pg.connect();
     let application: RegistrationApplication;
-    let token = "";
+    let applicantMemberId = "";
 
     try {
         await client.query("BEGIN");
         await cleanupExpiredEmailVerificationDrafts(client);
-        await reserveVerificationEmailAttempt({
-            client,
-            email: input.email,
-            language,
-            mobile: input.mobile,
-        });
 
         const challenge = await getActiveChallenge(client);
         const participantCategory = await getParticipantCategory(
@@ -803,6 +814,25 @@ async function createRegistration(
             ...input,
             language,
         });
+        await client.query(
+            `
+      UPDATE participants
+      SET date_of_birth = $1,
+          gender = $2,
+          password_hash = $3,
+          email_verified = FALSE,
+          email_verified_at = NULL,
+          updated_at = NOW()
+      WHERE id = $4
+    `,
+            [
+                input.dateOfBirth,
+                input.gender,
+                hashPassword(input.password),
+                participant.id,
+            ],
+        );
+        participant.email_verified = false;
         const applicationRow = await createOrUpdateApplication({
             challenge,
             client,
@@ -819,6 +849,7 @@ async function createRegistration(
                 language,
             },
         });
+        applicantMemberId = applicantMember.id;
 
         await saveCurrentFormSnapshot({
             applicationId: applicationRow.id,
@@ -829,12 +860,6 @@ async function createRegistration(
             },
             language,
             memberId: applicantMember.id,
-        });
-
-        token = await createVerificationToken({
-            applicationId: applicationRow.id,
-            client,
-            participantId: participant.id,
         });
 
         await client.query("COMMIT");
@@ -849,24 +874,32 @@ async function createRegistration(
         client.release();
     }
 
-    const emailDelivery = await emailService.sendParticipantVerificationEmail({
-        code: token,
-        language,
-        participantEmail: input.email,
-        participantName: input.fullName,
+    const sessionToken = createParticipantJwt({
+        email: input.email,
+        name: input.fullName,
+        phone: input.mobile,
+        role: "applicant",
+        sub: applicantMemberId,
     });
-
-    //const emailDelivery = {delivered: true};
-
-    if (!emailDelivery.delivered) {
-        // The API still returns the draft registration so local development can
-        // continue without SMTP credentials.
-        console.info(`Email verification code for ${input.email}: ${token}`);
-    }
 
     return {
         application,
-        emailDelivery,
+        emailDelivery: {
+            delivered: false,
+            reason: "Verification email is not sent during registration.",
+        },
+        participant: {
+            email: input.email,
+            memberId: Number(applicantMemberId),
+            memberName: input.fullName,
+            phone: input.mobile,
+            role: "applicant",
+            status: application.status,
+        },
+        redirectTo: `/participants/applications/${application.applicationHash}/edit`,
+        session: {
+            token: sessionToken,
+        },
     };
 }
 
@@ -951,6 +984,7 @@ async function verifyEmail(
           AND participant_id = $2
         RETURNING
           id,
+          md5(id::text) AS application_hash,
           application_number,
           participant_id,
           status,
@@ -1001,6 +1035,7 @@ async function resendVerificationEmail(
             `
         SELECT
           pa.id,
+          md5(pa.id::text) AS application_hash,
           pa.application_number,
           pa.participant_id,
           pa.status,
@@ -1109,6 +1144,7 @@ async function getRegistration(
         `
       SELECT
         pa.id,
+        md5(pa.id::text) AS application_hash,
         pa.application_number,
         pa.participant_id,
         pa.status,
@@ -1194,6 +1230,7 @@ async function submitProfile(
         WHERE id = $1
         RETURNING
           id,
+          md5(id::text) AS application_hash,
           application_number,
           participant_id,
           status,
@@ -1717,6 +1754,7 @@ async function submitProposal(
         WHERE id = $29
         RETURNING
           id,
+          md5(id::text) AS application_hash,
           application_number,
           participant_id,
           status,

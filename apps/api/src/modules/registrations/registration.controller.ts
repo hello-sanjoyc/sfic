@@ -16,17 +16,21 @@ type FastifyWithDatabase = FastifyInstance & {
 };
 
 type CreateRegistrationBody = {
+    dateOfBirth?: string;
     email?: string;
     fullName?: string;
+    gender?: string;
     language?: string;
     mobile?: string;
     participantCategory?: string;
+    password?: string;
 };
 
 type VerifyEmailQuery = {
     applicationId?: string;
     code?: string;
     locale?: string;
+    redirectTo?: string;
     token?: string;
 };
 
@@ -196,6 +200,13 @@ function validateCreateRegistrationBody(body: CreateRegistrationBody) {
     const mobile = isNonEmptyString(body.mobile)
         ? normalizeNumericText(body.mobile)
         : "";
+    const dateOfBirth = isNonEmptyString(body.dateOfBirth)
+        ? parseDateOfBirth(body.dateOfBirth)
+        : "";
+    const gender = isNonEmptyString(body.gender) ? body.gender.trim() : "";
+    const password = isNonEmptyString(body.password)
+        ? body.password.trim()
+        : "";
     const participantCategory = isNonEmptyString(body.participantCategory)
         ? body.participantCategory.trim()
         : "";
@@ -214,15 +225,27 @@ function validateCreateRegistrationBody(body: CreateRegistrationBody) {
     if (!/^\d{10}$/.test(mobile)) {
         errors.push(validationMessages.validMobileRequired);
     }
+    if (!dateOfBirth) {
+        errors.push(validationMessages.fieldRequired("dateOfBirth"));
+    }
+    if (!["Male", "Female", "Others"].includes(gender)) {
+        errors.push(validationMessages.fieldRequired("gender"));
+    }
+    if (password.length < 8) {
+        errors.push("Password must be at least 8 characters long.");
+    }
 
     return {
         errors,
         value: {
+            dateOfBirth,
             email,
             fullName,
+            gender: gender as "Male" | "Female" | "Others",
             language,
             mobile,
             participantCategory,
+            password,
         },
     };
 }
@@ -713,6 +736,12 @@ async function verifyEmail(
             });
         }
 
+        if (request.query.redirectTo === "participants/profile") {
+            return reply.redirect(
+                `${process.env.APP_URL ?? process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000"}/participants/profile?emailVerified=1`,
+            );
+        }
+
         return reply.redirect(
             registrationService.buildRedirectUrl({
                 application: result.application,
@@ -724,9 +753,14 @@ async function verifyEmail(
         request.server.log.error(error);
 
         if (!wantsJson(request)) {
-            const fallback = new URL(
-                `${process.env.APP_URL ?? process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000"}/${language}/register`,
-            );
+            const fallback =
+                request.query.redirectTo === "participants/profile"
+                    ? new URL(
+                          `${process.env.APP_URL ?? process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000"}/participants/profile`,
+                      )
+                    : new URL(
+                          `${process.env.APP_URL ?? process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000"}/${language}/register`,
+                      );
             fallback.searchParams.set("emailVerified", "0");
             fallback.searchParams.set("verificationError", "invalid");
 

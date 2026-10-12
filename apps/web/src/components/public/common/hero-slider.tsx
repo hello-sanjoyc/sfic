@@ -95,34 +95,37 @@ export function HeroSlider({ slides }: { slides: HeroSlide[] }) {
     Boolean(slide.secondaryCTA.label.trim() && slide.secondaryCTA.href.trim());
 
   return (
-    <section aria-roledescription="carousel" aria-label="Challenge highlights" className="relative h-[570px] overflow-hidden bg-[#071426] md:h-[620px]" onMouseEnter={() => setPaused(true)} onMouseLeave={() => setPaused(false)} onFocus={() => setPaused(true)} onBlur={() => setPaused(false)}>
+    <section aria-roledescription="carousel" aria-label="Challenge highlights" className="relative aspect-[2560/969] overflow-hidden bg-white md:h-[620px] md:aspect-auto md:bg-[#071426]" onMouseEnter={() => setPaused(true)} onMouseLeave={() => setPaused(false)} onFocus={() => setPaused(true)} onBlur={() => setPaused(false)}>
       <div className="h-full" ref={ref}>
         <div className="flex h-full">
           {slides.map((slide, slideIndex) => (
             <article className="relative min-w-0 flex-[0_0_100%]" key={slide.id} aria-hidden={index !== slideIndex}>
-              <Image data-motion="image" src={slide.desktopImage} alt={slide.imageAlt} fill priority={slideIndex === 0} sizes="100vw" className="object-cover" />
+              <Image data-motion="image" src={slide.desktopImage} alt={slide.imageAlt} fill priority={slideIndex === 0} sizes="100vw" className="object-contain md:object-cover" />
               {slideIndex === 0 && hasSlideText(slide) ? (
-                <div className="relative mx-auto flex h-full max-w-7xl items-center px-5 py-16 sm:px-8 lg:px-12">
+                <div className="relative mx-auto flex h-full max-w-7xl items-center px-4 py-4 sm:px-6 md:px-8 md:py-16 lg:px-12">
                   <div
                     aria-live={index === 0 ? "polite" : "off"}
-                    className="relative z-10 max-w-4xl text-[#071426]"
+                    className="relative z-10 max-w-[72%] text-[#071426] md:max-w-4xl"
                     key={introMessage.language}
                   >
                     <h1
-                      className={introMessage.titleClassName}
-                      style={{ fontFamily: introMessage.titleFont }}
+                      className="font-extrabold leading-[1.05] tracking-normal md:text-[4.5rem]"
+                      style={{
+                        fontFamily: introMessage.titleFont,
+                        fontSize: "clamp(1.1rem, 6vw, 4.5rem)",
+                      }}
                     >
                       <span className="block">{introMessage.titleLine1}</span>
-                      <span className="block whitespace-nowrap">{introMessage.titleLine2}</span>
+                      <span className="block md:whitespace-nowrap">{introMessage.titleLine2}</span>
                     </h1>
                     <p
-                      className="mt-3 text-lg font-extrabold tracking-normal text-[#071426]/95 sm:text-2xl md:text-[1.75rem] md:leading-tight"
+                      className="mt-1 text-[clamp(.62rem,2.7vw,1rem)] font-extrabold leading-tight tracking-normal text-[#071426]/95 md:mt-3 md:text-[1.75rem]"
                       style={{ fontFamily: introMessage.subtitleFont }}
                     >
                       {introMessage.region}
                     </p>
                     <p
-                      className="mt-4 text-base font-bold tracking-normal text-[#071426]/85 sm:text-xl md:text-[1.5rem]"
+                      className="mt-1 text-[clamp(.58rem,2.4vw,.92rem)] font-bold leading-tight tracking-normal text-[#071426]/85 md:mt-4 md:text-[1.5rem]"
                       style={{ fontFamily: introMessage.subtitleFont }}
                     >
                       {introMessage.subtitle}
@@ -131,24 +134,24 @@ export function HeroSlider({ slides }: { slides: HeroSlide[] }) {
                 </div>
               ) : hasSlideText(slide) ? (
                 <div className="relative mx-auto grid h-full max-w-7xl md:grid-cols-[1.18fr_.82fr]">
-                  <div className="relative z-10 flex items-center px-5 py-16 sm:px-8 lg:px-12">
-                    <span className="pointer-events-none absolute -left-6 -top-6 text-[12rem] font-black leading-none text-white/[.06] md:text-[16rem]">26</span>
-                    <div data-motion="text" className="relative max-w-xl text-[#071426]">
+                  <div className="relative z-10 flex items-center px-4 py-4 sm:px-6 md:px-8 md:py-16 lg:px-12">
+                    <span className="pointer-events-none absolute -left-6 -top-6 text-[5rem] font-black leading-none text-white/[.06] md:text-[16rem]">26</span>
+                    <div data-motion="text" className="relative max-w-[68%] text-[#071426] md:max-w-xl">
                       {slide.eyebrow.trim() && (
-                        <p className="text-xs font-bold uppercase tracking-[.18em] text-[#5c2b00]">{slide.eyebrow}</p>
+                        <p className="text-[clamp(.45rem,1.7vw,.7rem)] font-bold uppercase tracking-[.12em] text-[#5c2b00] md:text-xs md:tracking-[.18em]">{slide.eyebrow}</p>
                       )}
                       {(slide.title.trim() || slide.description.trim()) && (
-                        <div className="tri-accent mt-4"><span /><span /><span /></div>
+                        <div className="tri-accent mt-1 scale-75 origin-left md:mt-4 md:scale-100"><span /><span /><span /></div>
                       )}
                       {slide.title.trim() && (
-                        <h1 className="mt-6 text-4xl font-extrabold tracking-tight sm:text-5xl md:text-[3.45rem] md:leading-[1.05]">{slide.title}</h1>
+                        <h1 className="mt-1 text-[clamp(.9rem,4.8vw,1.9rem)] font-extrabold leading-[1.05] tracking-normal md:mt-6 md:text-[3.45rem]">{slide.title}</h1>
                       )}
                       {slide.description.trim() && (
-                        <p className="mt-5 max-w-lg text-base leading-7 text-[#071426]/85 md:text-lg">{slide.description}</p>
+                        <p className="mt-1 line-clamp-3 max-w-lg text-[clamp(.55rem,2.3vw,.9rem)] leading-tight text-[#071426]/85 md:mt-5 md:line-clamp-none md:text-lg md:leading-7">{slide.description}</p>
                       )}
                       {(slide.primaryCTA.label.trim() && slide.primaryCTA.href.trim()) ||
                       (slide.secondaryCTA.label.trim() && slide.secondaryCTA.href.trim()) ? (
-                        <div className="mt-8 flex flex-wrap gap-3">
+                        <div className="mt-2 hidden flex-wrap gap-3 sm:flex md:mt-8">
                           {slide.primaryCTA.label.trim() && slide.primaryCTA.href.trim() && (
                             <Link href={slide.primaryCTA.href} className="rounded-full bg-[#ff9933] px-5 py-3 font-extrabold text-[#071426] transition hover:bg-[#f08a24]">{slide.primaryCTA.label}</Link>
                           )}
@@ -161,12 +164,12 @@ export function HeroSlider({ slides }: { slides: HeroSlide[] }) {
                   </div>
                 </div>
               ) : null}
-              <div className="absolute inset-x-0 bottom-0 h-2 tri-rule" />
+              <div className="absolute inset-x-0 bottom-0 h-1 tri-rule md:h-2" />
             </article>
           ))}
         </div>
       </div>
-      <div className="absolute inset-x-0 bottom-6 mx-auto flex max-w-7xl items-center justify-between px-5 sm:px-8 lg:px-12">
+      <div className="absolute inset-x-0 bottom-3 mx-auto flex max-w-7xl items-center justify-between px-5 sm:px-8 md:bottom-6 lg:px-12">
         <div className="flex gap-2">{slides.map((slide, i) => <button aria-label={`Go to slide ${i + 1}`} aria-current={index === i} className={`h-1.5 ${index === i ? "w-9 bg-[#ff9933]" : "w-3 bg-white/40"}`} onClick={() => api?.scrollTo(i)} key={slide.id} />)}</div>
       </div>
     </section>

@@ -127,24 +127,38 @@ export function renderEmailTemplate({
 }
 
 export function renderVerificationEmail(input: {
-    code: string;
+    code?: string;
+    ctaLabel?: string;
     language: string;
+    linkHelpText?: string;
     participantName: string;
     text: VerificationEmailText;
+    verificationUrl?: string;
 }) {
     const greeting = escapeHtml(input.text.greeting(input.participantName));
-    const code = escapeHtml(input.code);
+    const code = escapeHtml(input.code ?? "");
 
     return renderEmailTemplate({
         bodyHtml: `
       <p style="margin:0 0 16px;">${greeting}</p>
       <p style="margin:0 0 16px;">${escapeHtml(input.text.intro)}</p>
       <p style="margin:0 0 12px;">${escapeHtml(input.text.verifyInstruction)}</p>
-      <p style="margin:0 0 12px;color:#102033;font-size:15px;font-weight:700;">${escapeHtml(input.text.verificationCodeLabel)}</p>
-      <p style="margin:0;padding:14px 16px;border-radius:8px;background:#f0f7f1;color:#0b5d12;font-family:Consolas,Monaco,monospace;font-size:28px;font-weight:800;letter-spacing:.14em;">${code}</p>
+      ${
+          input.verificationUrl
+              ? ""
+              : `<p style="margin:0 0 12px;color:#102033;font-size:15px;font-weight:700;">${escapeHtml(input.text.verificationCodeLabel)}</p>
+      <p style="margin:0;padding:14px 16px;border-radius:8px;background:#f0f7f1;color:#0b5d12;font-family:Consolas,Monaco,monospace;font-size:28px;font-weight:800;letter-spacing:.14em;">${code}</p>`
+      }
     `,
+        cta: input.verificationUrl
+            ? {
+                  label: input.ctaLabel ?? "Verify email address",
+                  url: input.verificationUrl,
+              }
+            : undefined,
         footerText: input.text.footer,
         htmlLang: input.language,
+        linkHelpText: input.linkHelpText,
         preheader: input.text.preheader,
         title: input.text.title,
     });

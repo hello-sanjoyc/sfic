@@ -281,6 +281,53 @@ function hasRegionalAccess(access?: AdminAccessContext) {
     );
 }
 
+function isSuperAdmin(access?: AdminAccessContext) {
+    return access?.role?.trim().toUpperCase().replace(/[\s-]+/g, "_") === "SUPERADMIN";
+}
+
+function assertSuperAdmin(access?: AdminAccessContext) {
+    if (isSuperAdmin(access)) return;
+    throw new AdminRuleError("Only SUPERADMIN can edit or delete applications.", 403);
+}
+
+function maskEmail(value: unknown) {
+    if (typeof value !== "string" || !value.trim()) return value;
+    const [local = "", domain = ""] = value.trim().split("@");
+    if (!domain) return "xxx@xxx.com";
+    const extensionStart = domain.lastIndexOf(".");
+    const extension = extensionStart >= 0 ? domain.slice(extensionStart) : ".com";
+    const prefix = local.slice(0, 3) || "xxx";
+    return `${prefix}xxx@xxx${extension}`;
+}
+
+function maskPhone(value: unknown) {
+    if (typeof value !== "string" || !value.trim()) return value;
+    const digits = value.replace(/\D/g, "");
+    if (digits.length >= 7) return `${digits.slice(0, 2)}xxx${digits.slice(5, 7)}xxx`;
+    return `${digits.slice(0, 2)}xxx`;
+}
+
+function maskSensitiveApplicationData(value: unknown): unknown {
+    if (Array.isArray(value)) {
+        return value.map((item) => maskSensitiveApplicationData(item));
+    }
+
+    if (!value || typeof value !== "object") return value;
+
+    const masked: Record<string, unknown> = {};
+    for (const [key, fieldValue] of Object.entries(value)) {
+        if (key === "email") {
+            masked[key] = maskEmail(fieldValue);
+        } else if (key === "mobile" || key === "phone") {
+            masked[key] = maskPhone(fieldValue);
+        } else {
+            masked[key] = maskSensitiveApplicationData(fieldValue);
+        }
+    }
+
+    return masked;
+}
+
 function appendUserScopeCondition(
     conditions: string[],
     params: unknown[],
@@ -3209,6 +3256,7 @@ async function getApplications(
             ? options.status
             : undefined;
     const search = options.search?.trim();
+    const canViewSensitiveContact = isSuperAdmin(options.access);
     const values: unknown[] = [];
     const where: string[] = [];
 
@@ -3224,98 +3272,22 @@ async function getApplications(
 
     if (search) {
         values.push(`%${search.toLowerCase()}%`);
-        where.push(`
-            (
-                LOWER(CONCAT_WS(
-                    ' ',
-                    pa.id,
-                    pa.application_number,
-                    pa.status,
-                    pa.form_language,
-                    pa.participation_mode,
-                    pa.city,
-                    pa.pin_code,
-                    pa.address,
-                    pa.institute_name,
-                    pa.other_institute_type,
-                    pa.problem_location,
-                    pa.proposed_solution,
-                    pa.technology_method,
-                    pa.implementation_route,
-                    pa.cost_funding,
-                    pa.beneficiaries,
-                    pa.project_timeline,
-                    pa.expected_impact,
-                    pa.scalability,
-                    pa.prototype_pilot,
-                    pa.highest_educational_qualification,
-                    pa.last_attended_educational_institute,
-                    pa.year_of_passing,
-                    pa.mentor_acknowledge_to,
-                    pa.intellectual_property_publication,
-                    pa.video_url,
-                    p.full_name,
+        const applicantSensitiveSearchFields = canViewSensitiveContact
+            ? `
                     p.email,
                     p.mobile,
-                    p.gender,
-                    s.name_en,
-                    s.name_bn,
-                    s.name_hi,
-                    d.name_en,
-                    d.name_bn,
-                    d.name_hi,
-                    pc.code,
-                    pc.name_en,
-                    pc.name_bn,
-                    pc.name_hi,
-                    it.name_en,
-                    it.name_bn,
-                    it.name_hi,
-                    cc.name_en,
-                    cc.name_bn,
-                    cc.name_hi,
-                    c.code,
-                    c.title_en,
-                    c.title_bn,
-                    c.title_hi,
-                    c.description_en,
-                    c.description_bn,
-                    c.description_hi
-                )) LIKE $${values.length}
-                OR EXISTS (
-                    SELECT 1
-                    FROM public.application_team_members search_atm
-                    LEFT JOIN public.participants search_member_participant
-                        ON search_member_participant.id = search_atm.participant_id
-                    WHERE search_atm.application_id = pa.id
-                      AND LOWER(CONCAT_WS(
-                        ' ',
-                        search_atm.id,
-                        search_atm.full_name,
-                        search_atm.email,
-                        search_atm.mobile,
-                        search_member_participant.full_name,
-                        search_member_participant.email,
-                        search_member_participant.mobile
-                      )) LIKE $${values.length}
-                )
-                OR EXISTS (
-                    SELECT 1
-                    FROM public.application_documents search_ad
-                    WHERE search_ad.application_id = pa.id
-                      AND LOWER(CONCAT_WS(
-                        ' ',
-                        search_ad.id,
-                        search_ad.document_type,
-                        search_ad.language_code,
-                        search_ad.original_file_name,
-                        search_ad.storage_key,
-                        search_ad.public_url,
-                        search_ad.mime_type,
-                        search_ad.file_size_bytes,
-                        search_ad.checksum_sha256
-                      )) LIKE $${values.length}
-                )
+            `
+            : "";
+        const teamSensitiveSearchFields = canViewSensitiveContact
+            ? `
+                        , search_atm.email
+                        , search_atm.mobile
+                        , search_member_participant.email
+                        , search_member_participant.mobile
+            `
+            : "";
+        const sensitiveVerificationSearchSql = canViewSensitiveContact
+            ? `
                 OR EXISTS (
                     SELECT 1
                     FROM public.application_form_saves search_afs
@@ -3367,6 +3339,97 @@ async function getApplications(
                         search_plt.consumed_at
                       )) LIKE $${values.length}
                 )
+            `
+            : "";
+        where.push(`
+            (
+                LOWER(CONCAT_WS(
+                    ' ',
+                    pa.id,
+                    pa.application_number,
+                    pa.status,
+                    pa.form_language,
+                    pa.participation_mode,
+                    pa.city,
+                    pa.pin_code,
+                    pa.address,
+                    pa.institute_name,
+                    pa.other_institute_type,
+                    pa.problem_location,
+                    pa.proposed_solution,
+                    pa.technology_method,
+                    pa.implementation_route,
+                    pa.cost_funding,
+                    pa.beneficiaries,
+                    pa.project_timeline,
+                    pa.expected_impact,
+                    pa.scalability,
+                    pa.prototype_pilot,
+                    pa.highest_educational_qualification,
+                    pa.last_attended_educational_institute,
+                    pa.year_of_passing,
+                    pa.mentor_acknowledge_to,
+                    pa.intellectual_property_publication,
+                    pa.video_url,
+                    p.full_name,
+                    ${applicantSensitiveSearchFields}
+                    p.gender,
+                    s.name_en,
+                    s.name_bn,
+                    s.name_hi,
+                    d.name_en,
+                    d.name_bn,
+                    d.name_hi,
+                    pc.code,
+                    pc.name_en,
+                    pc.name_bn,
+                    pc.name_hi,
+                    it.name_en,
+                    it.name_bn,
+                    it.name_hi,
+                    cc.name_en,
+                    cc.name_bn,
+                    cc.name_hi,
+                    c.code,
+                    c.title_en,
+                    c.title_bn,
+                    c.title_hi,
+                    c.description_en,
+                    c.description_bn,
+                    c.description_hi
+                )) LIKE $${values.length}
+                OR EXISTS (
+                    SELECT 1
+                    FROM public.application_team_members search_atm
+                    LEFT JOIN public.participants search_member_participant
+                        ON search_member_participant.id = search_atm.participant_id
+                    WHERE search_atm.application_id = pa.id
+                      AND LOWER(CONCAT_WS(
+                        ' ',
+                        search_atm.id,
+                        search_atm.full_name,
+                        search_member_participant.full_name
+                        ${teamSensitiveSearchFields}
+                      )) LIKE $${values.length}
+                )
+                OR EXISTS (
+                    SELECT 1
+                    FROM public.application_documents search_ad
+                    WHERE search_ad.application_id = pa.id
+                      AND LOWER(CONCAT_WS(
+                        ' ',
+                        search_ad.id,
+                        search_ad.document_type,
+                        search_ad.language_code,
+                        search_ad.original_file_name,
+                        search_ad.storage_key,
+                        search_ad.public_url,
+                        search_ad.mime_type,
+                        search_ad.file_size_bytes,
+                        search_ad.checksum_sha256
+                      )) LIKE $${values.length}
+                )
+                ${sensitiveVerificationSearchSql}
             )
         `);
     }
@@ -3679,7 +3742,13 @@ async function getApplications(
     const total = Number(result.rows[0]?.total_count ?? 0);
 
     return {
-        applications: result.rows.map((row) => row.application),
+        applications: result.rows.map((row) =>
+            canViewSensitiveContact
+                ? row.application
+                : (maskSensitiveApplicationData(
+                      row.application,
+                  ) as AdminApplicationDetails),
+        ),
         pagination: {
             page,
             pageSize,
@@ -3816,6 +3885,8 @@ async function updateApplication(
     input: UpdateAdminApplicationInput,
     access?: AdminAccessContext,
 ): Promise<UpdateAdminApplicationResult | null> {
+    assertSuperAdmin(access);
+
     const { applicationUpdates, participantUpdates } =
         collectApplicationUpdateValues(input.values);
 
@@ -3911,6 +3982,8 @@ async function deleteApplication(
     applicationId: number,
     access?: AdminAccessContext,
 ): Promise<DeleteAdminApplicationResult | null> {
+    assertSuperAdmin(access);
+
     const client = await pg.connect();
 
     try {
@@ -4025,6 +4098,8 @@ async function deleteApplicationDocument(
     },
     access?: AdminAccessContext,
 ): Promise<DeleteAdminApplicationDocumentResult | null> {
+    assertSuperAdmin(access);
+
     const values: unknown[] = [input.documentId, input.applicationId];
     const where = ["ad.id = $1", "ad.application_id = $2"];
     appendApplicationScopeCondition(where, values, access, "pa");

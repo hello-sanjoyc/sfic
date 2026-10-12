@@ -10,6 +10,13 @@ export const participantRoutes: FastifyPluginAsync = async (app) => {
         },
         participantController.getProfile,
     );
+    app.post<{ Body?: { language?: string } }>(
+        "/profile/verification-link",
+        {
+            preHandler: authenticateParticipant,
+        },
+        participantController.requestProfileVerificationLink,
+    );
     app.post<{
         Body?: {
             address?: string;
@@ -145,7 +152,8 @@ export const participantRoutes: FastifyPluginAsync = async (app) => {
         },
         participantController.getApplication,
     );
-    app.post("/login", participantController.requestLoginCode);
+    app.post("/login", participantController.loginWithPassword);
+    app.post("/login-code", participantController.requestLoginCode);
     app.post("/resend-login-code", participantController.resendLoginCode);
     app.post("/verify-login", participantController.verifyLoginCode);
 };

@@ -102,41 +102,57 @@ async function sendEmail(input: SendEmailInput) {
 }
 
 async function sendParticipantVerificationEmail(input: {
-    code: string;
+    code?: string;
     language: string;
     participantEmail: string;
     participantName: string;
+    verificationUrl?: string;
 }) {
     const emailText = getApiContent(input.language).emails.verification;
     const ttlMinutes = emailVerificationTokenTtlMinutes();
+    const isLinkVerification = Boolean(input.verificationUrl);
     const html = renderVerificationEmail({
         code: input.code,
+        ctaLabel: "Verify email address",
         language: input.language,
+        linkHelpText:
+            "If the button does not work, copy and paste this verification link into your browser:",
         participantName: input.participantName,
         text: {
             ...emailText,
-            verifyInstruction: templateMessage(emailText.verifyInstruction, {
-                minutes: ttlMinutes,
-            }),
+            verifyInstruction: isLinkVerification
+                ? "Click the button below to verify your email address. This verification link does not expire."
+                : templateMessage(emailText.verifyInstruction, {
+                      minutes: ttlMinutes,
+                  }),
             verifyTextInstruction: templateMessage(
                 emailText.verifyTextInstruction,
                 { minutes: ttlMinutes },
             ),
         },
+        verificationUrl: input.verificationUrl,
     });
 
     return sendEmail({
         html,
         subject: emailText.subject,
-        text: [
-            emailText.greeting(input.participantName),
-            "",
-            emailText.intro,
-            templateMessage(emailText.verifyTextInstruction, {
-                minutes: ttlMinutes,
-            }),
-            input.code,
-        ].join("\n"),
+        text: isLinkVerification
+            ? [
+                  emailText.greeting(input.participantName),
+                  "",
+                  emailText.intro,
+                  "Click this link to verify your email address. This verification link does not expire:",
+                  input.verificationUrl,
+              ].join("\n")
+            : [
+                  emailText.greeting(input.participantName),
+                  "",
+                  emailText.intro,
+                  templateMessage(emailText.verifyTextInstruction, {
+                      minutes: ttlMinutes,
+                  }),
+                  input.code,
+              ].join("\n"),
         to: input.participantEmail,
     });
 }

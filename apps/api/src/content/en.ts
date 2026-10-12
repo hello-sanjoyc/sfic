@@ -170,7 +170,7 @@ export const enContent = {
                 "This email was sent by Seva First Innovation Challenge. If you did not request this, you can safely ignore it.",
             greeting: (participantName: string) => `Dear ${participantName},`,
             intro:
-                "Thank you for starting your registration for the Seva First Innovation Challenge.",
+                "Thank you for registering at the Seva First Innovation Challenge.",
             preheader:
                 "Use this code to verify your email address and continue your Seva First Innovation Challenge registration.",
             subject: "Verify your email address",
@@ -184,6 +184,6 @@ export const enContent = {
     },
     registrations: {
         duplicateRegistration:
-            "This email ID or mobile number has already been used for an application. Please continue with the verification email already sent, or contact support if you need help.",
+            "This email address or mobile number has already been used for an application.",
     },
 } as const;

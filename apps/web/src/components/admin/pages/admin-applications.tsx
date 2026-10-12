@@ -292,7 +292,7 @@ export function AdminApplicationsPage() {
                   <td className="px-4 py-3 text-slate-600">{application.review}</td>
                   <td className="px-4 py-3">
                     <Link className="inline-flex items-center gap-1 text-sm font-bold text-blue-600" href={`/admin/applications/${application.id}`}>
-                      Manage <ArrowRight size={15} />
+                      View <ArrowRight size={15} />
                     </Link>
                   </td>
                 </tr>

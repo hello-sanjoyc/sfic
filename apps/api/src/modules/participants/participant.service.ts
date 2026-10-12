@@ -1,4 +1,4 @@
-import { createHash } from "node:crypto";
+import { createHash, randomBytes, scryptSync, timingSafeEqual } from "node:crypto";
 import type { PoolClient, QueryResultRow } from "pg";
 import { getApiContent } from "../../content/index.js";
 import { emailService } from "../email/email.service.js";
@@ -12,6 +12,7 @@ import type {
     ParticipantApplicationsResult,
     ParticipantLanguage,
     ParticipantLoginApplication,
+    ParticipantPasswordLoginInput,
     ParticipantProfileResult,
     RequestParticipantLoginCodeInput,
     RequestParticipantLoginCodeResult,
@@ -45,6 +46,7 @@ export class ParticipantRuleError extends Error {
 }
 
 type ParticipantLoginRow = {
+    application_hash?: string;
     application_id: string;
     application_number: string;
     email: string;
@@ -53,6 +55,18 @@ type ParticipantLoginRow = {
     member_id: string;
     mobile: string;
     status: string;
+};
+
+type ParticipantPasswordLoginRow = {
+    application_hash: string | null;
+    application_id: string | null;
+    application_number: string | null;
+    email: string;
+    full_name: string;
+    member_id: string | null;
+    mobile: string;
+    password_hash: string | null;
+    status: string | null;
 };
 
 type ParticipantApplicationSummaryRow = {
@@ -83,6 +97,15 @@ type ParticipantApplicationDetailsRow = {
 
 type ParticipantProfileResultRow = {
     profile: ParticipantProfileResult["profile"];
+};
+
+type ParticipantEmailVerificationProfileRow = {
+    application_id: string;
+    email: string;
+    email_verified: boolean;
+    full_name: string;
+    mobile: string;
+    participant_id: string;
 };
 
 type ApplicationDocumentDownloadRow = {
@@ -184,6 +207,50 @@ function normalizeLanguage(language: string): ParticipantLanguage {
 
 function hashToken(token: string) {
     return createHash("sha256").update(token).digest("hex");
+}
+
+function createEmailVerificationLinkToken() {
+    return randomBytes(32).toString("hex");
+}
+
+function getApiBaseUrl() {
+    const apiUrl = process.env.API_BASE_URL ?? process.env.NEXT_PUBLIC_API_URL;
+
+    if (!apiUrl) {
+        throw new Error(
+            "API base URL must be configured. Set either API_BASE_URL or NEXT_PUBLIC_API_URL in .env file",
+        );
+    }
+
+    return apiUrl.replace(/\/+$/, "");
+}
+
+function buildProfileVerificationUrl(input: {
+    applicationId: string;
+    language: ParticipantLanguage;
+    token: string;
+}) {
+    const url = new URL(`${getApiBaseUrl()}/api/v1/registrations/verify-email`);
+    url.searchParams.set("token", input.token);
+    url.searchParams.set("locale", input.language);
+    url.searchParams.set("applicationId", input.applicationId);
+    url.searchParams.set("redirectTo", "participants/profile");
+
+    return url.toString();
+}
+
+function verifyPassword(password: string, storedHash: string | null) {
+    if (!storedHash) return false;
+
+    const [scheme, salt, hash] = storedHash.split("$");
+    if (scheme !== "scrypt" || !salt || !hash) return false;
+
+    const expected = Buffer.from(hash, "hex");
+    const actual = scryptSync(password, salt, expected.length);
+
+    return (
+        actual.length === expected.length && timingSafeEqual(actual, expected)
+    );
 }
 
 function formatDateOfBirth(value: Date | string | null) {
@@ -348,6 +415,11 @@ async function ensureParticipantLoginTables(pg: DatabaseClient) {
   `);
 
     await pg.query(`
+    ALTER TABLE participants
+    ADD COLUMN IF NOT EXISTS password_hash VARCHAR(255)
+  `);
+
+    await pg.query(`
     CREATE TABLE IF NOT EXISTS participant_login_verification_attempts (
       id                 BIGSERIAL PRIMARY KEY,
       email              VARCHAR(255) NOT NULL UNIQUE,
@@ -418,6 +490,10 @@ function toLoginApplication(
         role: row.is_team_lead ? "applicant" : "team_member",
         status: row.status,
     };
+}
+
+function loginRedirectForApplication() {
+    return "/participants/applications";
 }
 
 function getResendAvailableAt(lastSentAt = new Date()) {
@@ -695,6 +771,7 @@ async function verifyLoginCode(
             `
         SELECT
           pa.id AS application_id,
+          md5(pa.id::text) AS application_hash,
           pa.application_number,
           pa.status,
           atm.id AS member_id,
@@ -750,6 +827,7 @@ async function verifyLoginCode(
                 ...participant,
                 email: row.email,
             },
+            redirectTo: loginRedirectForApplication(),
             session: {
                 token: sessionToken,
             },
@@ -757,6 +835,97 @@ async function verifyLoginCode(
     } catch (error) {
         await client.query("ROLLBACK");
         throw error;
+    } finally {
+        client.release();
+    }
+}
+
+async function loginWithPassword(
+    pg: DatabasePool,
+    input: ParticipantPasswordLoginInput,
+): Promise<VerifyParticipantLoginResult> {
+    const language = normalizeLanguage(input.language);
+    const identifier = input.identifier.trim().toLowerCase();
+    const numericIdentifier = input.identifier.replace(/\D/g, "");
+    const client = await pg.connect();
+
+    try {
+        const result = await client.query<ParticipantPasswordLoginRow>(
+            `
+      SELECT
+        p.email,
+        p.full_name,
+        p.mobile,
+        p.password_hash,
+        pa.id AS application_id,
+        md5(pa.id::text) AS application_hash,
+        pa.application_number,
+        pa.status,
+        atm.id AS member_id
+      FROM participants p
+      LEFT JOIN LATERAL (
+        SELECT id, application_number, status, updated_at
+        FROM participant_applications
+        WHERE participant_id = p.id
+        ORDER BY
+          CASE WHEN status = 'submitted' THEN 1 ELSE 0 END,
+          updated_at DESC,
+          id DESC
+        LIMIT 1
+      ) pa ON TRUE
+      LEFT JOIN application_team_members atm
+        ON atm.application_id = pa.id
+       AND atm.is_applicant = TRUE
+      WHERE LOWER(p.email) = $1
+         OR p.mobile = $2
+      LIMIT 1
+    `,
+            [identifier, numericIdentifier],
+        );
+        const row = result.rows[0];
+
+        if (!row || !verifyPassword(input.password, row.password_hash)) {
+            throw new ParticipantRuleError(
+                "Invalid email/mobile number or password.",
+                401,
+            );
+        }
+
+        const memberId = row.member_id ?? row.application_id;
+        if (!memberId) {
+            throw new ParticipantRuleError(
+                getApiContent(language).api.participantNotFound,
+                404,
+            );
+        }
+
+        const participant: ParticipantLoginApplication = {
+            applicationId: Number(row.application_id ?? 0),
+            applicationNumber: row.application_number ?? "",
+            memberId: Number(memberId),
+            memberName: row.full_name,
+            phone: row.mobile,
+            role: "applicant",
+            status: row.status ?? "",
+        };
+        const sessionToken = createParticipantJwt({
+            email: row.email,
+            name: row.full_name,
+            phone: row.mobile,
+            role: "applicant",
+            sub: memberId,
+        });
+
+        return {
+            participant: {
+                ...participant,
+                email: row.email,
+            },
+            redirectTo: loginRedirectForApplication(),
+            session: {
+                token: sessionToken,
+            },
+        };
     } finally {
         client.release();
     }
@@ -1640,13 +1809,6 @@ async function updateApplicationSubmission(
             },
         );
 
-        if (!applicant.email_verified) {
-            throw new ParticipantRuleError(
-                getApiContent(language).api.emailMustBeVerified,
-                403,
-            );
-        }
-
         applicant = await completeMissingParticipantBasics(client, applicant, {
             dateOfBirth: input.dateOfBirth,
             gender: input.gender,
@@ -2070,6 +2232,7 @@ async function getProfile(
         jsonb_build_object(
           'fullName', atm.full_name,
           'email', atm.email::text,
+          'emailVerified', p.email_verified,
           'mobile', atm.mobile,
           'role', CASE
             WHEN atm.id = pa.team_lead_team_member_id OR atm.is_applicant = TRUE
@@ -2149,6 +2312,129 @@ async function getProfile(
     const profile = result.rows[0]?.profile;
 
     return profile ? { profile } : null;
+}
+
+async function requestProfileVerificationLink(
+    pg: DatabasePool,
+    input: { email: string; language: ParticipantLanguage },
+) {
+    const language = normalizeLanguage(input.language);
+    const client = await pg.connect();
+    let participant: ParticipantEmailVerificationProfileRow;
+    let verificationUrl = "";
+
+    try {
+        await client.query("BEGIN");
+
+        const participantResult =
+            await client.query<ParticipantEmailVerificationProfileRow>(
+                `
+      SELECT
+        p.id AS participant_id,
+        p.email::text AS email,
+        p.email_verified,
+        p.full_name,
+        p.mobile,
+        pa.id AS application_id
+      FROM public.participants p
+      JOIN public.participant_applications pa
+        ON pa.participant_id = p.id
+      WHERE LOWER(p.email::text) = LOWER($1)
+      ORDER BY pa.updated_at DESC, pa.id DESC
+      LIMIT 1
+      FOR UPDATE OF p
+    `,
+                [input.email],
+            );
+        const row = participantResult.rows[0];
+
+        if (!row) {
+            throw new ParticipantRuleError(
+                getApiContent(language).api.participantNotFound,
+                404,
+            );
+        }
+
+        if (row.email_verified) {
+            throw new ParticipantRuleError(
+                getApiContent(language).api.emailVerified,
+                409,
+            );
+        }
+
+        const latestToken = await client.query<{ created_at: Date }>(
+            `
+      SELECT created_at
+      FROM public.participant_email_verification_tokens
+      WHERE participant_id = $1
+      ORDER BY created_at DESC
+      LIMIT 1
+    `,
+            [row.participant_id],
+        );
+        const lastCreatedAt = latestToken.rows[0]?.created_at;
+        if (
+            lastCreatedAt &&
+            Date.now() - lastCreatedAt.getTime() <
+                verificationResendIntervalMinutes() * 60 * 1000
+        ) {
+            throw new ParticipantRuleError(
+                getApiContent(language).api.verificationResendTooSoon.replace(
+                    "{minutes}",
+                    String(verificationResendIntervalMinutes()),
+                ),
+                429,
+            );
+        }
+
+        const token = createEmailVerificationLinkToken();
+        await client.query(
+            `
+      INSERT INTO public.participant_email_verification_tokens (
+        participant_id,
+        application_id,
+        token_hash,
+        expires_at
+      )
+      VALUES ($1, $2, $3, 'infinity'::timestamptz)
+    `,
+            [row.participant_id, row.application_id, hashToken(token)],
+        );
+
+        verificationUrl = buildProfileVerificationUrl({
+            applicationId: row.application_id,
+            language,
+            token,
+        });
+        participant = row;
+
+        await client.query("COMMIT");
+    } catch (error) {
+        await client.query("ROLLBACK");
+        throw error;
+    } finally {
+        client.release();
+    }
+
+    const emailDelivery = await emailService.sendParticipantVerificationEmail({
+        language,
+        participantEmail: participant.email,
+        participantName: participant.full_name,
+        verificationUrl,
+    });
+
+    if (!emailDelivery.delivered) {
+        console.info(
+            `Profile verification link for ${participant.email}: ${verificationUrl}`,
+        );
+    }
+
+    return {
+        emailDelivery,
+        resendAvailableAt: new Date(
+            Date.now() + verificationResendIntervalMinutes() * 60 * 1000,
+        ).toISOString(),
+    };
 }
 
 async function getApplication(
@@ -2466,7 +2752,9 @@ export const participantService = {
     getApplicationDocumentDownload,
     getApplications,
     getProfile,
+    loginWithPassword,
     normalizeLanguage,
+    requestProfileVerificationLink,
     requestLoginCode,
     resendLoginCode,
     submitApplication,

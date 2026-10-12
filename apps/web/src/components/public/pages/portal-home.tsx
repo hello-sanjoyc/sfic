@@ -198,6 +198,7 @@ export async function PortalHome({ locale }: { locale: string }) {
     };
     const guidelinesPdfHref =
         guidelinesPdfByLocale[locale] ?? guidelinesPdfByLocale.en;
+    let localizedTextSlideIndex = -1;
     const slides = heroSlides.map((slide) => {
         const hasSlideContent =
             Boolean(slide.eyebrow.trim()) ||
@@ -206,7 +207,7 @@ export async function PortalHome({ locale }: { locale: string }) {
             Boolean(slide.primaryCTA.label.trim() && slide.primaryCTA.href.trim()) ||
             Boolean(slide.secondaryCTA.label.trim() && slide.secondaryCTA.href.trim());
         const localizedSlide = hasSlideContent
-            ? home.heroSlides.find((item) => item.eyebrow === slide.eyebrow)
+            ? home.heroSlides[++localizedTextSlideIndex]
             : undefined;
 
         return {
