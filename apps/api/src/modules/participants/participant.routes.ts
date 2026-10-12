@@ -153,6 +153,8 @@ export const participantRoutes: FastifyPluginAsync = async (app) => {
         participantController.getApplication,
     );
     app.post("/login", participantController.loginWithPassword);
+    app.post("/forgot-password", participantController.requestPasswordReset);
+    app.post("/reset-password", participantController.resetPassword);
     app.post("/login-code", participantController.requestLoginCode);
     app.post("/resend-login-code", participantController.resendLoginCode);
     app.post("/verify-login", participantController.verifyLoginCode);

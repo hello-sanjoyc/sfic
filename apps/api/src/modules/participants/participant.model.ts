@@ -48,6 +48,27 @@ export type ParticipantPasswordLoginInput = {
   password: string;
 };
 
+export type RequestParticipantPasswordResetInput = {
+  email: string;
+  language: ParticipantLanguage;
+};
+
+export type RequestParticipantPasswordResetResult = {
+  emailDelivery: {
+    delivered: boolean;
+    reason?: string;
+  } | null;
+  passwordResetRequest: {
+    email: string;
+  };
+};
+
+export type ResetParticipantPasswordInput = {
+  language: ParticipantLanguage;
+  password: string;
+  token: string;
+};
+
 export type ParticipantApplicationSummary = {
   applicationHash: string;
   applicationNumber: string;

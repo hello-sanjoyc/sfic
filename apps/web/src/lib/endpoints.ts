@@ -33,10 +33,12 @@ export const endpoints = {
         applicationDownload: (hash: string) =>
             `${api}/participants/applications/${encodeURIComponent(hash)}/download`,
         applications: `${api}/participants/applications`,
+        forgotPassword: `${api}/participants/forgot-password`,
         login: `${api}/participants/login`,
         loginCode: `${api}/participants/login-code`,
         profile: `${api}/participants/profile`,
         profileVerificationLink: `${api}/participants/profile/verification-link`,
+        resetPassword: `${api}/participants/reset-password`,
         resendLoginCode: `${api}/participants/resend-login-code`,
         verifyLogin: `${api}/participants/verify-login`,
     },

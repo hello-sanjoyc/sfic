@@ -1,6 +1,7 @@
 "use client";
 
 import { ArrowRight, KeyRound, Mail, ShieldCheck } from "lucide-react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { PARTICIPANT_TOKEN_KEY } from "@/components/auth";
@@ -30,7 +31,7 @@ export function ParticipantLoginPage({ locale = "en" }: { locale?: Locale }) {
     setError("");
 
     if (!canSubmit) {
-      setError("Email/mobile number and password are required.");
+      setError(content.errors.identifierPasswordRequired);
       return;
     }
 
@@ -51,7 +52,7 @@ export function ParticipantLoginPage({ locale = "en" }: { locale?: Locale }) {
       setError(
         requestError instanceof Error
           ? requestError.message
-          : "Login could not be completed.",
+          : content.errors.loginFailed,
       );
     } finally {
       setIsSubmitting(false);
@@ -67,20 +68,20 @@ export function ParticipantLoginPage({ locale = "en" }: { locale?: Locale }) {
             {content.title}
           </h1>
           <p className="mt-5 max-w-xl text-lg leading-8 text-slate-600">
-            Sign in with the email address or mobile number used during registration.
+            {content.description}
           </p>
           <div className="mt-8 grid gap-3 text-sm font-semibold text-slate-700">
             <span className="inline-flex items-center gap-2">
               <Mail className="text-[#138808]" size={18} />
-              Email or mobile login
+              {content.features[0]}
             </span>
             <span className="inline-flex items-center gap-2">
               <KeyRound className="text-[#ff9933]" size={18} />
-              Password protected access
+              {content.features[1]}
             </span>
             <span className="inline-flex items-center gap-2">
               <ShieldCheck className="text-[#000080]" size={18} />
-              Draft applications reopen automatically
+              {content.features[2]}
             </span>
           </div>
         </div>
@@ -88,7 +89,7 @@ export function ParticipantLoginPage({ locale = "en" }: { locale?: Locale }) {
         <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6 lg:mt-32">
           <form className="grid gap-5" onSubmit={login}>
             <label className="text-sm font-bold text-slate-700">
-              Email Address or Mobile Number
+              {content.identifier}
               <input
                 className="mt-1 w-full rounded-md border border-slate-300 bg-white px-3 py-3 text-sm font-normal outline-none transition focus:border-[#000080] focus:ring-2 focus:ring-[#000080]/20"
                 onChange={(event) => {
@@ -100,7 +101,7 @@ export function ParticipantLoginPage({ locale = "en" }: { locale?: Locale }) {
               />
             </label>
             <label className="text-sm font-bold text-slate-700">
-              Password
+              {content.password}
               <input
                 className="mt-1 w-full rounded-md border border-slate-300 bg-white px-3 py-3 text-sm font-normal outline-none transition focus:border-[#000080] focus:ring-2 focus:ring-[#000080]/20"
                 onChange={(event) => {
@@ -111,12 +112,20 @@ export function ParticipantLoginPage({ locale = "en" }: { locale?: Locale }) {
                 value={password}
               />
             </label>
+            <div className="flex justify-end">
+              <Link
+                className="text-sm font-bold text-[#000080] transition hover:text-[#ff9933]"
+                href={`/${locale}/participants/forgot-password`}
+              >
+                {content.forgotPassword}
+              </Link>
+            </div>
             <button
               className="inline-flex items-center justify-center rounded-md bg-[#0b1f3a] px-5 py-3 text-sm font-bold text-white transition hover:bg-[#000080] disabled:cursor-not-allowed disabled:bg-slate-300 disabled:text-slate-600"
               disabled={isSubmitting || !canSubmit}
               type="submit"
             >
-              {isSubmitting ? "Signing in..." : "Continue"}
+              {isSubmitting ? content.signingIn : content.continue}
               <ArrowRight className="ml-2" size={16} />
             </button>
           </form>

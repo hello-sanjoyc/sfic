@@ -30,6 +30,7 @@ type LoginBody = {
     identifier?: string;
     language?: string;
     password?: string;
+    token?: string;
 };
 
 type VerifyLoginBody = LoginBody & {
@@ -729,6 +730,33 @@ function validatePasswordLoginBody(body: LoginBody = {}) {
     };
 }
 
+function validateResetPasswordBody(body: LoginBody = {}) {
+    const errors: string[] = [];
+    const language = participantService.normalizeLanguage(
+        body.language ?? "en",
+    );
+    const token = isNonEmptyString(body.token) ? body.token.trim() : "";
+    const password = isNonEmptyString(body.password)
+        ? body.password.trim()
+        : "";
+
+    if (!token) {
+        errors.push(getApiContent(language).api.verificationTokenRequired);
+    }
+    if (password.length < 8) {
+        errors.push("Password must be at least 8 characters.");
+    }
+
+    return {
+        errors,
+        value: {
+            language,
+            password,
+            token,
+        },
+    };
+}
+
 async function requestLoginCode(
     request: FastifyRequest<{ Body?: LoginBody }>,
     reply: FastifyReply,
@@ -805,6 +833,86 @@ async function loginWithPassword(
                     ? error.message
                     : getApiContent(validated.value.language).api
                           .participantLoginUnable,
+            statusCode: getErrorStatusCode(error) ?? 400,
+        });
+    }
+}
+
+async function requestPasswordReset(
+    request: FastifyRequest<{ Body?: LoginBody }>,
+    reply: FastifyReply,
+) {
+    const pg = requireDatabase(request, reply);
+    if (!pg) return reply;
+
+    const validated = validateEmailBody(request.body);
+    if (validated.errors.length) {
+        return sendError(request, reply, {
+            data: { errors: validated.errors },
+            messageKey: "validationError",
+            statusCode: 400,
+        });
+    }
+
+    try {
+        const result = await participantService.requestPasswordReset(
+            pg,
+            validated.value,
+        );
+
+        return sendSuccess(request, reply, {
+            data: result,
+            message:
+                "If the email address is registered, a password reset link has been sent.",
+            statusCode: 201,
+        });
+    } catch (error) {
+        request.server.log.error(error);
+
+        return sendError(request, reply, {
+            message:
+                error instanceof Error
+                    ? error.message
+                    : "Unable to send password reset link.",
+            statusCode: getErrorStatusCode(error) ?? 500,
+        });
+    }
+}
+
+async function resetPassword(
+    request: FastifyRequest<{ Body?: LoginBody }>,
+    reply: FastifyReply,
+) {
+    const pg = requireDatabase(request, reply);
+    if (!pg) return reply;
+
+    const validated = validateResetPasswordBody(request.body);
+    if (validated.errors.length) {
+        return sendError(request, reply, {
+            data: { errors: validated.errors },
+            messageKey: "validationError",
+            statusCode: 400,
+        });
+    }
+
+    try {
+        const result = await participantService.resetPassword(
+            pg,
+            validated.value,
+        );
+
+        return sendSuccess(request, reply, {
+            data: result,
+            message: "Password has been reset successfully.",
+        });
+    } catch (error) {
+        request.server.log.error(error);
+
+        return sendError(request, reply, {
+            message:
+                error instanceof Error
+                    ? error.message
+                    : "Unable to reset password.",
             statusCode: getErrorStatusCode(error) ?? 400,
         });
     }
@@ -1397,8 +1505,10 @@ export const participantController = {
     getApplications,
     getProfile,
     loginWithPassword,
+    requestPasswordReset,
     requestProfileVerificationLink,
     requestLoginCode,
+    resetPassword,
     resendLoginCode,
     submitApplication,
     updateApplicationSubmission,

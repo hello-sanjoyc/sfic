@@ -16,6 +16,9 @@ import type {
     ParticipantProfileResult,
     RequestParticipantLoginCodeInput,
     RequestParticipantLoginCodeResult,
+    RequestParticipantPasswordResetInput,
+    RequestParticipantPasswordResetResult,
+    ResetParticipantPasswordInput,
     SubmitParticipantApplicationInput,
     SubmitParticipantApplicationResult,
     UpdateParticipantApplicationSubmissionInput,
@@ -67,6 +70,12 @@ type ParticipantPasswordLoginRow = {
     mobile: string;
     password_hash: string | null;
     status: string | null;
+};
+
+type ParticipantPasswordResetRow = {
+    email: string;
+    full_name: string;
+    id: string;
 };
 
 type ParticipantApplicationSummaryRow = {
@@ -213,6 +222,17 @@ function createEmailVerificationLinkToken() {
     return randomBytes(32).toString("hex");
 }
 
+function createPasswordResetToken() {
+    return randomBytes(32).toString("base64url");
+}
+
+function hashPassword(password: string) {
+    const salt = randomBytes(16).toString("hex");
+    const hash = scryptSync(password, salt, 64).toString("hex");
+
+    return `scrypt$${salt}$${hash}`;
+}
+
 function getApiBaseUrl() {
     const apiUrl = process.env.API_BASE_URL ?? process.env.NEXT_PUBLIC_API_URL;
 
@@ -223,6 +243,38 @@ function getApiBaseUrl() {
     }
 
     return apiUrl.replace(/\/+$/, "");
+}
+
+function getPortalUrl() {
+    const portalUrl =
+        process.env.APP_URL ??
+        process.env.NEXT_PUBLIC_APP_URL ??
+        process.env.NEXT_PUBLIC_WEB_URL;
+
+    if (!portalUrl) {
+        throw new Error(
+            "Portal URL must be configured. Set APP_URL or NEXT_PUBLIC_APP_URL in .env file",
+        );
+    }
+
+    return portalUrl.replace(/\/+$/, "");
+}
+
+function passwordResetTokenTtlMinutes() {
+    return Number(process.env.PARTICIPANT_PASSWORD_RESET_TOKEN_TTL_MINUTES ?? 30);
+}
+
+function buildPasswordResetUrl(input: {
+    language: ParticipantLanguage;
+    token: string;
+}) {
+    const url = new URL(
+        `/${input.language}/participants/reset-password`,
+        getPortalUrl(),
+    );
+    url.searchParams.set("token", input.token);
+
+    return url.toString();
 }
 
 function buildProfileVerificationUrl(input: {
@@ -452,6 +504,21 @@ async function ensureParticipantLoginTables(pg: DatabaseClient) {
   `);
 
     await pg.query(`
+    CREATE TABLE IF NOT EXISTS participant_password_reset_tokens (
+      id             BIGSERIAL PRIMARY KEY,
+      participant_id BIGINT NOT NULL,
+      email          VARCHAR(255) NOT NULL,
+      token_hash     VARCHAR(128) NOT NULL UNIQUE,
+      expires_at     TIMESTAMPTZ NOT NULL,
+      consumed_at    TIMESTAMPTZ,
+      created_at     TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      CONSTRAINT fk_participant_password_reset_tokens_participant
+        FOREIGN KEY (participant_id) REFERENCES participants(id)
+        ON UPDATE CASCADE ON DELETE CASCADE
+    )
+  `);
+
+    await pg.query(`
     CREATE INDEX IF NOT EXISTS idx_participant_login_attempts_locked_until
       ON participant_login_verification_attempts(locked_until)
   `);
@@ -465,6 +532,17 @@ async function ensureParticipantLoginTables(pg: DatabaseClient) {
     CREATE INDEX IF NOT EXISTS idx_participant_login_tokens_active
       ON participant_login_verification_tokens(token_hash, expires_at)
       WHERE consumed_at IS NULL
+  `);
+
+    await pg.query(`
+    CREATE INDEX IF NOT EXISTS idx_participant_password_reset_tokens_active
+      ON participant_password_reset_tokens(token_hash, expires_at)
+      WHERE consumed_at IS NULL
+  `);
+
+    await pg.query(`
+    CREATE INDEX IF NOT EXISTS idx_participant_password_reset_tokens_email
+      ON participant_password_reset_tokens(email)
   `);
 
     await pg.query(`
@@ -926,6 +1004,167 @@ async function loginWithPassword(
                 token: sessionToken,
             },
         };
+    } finally {
+        client.release();
+    }
+}
+
+async function findParticipantPasswordResetTarget(
+    client: PoolClient,
+    email: string,
+) {
+    const result = await client.query<ParticipantPasswordResetRow>(
+        `
+      SELECT id, email, full_name
+      FROM participants
+      WHERE LOWER(email) = LOWER($1)
+      LIMIT 1
+    `,
+        [email],
+    );
+
+    return result.rows[0] ?? null;
+}
+
+async function requestPasswordReset(
+    pg: DatabasePool,
+    input: RequestParticipantPasswordResetInput,
+): Promise<RequestParticipantPasswordResetResult> {
+    const language = normalizeLanguage(input.language);
+    const email = input.email.trim().toLowerCase();
+    const client = await pg.connect();
+    const token = createPasswordResetToken();
+    const ttlMinutes = passwordResetTokenTtlMinutes();
+    let participant: ParticipantPasswordResetRow | null = null;
+
+    try {
+        await client.query("BEGIN");
+        participant = await findParticipantPasswordResetTarget(client, email);
+
+        if (participant) {
+            await client.query(
+                `
+          UPDATE participant_password_reset_tokens
+          SET consumed_at = COALESCE(consumed_at, NOW())
+          WHERE participant_id = $1
+            AND consumed_at IS NULL
+        `,
+                [participant.id],
+            );
+
+            await client.query(
+                `
+          INSERT INTO participant_password_reset_tokens (
+            participant_id,
+            email,
+            token_hash,
+            expires_at
+          )
+          VALUES ($1, $2, $3, NOW() + ($4 || ' minutes')::interval)
+        `,
+                [
+                    participant.id,
+                    participant.email,
+                    hashToken(token),
+                    ttlMinutes,
+                ],
+            );
+        }
+
+        await client.query("COMMIT");
+    } catch (error) {
+        await client.query("ROLLBACK");
+        throw error;
+    } finally {
+        client.release();
+    }
+
+    if (!participant) {
+        return {
+            emailDelivery: null,
+            passwordResetRequest: { email },
+        };
+    }
+
+    const resetUrl = buildPasswordResetUrl({ language, token });
+    const emailDelivery = await emailService.sendParticipantPasswordResetEmail({
+        language,
+        participantEmail: participant.email,
+        participantName: participant.full_name,
+        resetUrl,
+        ttlMinutes,
+    });
+
+    if (!emailDelivery.delivered) {
+        console.info(
+            `Participant password reset link for ${participant.email}: ${resetUrl}`,
+        );
+    }
+
+    return {
+        emailDelivery,
+        passwordResetRequest: { email: participant.email },
+    };
+}
+
+async function resetPassword(
+    pg: DatabasePool,
+    input: ResetParticipantPasswordInput,
+) {
+    const language = normalizeLanguage(input.language);
+    const client = await pg.connect();
+
+    try {
+        await client.query("BEGIN");
+
+        const tokenResult = await client.query<{
+            participant_id: string;
+            token_hash: string;
+        }>(
+            `
+        SELECT participant_id, token_hash
+        FROM participant_password_reset_tokens
+        WHERE token_hash = $1
+          AND consumed_at IS NULL
+          AND expires_at > NOW()
+        FOR UPDATE
+      `,
+            [hashToken(input.token)],
+        );
+        const tokenRow = tokenResult.rows[0];
+
+        if (!tokenRow) {
+            throw new ParticipantRuleError(
+                getApiContent(language).api.invalidToken,
+                400,
+            );
+        }
+
+        await client.query(
+            `
+        UPDATE participants
+        SET password_hash = $1,
+            updated_at = NOW()
+        WHERE id = $2
+      `,
+            [hashPassword(input.password), tokenRow.participant_id],
+        );
+
+        await client.query(
+            `
+        UPDATE participant_password_reset_tokens
+        SET consumed_at = NOW()
+        WHERE token_hash = $1
+      `,
+            [tokenRow.token_hash],
+        );
+
+        await client.query("COMMIT");
+
+        return { reset: true };
+    } catch (error) {
+        await client.query("ROLLBACK");
+        throw error;
     } finally {
         client.release();
     }
@@ -2754,8 +2993,10 @@ export const participantService = {
     getProfile,
     loginWithPassword,
     normalizeLanguage,
+    requestPasswordReset,
     requestProfileVerificationLink,
     requestLoginCode,
+    resetPassword,
     resendLoginCode,
     submitApplication,
     updateApplicationSubmission,

@@ -608,6 +608,27 @@ CREATE SEQUENCE public.participant_email_verification_tokens_id_seq
 
 ALTER SEQUENCE public.participant_email_verification_tokens_id_seq OWNED BY public.participant_email_verification_tokens.id;
 
+-- participant_password_reset_tokens -----------------------------------------
+
+CREATE TABLE public.participant_password_reset_tokens (
+    id bigint NOT NULL,
+    participant_id bigint NOT NULL,
+    email character varying(255) NOT NULL,
+    token_hash character varying(128) NOT NULL,
+    expires_at timestamp with time zone NOT NULL,
+    consumed_at timestamp with time zone,
+    created_at timestamp with time zone DEFAULT now() NOT NULL
+);
+
+CREATE SEQUENCE public.participant_password_reset_tokens_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+ALTER SEQUENCE public.participant_password_reset_tokens_id_seq OWNED BY public.participant_password_reset_tokens.id;
+
 -- participant_login_verification_attempts ------------------------------------
 
 CREATE TABLE public.participant_login_verification_attempts (
@@ -724,6 +745,7 @@ ALTER TABLE ONLY public.application_documents ALTER COLUMN id SET DEFAULT nextva
 ALTER TABLE ONLY public.application_form_saves ALTER COLUMN id SET DEFAULT nextval('public.application_form_saves_id_seq'::regclass);
 ALTER TABLE ONLY public.participant_email_verification_attempts ALTER COLUMN id SET DEFAULT nextval('public.participant_email_verification_attempts_id_seq'::regclass);
 ALTER TABLE ONLY public.participant_email_verification_tokens ALTER COLUMN id SET DEFAULT nextval('public.participant_email_verification_tokens_id_seq'::regclass);
+ALTER TABLE ONLY public.participant_password_reset_tokens ALTER COLUMN id SET DEFAULT nextval('public.participant_password_reset_tokens_id_seq'::regclass);
 ALTER TABLE ONLY public.participant_login_verification_attempts ALTER COLUMN id SET DEFAULT nextval('public.participant_login_verification_attempts_id_seq'::regclass);
 ALTER TABLE ONLY public.participant_login_verification_tokens ALTER COLUMN id SET DEFAULT nextval('public.participant_login_verification_tokens_id_seq'::regclass);
 ALTER TABLE ONLY public.user_login_verification_attempts ALTER COLUMN id SET DEFAULT nextval('public.user_login_verification_attempts_id_seq'::regclass);
@@ -824,6 +846,11 @@ ALTER TABLE ONLY public.participant_email_verification_tokens
 ALTER TABLE ONLY public.participant_email_verification_tokens
     ADD CONSTRAINT participant_email_verification_tokens_token_hash_key UNIQUE (token_hash);
 
+ALTER TABLE ONLY public.participant_password_reset_tokens
+    ADD CONSTRAINT participant_password_reset_tokens_pkey PRIMARY KEY (id);
+ALTER TABLE ONLY public.participant_password_reset_tokens
+    ADD CONSTRAINT participant_password_reset_tokens_token_hash_key UNIQUE (token_hash);
+
 ALTER TABLE ONLY public.participant_login_verification_attempts
     ADD CONSTRAINT participant_login_verification_attempts_pkey PRIMARY KEY (id);
 ALTER TABLE ONLY public.participant_login_verification_attempts
@@ -905,6 +932,9 @@ ALTER TABLE ONLY public.participant_email_verification_tokens
 ALTER TABLE ONLY public.participant_email_verification_tokens
     ADD CONSTRAINT fk_email_verification_tokens_participant FOREIGN KEY (participant_id) REFERENCES public.participants(id) ON UPDATE CASCADE ON DELETE CASCADE;
 
+ALTER TABLE ONLY public.participant_password_reset_tokens
+    ADD CONSTRAINT fk_participant_password_reset_tokens_participant FOREIGN KEY (participant_id) REFERENCES public.participants(id) ON UPDATE CASCADE ON DELETE CASCADE;
+
 ALTER TABLE ONLY public.participant_login_verification_tokens
     ADD CONSTRAINT fk_participant_login_tokens_application FOREIGN KEY (application_id) REFERENCES public.participant_applications(id) ON UPDATE CASCADE ON DELETE CASCADE;
 ALTER TABLE ONLY public.participant_login_verification_tokens
@@ -956,6 +986,9 @@ CREATE INDEX idx_email_verification_attempts_mobile ON public.participant_email_
 CREATE INDEX idx_email_verification_tokens_active ON public.participant_email_verification_tokens USING btree (token_hash, expires_at) WHERE (consumed_at IS NULL);
 CREATE INDEX idx_email_verification_tokens_application_id ON public.participant_email_verification_tokens USING btree (application_id);
 CREATE INDEX idx_email_verification_tokens_participant_id ON public.participant_email_verification_tokens USING btree (participant_id);
+
+CREATE INDEX idx_participant_password_reset_tokens_active ON public.participant_password_reset_tokens USING btree (token_hash, expires_at) WHERE (consumed_at IS NULL);
+CREATE INDEX idx_participant_password_reset_tokens_email ON public.participant_password_reset_tokens USING btree (email);
 
 CREATE INDEX idx_participant_login_attempts_locked_until ON public.participant_login_verification_attempts USING btree (locked_until);
 

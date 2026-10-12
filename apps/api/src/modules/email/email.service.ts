@@ -2,6 +2,7 @@ import nodemailer from "nodemailer";
 import { getApiContent } from "../../content/index.js";
 import {
     renderApplicationSubmittedEmail,
+    renderEmailTemplate,
     renderTeamMemberAddedEmail,
     renderVerificationEmail,
 } from "./email-template.js";
@@ -59,6 +60,15 @@ function templateMessage(message: string, values: Record<string, string>) {
         (current, [key, value]) => current.replaceAll(`{${key}}`, value),
         message,
     );
+}
+
+function escapeHtml(value: string) {
+    return value
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;")
+        .replaceAll("'", "&#039;");
 }
 
 function getTransporter() {
@@ -197,6 +207,51 @@ async function sendParticipantLoginVerificationEmail(input: {
     });
 }
 
+async function sendParticipantPasswordResetEmail(input: {
+    language: string;
+    participantEmail: string;
+    participantName: string;
+    resetUrl: string;
+    ttlMinutes: number;
+}) {
+    const participantName = escapeHtml(input.participantName);
+
+    const html = renderEmailTemplate({
+        bodyHtml: `
+      <p style="margin:0 0 16px;">Dear ${participantName},</p>
+      <p style="margin:0 0 16px;">A password reset was requested for your Seva First Innovation Challenge participant account.</p>
+      <p style="margin:0 0 12px;">Click the button below to set a new password. This link will expire in ${input.ttlMinutes} minutes.</p>
+    `,
+        cta: {
+            label: "Reset password",
+            url: input.resetUrl,
+        },
+        footerText:
+            "This email was sent by Seva First Innovation Challenge. If you did not request this password reset, you can safely ignore it.",
+        htmlLang: input.language,
+        linkHelpText:
+            "If the button does not work, copy and paste this password reset link into your browser:",
+        preheader: "Reset your participant account password.",
+        title: "Reset participant password",
+    });
+
+    return sendEmail({
+        html,
+        subject:
+            "Reset your Seva First Innovation Challenge participant password",
+        text: [
+            `Dear ${input.participantName},`,
+            "",
+            "A password reset was requested for your Seva First Innovation Challenge participant account.",
+            `Set a new password within ${input.ttlMinutes} minutes using this link:`,
+            input.resetUrl,
+            "",
+            "If you did not request this password reset, you can safely ignore this email.",
+        ].join("\n"),
+        to: input.participantEmail,
+    });
+}
+
 async function sendAdminLoginVerificationEmail(input: {
     adminEmail: string;
     adminName: string;
@@ -307,6 +362,7 @@ export const emailService = {
     sendApplicationSubmittedEmail,
     sendEmail,
     sendParticipantLoginVerificationEmail,
+    sendParticipantPasswordResetEmail,
     sendParticipantVerificationEmail,
     sendTeamMemberAddedEmail,
 };

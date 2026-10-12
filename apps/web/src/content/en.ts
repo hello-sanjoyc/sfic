@@ -1014,12 +1014,17 @@ export const enContent = {
     participantLogin: {
         title: "Participant login",
         description:
-            "Access your participant dashboard using your registered email address and a 6 digit verification code.",
+            "Sign in with the email address or mobile number used during registration.",
         features: [
-            "Email based login",
-            "Verification code required",
-            "Dashboard access after verification",
+            "Email or mobile login",
+            "Password protected access",
+            "Draft applications reopen automatically",
         ],
+        identifier: "Email Address or Mobile Number",
+        password: "Password",
+        forgotPassword: "Forgot Password?",
+        signingIn: "Signing in...",
+        continue: "Continue",
         email: "Email Address",
         verificationCode: "Verification Code",
         emailHelp:
@@ -1038,13 +1043,29 @@ export const enContent = {
             verificationCode: "Enter 6 digit code",
         },
         errors: {
+            identifierPasswordRequired:
+                "Email/mobile number and password are required.",
             email: "Enter a valid email address.",
             verificationCode: "Enter the 6 digit verification code.",
+            loginFailed: "Login could not be completed.",
             requestFailed:
                 "Unable to send verification code. Please try again.",
             verifyFailed: "Unable to verify login code. Please try again.",
             resendFailed:
                 "Unable to resend verification code. Please try again.",
+        },
+        forgotPasswordScreen: {
+            title: "Forgot Password",
+            description:
+                "Enter the email address used during participant registration to receive a password reset link.",
+            backToLogin: "Back to login",
+            email: "Registered Email Address",
+            invalidEmail: "Enter a valid registered email address.",
+            sending: "Sending link...",
+            sendLink: "Send Reset Link",
+            success:
+                "If this email address is registered, a password reset link has been sent.",
+            failed: "Password reset link could not be sent.",
         },
         dashboard: {
             label: "Participant Workspace",
