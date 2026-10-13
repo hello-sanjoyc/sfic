@@ -242,17 +242,17 @@ export function AdminUsersPage() {
 
   return (
     <AdminShell eyebrow="Manage admin access and roles" title="Users">
-      <section className="rounded-lg border border-slate-200 bg-white shadow-sm">
-        <div className="flex flex-wrap items-center justify-between gap-4 border-b border-slate-200 p-5">
-          <div className="flex items-center gap-3">
+      <section className="w-full min-w-0 rounded-lg border border-slate-200 bg-white shadow-sm">
+        <div className="flex min-w-0 flex-wrap items-center justify-between gap-4 border-b border-slate-200 p-3 sm:p-5">
+          <div className="flex min-w-0 items-center gap-3">
             <Users className="text-blue-600" size={22} />
-            <div>
+            <div className="min-w-0">
               <h2 className="text-lg font-black">User Register</h2>
               <p className="text-sm text-slate-500">Admin panel users and access status</p>
             </div>
           </div>
-          <div className="flex w-full flex-wrap items-center gap-3 sm:w-auto">
-            <div className="flex h-11 w-full items-center gap-3 rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-500 sm:w-80">
+          <div className="flex w-full min-w-0 flex-wrap items-center gap-3 sm:w-auto">
+            <div className="flex h-11 w-full min-w-0 items-center gap-3 rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-500 sm:w-80">
               <Search size={18} />
               <input
                 aria-label="Search users"
@@ -268,7 +268,7 @@ export function AdminUsersPage() {
             </div>
             {canWriteUsers && (
               <Link
-                className="inline-flex h-11 items-center gap-2 rounded-lg bg-blue-600 px-4 text-sm font-bold text-white"
+                className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 text-sm font-bold text-white sm:w-auto"
                 href="/admin/users/new"
               >
                 <Plus size={18} />
@@ -277,7 +277,7 @@ export function AdminUsersPage() {
             )}
           </div>
         </div>
-        <div className="overflow-x-auto">
+        <div className="hidden w-full min-w-0 overflow-x-auto overscroll-x-contain md:block">
           <table className="w-full min-w-[62rem] border-collapse text-left text-sm">
             <thead className="bg-slate-50 text-xs font-bold uppercase text-slate-500">
               <tr>
@@ -330,11 +330,38 @@ export function AdminUsersPage() {
             </tbody>
           </table>
         </div>
-        <div className="flex flex-wrap items-center justify-between gap-3 border-t border-slate-200 p-4 text-sm text-slate-600">
+        <div className="divide-y divide-slate-100 md:hidden">
+          {isLoading ? (
+            <p className="p-4 text-center text-sm font-semibold text-slate-500">Loading users...</p>
+          ) : errorMessage ? (
+            <p className="p-4 text-center text-sm font-semibold text-rose-600">{errorMessage}</p>
+          ) : users.length === 0 ? (
+            <p className="p-4 text-center text-sm font-semibold text-slate-500">No users match your search.</p>
+          ) : users.map((user) => (
+            <article className="grid min-w-0 gap-3 p-4" key={user.id}>
+              <div className="flex min-w-0 items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="break-words text-sm font-black text-[#0b1f3a]">{user.fullName}</p>
+                  <p className="break-all text-sm text-slate-600">{user.email}</p>
+                </div>
+                <UserStatusBadge isActive={user.isActive} />
+              </div>
+              <dl className="grid grid-cols-1 gap-2 text-sm min-[420px]:grid-cols-2">
+                <div><dt className="text-xs font-bold text-slate-500">Mobile</dt><dd className="text-slate-700">{user.mobile}</dd></div>
+                <div><dt className="text-xs font-bold text-slate-500">Role</dt><dd className="break-words text-slate-700">{roleLabel(user.role)}</dd></div>
+                <div className="min-[420px]:col-span-2"><dt className="text-xs font-bold text-slate-500">Created</dt><dd className="text-slate-700">{formatDate(user.createdAt)}</dd></div>
+              </dl>
+              <Link className="inline-flex min-h-10 items-center gap-1 self-start text-sm font-bold text-blue-600" href={`/admin/users/${user.id}`}>
+                Manage user <ArrowRight size={15} />
+              </Link>
+            </article>
+          ))}
+        </div>
+        <div className="flex flex-col items-start justify-between gap-3 border-t border-slate-200 p-3 text-sm text-slate-600 sm:flex-row sm:items-center sm:p-4">
           <div className="font-semibold">
             Showing {resultStart}-{resultEnd} of {totalUsers}
           </div>
-          <div className="flex flex-wrap items-center gap-3">
+          <div className="flex w-full flex-wrap items-center justify-between gap-3 sm:w-auto sm:justify-start">
             <label className="inline-flex items-center gap-2 font-semibold">
               Rows
               <select
@@ -382,7 +409,7 @@ function DetailRow({ label, value }: Readonly<{ label: string; value: React.Reac
   return (
     <div className="grid gap-1 border-b border-slate-100 py-4 last:border-0 sm:grid-cols-[12rem_1fr] sm:gap-6">
       <dt className="text-xs font-black uppercase text-slate-500">{label}</dt>
-      <dd className="text-sm font-normal text-[#0b1f3a]">{value}</dd>
+      <dd className="min-w-0 break-words text-sm font-normal text-[#0b1f3a]">{value}</dd>
     </div>
   );
 }
@@ -487,19 +514,19 @@ export function AdminUserDetailsPage({ userId }: Readonly<{ userId: string }>) {
         </Link>
       </div>
 
-      <section className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
+      <section className="w-full min-w-0 rounded-lg border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
         {isLoading && <p className="text-sm font-semibold text-slate-500">Loading user...</p>}
         {!isLoading && errorMessage && <p className="text-sm font-semibold text-rose-600">{errorMessage}</p>}
         {!isLoading && !errorMessage && user && (
           <>
             <div className="flex flex-wrap items-start justify-between gap-4 border-b border-slate-200 pb-5">
-              <div className="flex items-center gap-4">
+              <div className="flex min-w-0 items-center gap-3 sm:gap-4">
                 <div className="grid h-14 w-14 place-items-center rounded-lg bg-blue-50 text-blue-600">
                   <UserCog size={28} />
                 </div>
-                <div>
-                  <h2 className="text-2xl font-black text-[#0b1f3a]">{user.fullName}</h2>
-                  <p className="mt-1 text-sm font-semibold text-slate-500">{user.email}</p>
+                <div className="min-w-0">
+                  <h2 className="break-words text-xl font-black text-[#0b1f3a] sm:text-2xl">{user.fullName}</h2>
+                  <p className="mt-1 break-all text-sm font-semibold text-slate-500">{user.email}</p>
                 </div>
               </div>
               <UserStatusBadge isActive={user.isActive} />
@@ -540,7 +567,7 @@ export function AdminUserDetailsPage({ userId }: Readonly<{ userId: string }>) {
       {user && canWriteUsers && (
         <div className="flex flex-wrap justify-end gap-3 rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
           <Link
-            className="inline-flex h-11 items-center gap-2 rounded-lg border border-slate-200 px-5 text-sm font-bold text-slate-700"
+            className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-lg border border-slate-200 px-5 text-sm font-bold text-slate-700 sm:w-auto"
             href={`/admin/users/${user.id}/edit`}
           >
             <Pencil size={18} />
@@ -830,7 +857,7 @@ function UserForm({
         Back
       </Link>
 
-      <form className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm" onSubmit={submit}>
+      <form className="w-full min-w-0 rounded-lg border border-slate-200 bg-white p-4 shadow-sm sm:p-5" onSubmit={submit}>
         {isLoading ? (
           <p className="text-sm font-semibold text-slate-500">Loading user...</p>
         ) : mode === "edit" && !initialForm && errorMessage ? (
@@ -840,13 +867,13 @@ function UserForm({
             </div>
             <div className="flex flex-wrap justify-end gap-3 border-t border-slate-200 pt-5">
               <Link
-                className="inline-flex h-11 items-center rounded-lg border border-slate-200 px-5 text-sm font-bold text-slate-700"
+                className="inline-flex h-11 w-full items-center justify-center rounded-lg border border-slate-200 px-5 text-sm font-bold text-slate-700 sm:w-auto"
                 href="/admin/users"
               >
                 Back to Users
               </Link>
               <button
-                className="inline-flex h-11 items-center rounded-lg bg-blue-600 px-5 text-sm font-bold text-white"
+                className="inline-flex h-11 w-full items-center justify-center rounded-lg bg-blue-600 px-5 text-sm font-bold text-white sm:w-auto"
                 onClick={() => window.location.reload()}
                 type="button"
               >
@@ -871,30 +898,30 @@ function UserForm({
                 {statesError}
               </div>
             )}
-            <div className="grid gap-4 md:grid-cols-2">
-              <label className="grid gap-2 text-sm font-bold text-[#0b1f3a]">
+            <div className="grid min-w-0 gap-4 md:grid-cols-2">
+              <label className="grid min-w-0 gap-2 text-sm font-bold text-[#0b1f3a]">
                 Full Name
                 <input
-                  className="h-11 rounded-lg border border-slate-200 px-3 font-normal text-slate-700 outline-none focus:border-blue-500"
+                  className="h-11 w-full min-w-0 rounded-lg border border-slate-200 px-3 font-normal text-slate-700 outline-none focus:border-blue-500"
                   onChange={(event) => updateField("fullName", event.target.value)}
                   required
                   value={form.fullName}
                 />
               </label>
-              <label className="grid gap-2 text-sm font-bold text-[#0b1f3a]">
+              <label className="grid min-w-0 gap-2 text-sm font-bold text-[#0b1f3a]">
                 Email
                 <input
-                  className="h-11 rounded-lg border border-slate-200 px-3 font-normal text-slate-700 outline-none focus:border-blue-500"
+                  className="h-11 w-full min-w-0 rounded-lg border border-slate-200 px-3 font-normal text-slate-700 outline-none focus:border-blue-500"
                   onChange={(event) => updateField("email", event.target.value)}
                   required
                   type="email"
                   value={form.email}
                 />
               </label>
-              <label className="grid gap-2 text-sm font-bold text-[#0b1f3a]">
+              <label className="grid min-w-0 gap-2 text-sm font-bold text-[#0b1f3a]">
                 Mobile
                 <input
-                  className="h-11 rounded-lg border border-slate-200 px-3 font-normal text-slate-700 outline-none focus:border-blue-500"
+                  className="h-11 w-full min-w-0 rounded-lg border border-slate-200 px-3 font-normal text-slate-700 outline-none focus:border-blue-500"
                   maxLength={10}
                   onChange={(event) => updateField("mobile", event.target.value.replace(/\D/g, ""))}
                   pattern="[0-9]{10}"
@@ -902,10 +929,10 @@ function UserForm({
                   value={form.mobile}
                 />
               </label>
-              <label className="grid gap-2 text-sm font-bold text-[#0b1f3a]">
+              <label className="grid min-w-0 gap-2 text-sm font-bold text-[#0b1f3a]">
                 Role
                 <select
-                  className="h-11 rounded-lg border border-slate-200 bg-white px-3 font-normal text-slate-700 outline-none focus:border-blue-500"
+                  className="h-11 w-full min-w-0 rounded-lg border border-slate-200 bg-white px-3 font-normal text-slate-700 outline-none focus:border-blue-500"
                   disabled={isRolesLoading || !roleOptions.length}
                   onChange={(event) => updateField("role", event.target.value)}
                   value={form.role}
@@ -916,10 +943,10 @@ function UserForm({
                 </select>
               </label>
               {userRequiresState(form.role) && (
-                <label className="grid gap-2 text-sm font-bold text-[#0b1f3a]">
+                <label className="grid min-w-0 gap-2 text-sm font-bold text-[#0b1f3a]">
                   State
                   <select
-                    className="h-11 rounded-lg border border-slate-200 bg-white px-3 font-normal text-slate-700 outline-none focus:border-blue-500"
+                    className="h-11 w-full min-w-0 rounded-lg border border-slate-200 bg-white px-3 font-normal text-slate-700 outline-none focus:border-blue-500"
                     disabled={
                       isStatesLoading ||
                       !states.length ||
@@ -941,10 +968,10 @@ function UserForm({
                 </label>
               )}
               {userRequiresDistrict(form.role) && form.stateId && (
-                <label className="grid gap-2 text-sm font-bold text-[#0b1f3a]">
+                <label className="grid min-w-0 gap-2 text-sm font-bold text-[#0b1f3a]">
                   District
                   <select
-                    className="h-11 rounded-lg border border-slate-200 bg-white px-3 font-normal text-slate-700 outline-none focus:border-blue-500"
+                    className="h-11 w-full min-w-0 rounded-lg border border-slate-200 bg-white px-3 font-normal text-slate-700 outline-none focus:border-blue-500"
                     disabled={isDistrictsLoading || !districts.length}
                     onChange={(event) => updateField("districtId", event.target.value)}
                     required
@@ -975,13 +1002,13 @@ function UserForm({
             </label>
             <div className="flex flex-wrap justify-end gap-3 border-t border-slate-200 pt-5">
               <Link
-                className="inline-flex h-11 items-center rounded-lg border border-slate-200 px-5 text-sm font-bold text-slate-700"
+                className="inline-flex h-11 w-full items-center justify-center rounded-lg border border-slate-200 px-5 text-sm font-bold text-slate-700 sm:w-auto"
                 href={mode === "edit" && userId ? `/admin/users/${userId}` : "/admin/users"}
               >
                 Cancel
               </Link>
               <button
-                className="inline-flex h-11 items-center rounded-lg bg-blue-600 px-5 text-sm font-bold text-white disabled:cursor-not-allowed disabled:opacity-60"
+                className="inline-flex h-11 w-full items-center justify-center rounded-lg bg-blue-600 px-5 text-sm font-bold text-white disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
                 disabled={
                   isSaving ||
                   isRolesLoading ||

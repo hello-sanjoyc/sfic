@@ -396,13 +396,13 @@ export function AdminSettingsResourceListPage({
 
   return (
     <AdminShell eyebrow="Master data and access configuration" title={config.title}>
-      <div className="flex flex-wrap items-center justify-between gap-3">
+      <div className="flex min-w-0 flex-wrap items-center justify-between gap-3">
         <Link className="inline-flex items-center gap-2 text-sm font-bold text-blue-600" href="/admin/settings">
           <ArrowLeft size={18} />
           Back to Settings
         </Link>
         <Link
-          className="inline-flex h-11 items-center gap-2 rounded-lg bg-blue-600 px-4 text-sm font-bold text-white"
+          className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 text-sm font-bold text-white sm:w-auto"
           href={`${config.path}/new`}
         >
           <Plus size={18} />
@@ -410,15 +410,15 @@ export function AdminSettingsResourceListPage({
         </Link>
       </div>
 
-      <section className="rounded-lg border border-slate-200 bg-white shadow-sm">
-        <div className="flex flex-wrap items-center justify-between gap-4 border-b border-slate-200 p-5">
-          <div>
+      <section className="w-full min-w-0 rounded-lg border border-slate-200 bg-white shadow-sm">
+        <div className="flex min-w-0 flex-wrap items-center justify-between gap-4 border-b border-slate-200 p-3 sm:p-5">
+          <div className="min-w-0">
             <h2 className="text-lg font-black text-[#0b1f3a]">{config.listTitle}</h2>
             <p className="mt-1 text-sm text-slate-500">
               {filteredItems.length} record{filteredItems.length === 1 ? "" : "s"}
             </p>
           </div>
-          <div className="flex h-11 w-full items-center gap-3 rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-500 sm:w-80">
+          <div className="flex h-11 w-full min-w-0 items-center gap-3 rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-500 sm:w-80">
             <Search size={18} />
             <input
               aria-label={`Search ${config.title}`}
@@ -431,7 +431,7 @@ export function AdminSettingsResourceListPage({
           </div>
         </div>
 
-        <div className="overflow-x-auto">
+        <div className="hidden w-full min-w-0 overflow-x-auto overscroll-x-contain md:block">
           <table className="w-full min-w-[58rem] border-collapse text-left text-sm">
             <thead className="bg-slate-50 text-xs font-bold uppercase text-slate-500">
               <tr>
@@ -548,6 +548,55 @@ export function AdminSettingsResourceListPage({
               )}
             </tbody>
           </table>
+        </div>
+        <div className="divide-y divide-slate-100 md:hidden">
+          {isLoading ? (
+            <p className="p-4 text-center text-sm font-semibold text-slate-500">Loading {config.title.toLowerCase()}...</p>
+          ) : errorMessage ? (
+            <p className="p-4 text-center text-sm font-semibold text-rose-600">{errorMessage}</p>
+          ) : filteredItems.length === 0 ? (
+            <p className="p-4 text-center text-sm font-semibold text-slate-500">No records found.</p>
+          ) : filteredItems.map((item) => (
+            <article className="grid min-w-0 gap-3 p-4" key={String(itemId(item))}>
+              <div className="flex min-w-0 items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="break-words text-sm font-black text-[#0b1f3a]">{itemName(item)}</p>
+                  {!isUserRole(item) && !isConfiguration(item) && (
+                    <p className="mt-1 break-words text-xs text-slate-500">{item.name.bn} / {item.name.hi}</p>
+                  )}
+                </div>
+                <span className={`shrink-0 rounded-full px-2.5 py-1 text-xs font-bold ${statusClasses(item.isActive)}`}>
+                  {item.isActive ? "Active" : "Inactive"}
+                </span>
+              </div>
+              <dl className="grid min-w-0 grid-cols-1 gap-2 text-sm min-[420px]:grid-cols-2">
+                {config.usesCode && <div className="min-w-0"><dt className="text-xs font-bold text-slate-500">Code</dt><dd className="break-words text-slate-700">{"code" in item ? item.code : "-"}</dd></div>}
+                {config.usesConfiguration && isConfiguration(item) && (
+                  <>
+                    <div className="min-w-0"><dt className="text-xs font-bold text-slate-500">Type</dt><dd className="break-words text-slate-700">{item.type}</dd></div>
+                    <div className="min-w-0"><dt className="text-xs font-bold text-slate-500">Value</dt><dd className="break-words text-slate-700">{item.value}</dd></div>
+                    <div className="min-w-0 min-[420px]:col-span-2"><dt className="text-xs font-bold text-slate-500">Description</dt><dd className="break-words text-slate-700">{item.description || "-"}</dd></div>
+                  </>
+                )}
+                {config.usesState && "stateId" in item && <div className="min-w-0"><dt className="text-xs font-bold text-slate-500">State</dt><dd className="break-words text-slate-700">{stateName(states, item.stateId)}</dd></div>}
+                {config.usesSortOrder && isNamedSetting(item) && <div><dt className="text-xs font-bold text-slate-500">Sort</dt><dd className="text-slate-700">{item.sortOrder ?? 0}</dd></div>}
+                {!config.usesConfiguration && isNamedSetting(item) && <div className="min-w-0 min-[420px]:col-span-2"><dt className="text-xs font-bold text-slate-500">Updated</dt><dd className="text-slate-700">{formatDate(item.updatedAt)}</dd></div>}
+              </dl>
+              <div>
+                {isLockedUserRole(item) ? (
+                  <span className="inline-flex h-9 items-center rounded-lg border border-slate-200 px-3 text-xs font-bold text-slate-500">Locked</span>
+                ) : (
+                  <Link
+                    aria-label={`Edit ${itemName(item)}`}
+                    className="inline-flex min-h-10 items-center gap-2 rounded-lg border border-slate-200 px-3 text-sm font-bold text-blue-600 hover:bg-blue-50"
+                    href={`${config.path}/${encodeURIComponent(String(itemId(item)))}/edit`}
+                  >
+                    <Edit size={16} /> Edit
+                  </Link>
+                )}
+              </div>
+            </article>
+          ))}
         </div>
       </section>
     </AdminShell>
@@ -669,7 +718,7 @@ export function AdminSettingsResourceFormPage({
         Back to {config.title}
       </Link>
 
-      <form className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm" onSubmit={submit}>
+      <form className="w-full min-w-0 rounded-lg border border-slate-200 bg-white p-4 shadow-sm sm:p-5" onSubmit={submit}>
         {isLoading ? (
           <p className="text-sm font-semibold text-slate-500">Loading...</p>
         ) : (
@@ -685,12 +734,12 @@ export function AdminSettingsResourceFormPage({
               </div>
             )}
 
-            <div className="grid gap-4 md:grid-cols-2">
+            <div className="grid min-w-0 gap-4 md:grid-cols-2">
               {config.usesRole && (
-                <label className="grid gap-2 text-sm font-bold text-[#0b1f3a]">
+                <label className="grid min-w-0 gap-2 text-sm font-bold text-[#0b1f3a]">
                   Role
                   <input
-                    className="h-11 rounded-lg border border-slate-200 px-3 font-normal text-slate-700 outline-none focus:border-blue-500 disabled:bg-slate-100 disabled:text-slate-500"
+                    className="h-11 w-full min-w-0 rounded-lg border border-slate-200 px-3 font-normal text-slate-700 outline-none focus:border-blue-500 disabled:bg-slate-100 disabled:text-slate-500"
                     disabled={mode === "edit" && isLockedUserRole(form)}
                     onChange={(event) => updateField("role", event.target.value.toUpperCase())}
                     required
@@ -700,10 +749,10 @@ export function AdminSettingsResourceFormPage({
               )}
 
               {config.usesCode && (
-                <label className="grid gap-2 text-sm font-bold text-[#0b1f3a]">
+                <label className="grid min-w-0 gap-2 text-sm font-bold text-[#0b1f3a]">
                   Code
                   <input
-                    className="h-11 rounded-lg border border-slate-200 px-3 font-normal text-slate-700 outline-none focus:border-blue-500"
+                    className="h-11 w-full min-w-0 rounded-lg border border-slate-200 px-3 font-normal text-slate-700 outline-none focus:border-blue-500"
                     onChange={(event) => updateField("code", event.target.value.toUpperCase())}
                     required
                     value={form.code}
@@ -712,10 +761,10 @@ export function AdminSettingsResourceFormPage({
               )}
 
               {config.usesState && (
-                <label className="grid gap-2 text-sm font-bold text-[#0b1f3a]">
+                <label className="grid min-w-0 gap-2 text-sm font-bold text-[#0b1f3a]">
                   State
                   <select
-                    className="h-11 rounded-lg border border-slate-200 bg-white px-3 font-normal text-slate-700 outline-none focus:border-blue-500"
+                    className="h-11 w-full min-w-0 rounded-lg border border-slate-200 bg-white px-3 font-normal text-slate-700 outline-none focus:border-blue-500"
                     onChange={(event) => updateField("stateId", event.target.value)}
                     required
                     value={form.stateId}
@@ -732,20 +781,20 @@ export function AdminSettingsResourceFormPage({
 
               {config.usesConfiguration && (
                 <>
-                  <label className="grid gap-2 text-sm font-bold text-[#0b1f3a]">
+                  <label className="grid min-w-0 gap-2 text-sm font-bold text-[#0b1f3a]">
                     Key
                     <input
-                      className="h-11 rounded-lg border border-slate-200 px-3 font-normal text-slate-700 outline-none focus:border-blue-500"
+                      className="h-11 w-full min-w-0 rounded-lg border border-slate-200 px-3 font-normal text-slate-700 outline-none focus:border-blue-500"
                       onChange={(event) => updateField("key", event.target.value.toUpperCase())}
                       pattern="[A-Z0-9_]{2,120}"
                       required
                       value={form.key}
                     />
                   </label>
-                  <label className="grid gap-2 text-sm font-bold text-[#0b1f3a]">
+                  <label className="grid min-w-0 gap-2 text-sm font-bold text-[#0b1f3a]">
                     Type
                     <select
-                      className="h-11 rounded-lg border border-slate-200 bg-white px-3 font-normal text-slate-700 outline-none focus:border-blue-500"
+                      className="h-11 w-full min-w-0 rounded-lg border border-slate-200 bg-white px-3 font-normal text-slate-700 outline-none focus:border-blue-500"
                       onChange={(event) =>
                         updateField("type", event.target.value as SettingFormValues["type"])
                       }
@@ -758,20 +807,20 @@ export function AdminSettingsResourceFormPage({
                       <option value="timestamp">Timestamp</option>
                     </select>
                   </label>
-                  <label className="grid gap-2 text-sm font-bold text-[#0b1f3a] md:col-span-2">
+                  <label className="grid min-w-0 gap-2 text-sm font-bold text-[#0b1f3a] md:col-span-2">
                     Value
                     <input
-                      className="h-11 rounded-lg border border-slate-200 px-3 font-normal text-slate-700 outline-none focus:border-blue-500"
+                      className="h-11 w-full min-w-0 rounded-lg border border-slate-200 px-3 font-normal text-slate-700 outline-none focus:border-blue-500"
                       onChange={(event) => updateField("value", event.target.value)}
                       required
                       type={form.type === "integer" ? "number" : "text"}
                       value={form.value}
                     />
                   </label>
-                  <label className="grid gap-2 text-sm font-bold text-[#0b1f3a] md:col-span-2">
+                  <label className="grid min-w-0 gap-2 text-sm font-bold text-[#0b1f3a] md:col-span-2">
                     Description
                     <textarea
-                      className="min-h-24 rounded-lg border border-slate-200 px-3 py-2 font-normal text-slate-700 outline-none focus:border-blue-500"
+                      className="min-h-24 w-full min-w-0 rounded-lg border border-slate-200 px-3 py-2 font-normal text-slate-700 outline-none focus:border-blue-500"
                       onChange={(event) => updateField("description", event.target.value)}
                       value={form.description}
                     />
@@ -781,28 +830,28 @@ export function AdminSettingsResourceFormPage({
 
               {config.usesNames && (
                 <>
-                  <label className="grid gap-2 text-sm font-bold text-[#0b1f3a]">
+                  <label className="grid min-w-0 gap-2 text-sm font-bold text-[#0b1f3a]">
                     Name (English)
                     <input
-                      className="h-11 rounded-lg border border-slate-200 px-3 font-normal text-slate-700 outline-none focus:border-blue-500"
+                      className="h-11 w-full min-w-0 rounded-lg border border-slate-200 px-3 font-normal text-slate-700 outline-none focus:border-blue-500"
                       onChange={(event) => updateField("nameEn", event.target.value)}
                       required
                       value={form.nameEn}
                     />
                   </label>
-                  <label className="grid gap-2 text-sm font-bold text-[#0b1f3a]">
+                  <label className="grid min-w-0 gap-2 text-sm font-bold text-[#0b1f3a]">
                     Name (Bengali)
                     <input
-                      className="h-11 rounded-lg border border-slate-200 px-3 font-normal text-slate-700 outline-none focus:border-blue-500"
+                      className="h-11 w-full min-w-0 rounded-lg border border-slate-200 px-3 font-normal text-slate-700 outline-none focus:border-blue-500"
                       onChange={(event) => updateField("nameBn", event.target.value)}
                       required
                       value={form.nameBn}
                     />
                   </label>
-                  <label className="grid gap-2 text-sm font-bold text-[#0b1f3a]">
+                  <label className="grid min-w-0 gap-2 text-sm font-bold text-[#0b1f3a]">
                     Name (Hindi)
                     <input
-                      className="h-11 rounded-lg border border-slate-200 px-3 font-normal text-slate-700 outline-none focus:border-blue-500"
+                      className="h-11 w-full min-w-0 rounded-lg border border-slate-200 px-3 font-normal text-slate-700 outline-none focus:border-blue-500"
                       onChange={(event) => updateField("nameHi", event.target.value)}
                       required
                       value={form.nameHi}
@@ -812,10 +861,10 @@ export function AdminSettingsResourceFormPage({
               )}
 
               {config.usesSortOrder && (
-                <label className="grid gap-2 text-sm font-bold text-[#0b1f3a]">
+                <label className="grid min-w-0 gap-2 text-sm font-bold text-[#0b1f3a]">
                   Sort Order
                   <input
-                    className="h-11 rounded-lg border border-slate-200 px-3 font-normal text-slate-700 outline-none focus:border-blue-500"
+                    className="h-11 w-full min-w-0 rounded-lg border border-slate-200 px-3 font-normal text-slate-700 outline-none focus:border-blue-500"
                     min={0}
                     onChange={(event) => updateField("sortOrder", event.target.value)}
                     required
@@ -837,16 +886,16 @@ export function AdminSettingsResourceFormPage({
               Active
             </label>
 
-            <div className="flex flex-wrap justify-end gap-3 border-t border-slate-200 pt-5">
+            <div className="flex flex-col justify-end gap-3 border-t border-slate-200 pt-5 sm:flex-row sm:flex-wrap">
               <Link
-                className="inline-flex h-11 items-center gap-2 rounded-lg border border-slate-200 px-5 text-sm font-bold text-slate-700"
+                className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-lg border border-slate-200 px-5 text-sm font-bold text-slate-700 sm:w-auto"
                 href={config.path}
               >
                 <RotateCcw size={18} />
                 Cancel
               </Link>
               <button
-                className="inline-flex h-11 items-center gap-2 rounded-lg bg-blue-600 px-5 text-sm font-bold text-white disabled:cursor-not-allowed disabled:opacity-60"
+                className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-lg bg-blue-600 px-5 text-sm font-bold text-white disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
                 disabled={
                   isSaving ||
                   (mode === "edit" && config.usesRole && isLockedUserRole(form))

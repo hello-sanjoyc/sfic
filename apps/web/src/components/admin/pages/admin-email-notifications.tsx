@@ -211,24 +211,24 @@ export function AdminEmailNotificationsPage() {
   ];
   return (
     <AdminShell eyebrow="Review outbound email activity" title="Email Notification">
-      <section className="rounded-lg border border-slate-200 bg-white shadow-sm">
-        <div className="flex flex-wrap items-center justify-between gap-4 border-b border-slate-200 p-5">
-          <div className="flex items-center gap-3">
+      <section className="w-full min-w-0 rounded-lg border border-slate-200 bg-white shadow-sm">
+        <div className="flex min-w-0 flex-wrap items-center justify-between gap-4 border-b border-slate-200 p-3 sm:p-5">
+          <div className="flex min-w-0 items-center gap-3">
             <Mail className="text-blue-600" size={22} />
-            <div>
+            <div className="min-w-0">
               <h2 className="text-lg font-black">Email Sending Register</h2>
               <p className="text-sm text-slate-500">Notification delivery batches and current sending status</p>
             </div>
           </div>
           <Link
-            className="inline-flex h-11 items-center gap-2 rounded-lg bg-blue-600 px-4 text-sm font-bold text-white"
+            className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 text-sm font-bold text-white sm:w-auto"
             href="/admin/email-notifications/new"
           >
             <Plus size={18} />
             New Notification
           </Link>
         </div>
-        <div className="overflow-x-auto">
+        <div className="hidden w-full min-w-0 overflow-x-auto overscroll-x-contain md:block">
           <table className="w-full min-w-[78rem] border-collapse text-left text-sm">
             <thead className="bg-slate-50 text-xs font-bold uppercase text-slate-500">
               <tr>
@@ -306,11 +306,44 @@ export function AdminEmailNotificationsPage() {
             </tbody>
           </table>
         </div>
-        <div className="flex flex-wrap items-center justify-between gap-3 border-t border-slate-200 p-4 text-sm text-slate-600">
+        <div className="divide-y divide-slate-100 md:hidden">
+          {isLoading ? (
+            <p className="p-4 text-center text-sm font-semibold text-slate-500">Loading email notifications...</p>
+          ) : errorMessage ? (
+            <p className="p-4 text-center text-sm font-semibold text-rose-600">{errorMessage}</p>
+          ) : notifications.length === 0 ? (
+            <p className="p-4 text-center text-sm font-semibold text-slate-500">No email notifications have been created yet.</p>
+          ) : notifications.map((notification) => (
+            <article className="grid min-w-0 gap-3 p-4" key={notification.id}>
+              <div className="flex min-w-0 items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="break-words text-sm font-black text-[#0b1f3a]">{notification.name}</p>
+                  <p className="break-words text-sm text-slate-700">{notification.subject}</p>
+                </div>
+                <span className={`max-w-[45%] shrink-0 whitespace-normal break-words rounded-full px-2.5 py-1 text-center text-xs font-bold ${notificationLifecycleClasses(notification.status)}`}>
+                  {notificationLifecycleLabel(notification.status)}
+                </span>
+              </div>
+              <dl className="grid grid-cols-1 gap-2 text-sm min-[420px]:grid-cols-2">
+                <div><dt className="text-xs font-bold text-slate-500">Created</dt><dd className="text-slate-700">{formatDate(notification.createdAt)}</dd></div>
+                <div><dt className="text-xs font-bold text-slate-500">Schedule</dt><dd className="text-slate-700">{formatDate(notification.scheduledFor)}</dd></div>
+                <div><dt className="text-xs font-bold text-slate-500">Recipients</dt><dd className="font-bold text-slate-700">{notification.totalRecipients}</dd></div>
+                <div><dt className="text-xs font-bold text-slate-500">Sent / Failed</dt><dd className="text-slate-700">{notification.sent} / {notification.failed}</dd></div>
+              </dl>
+              <Link
+                className="inline-flex min-h-10 items-center gap-1 self-start text-sm font-bold text-blue-600"
+                href={notification.status === "draft" ? `/admin/email-notifications/${notification.id}/edit` : `/admin/email-notifications/${notification.id}/analytics`}
+              >
+                {notification.status === "draft" ? "Manage draft" : "View analytics"} <ArrowRight size={15} />
+              </Link>
+            </article>
+          ))}
+        </div>
+        <div className="flex flex-col items-start justify-between gap-3 border-t border-slate-200 p-3 text-sm text-slate-600 sm:flex-row sm:items-center sm:p-4">
           <div className="font-semibold">
             Showing {resultStart}-{resultEnd} of {totalNotifications}
           </div>
-          <div className="flex flex-wrap items-center gap-3">
+          <div className="flex w-full flex-wrap items-center justify-between gap-3 sm:w-auto sm:justify-start">
             <label className="inline-flex items-center gap-2 font-semibold">
               Rows
               <select
@@ -358,7 +391,7 @@ function AnalyticsCard({
   value,
 }: Readonly<{ icon: typeof Mail; label: string; value: number }>) {
   return (
-    <div className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
+    <div className="min-w-0 rounded-lg border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
       <div className="flex items-center justify-between gap-3">
         <p className="text-sm font-bold text-slate-500">{label}</p>
         <Icon className="text-blue-600" size={20} />
@@ -488,11 +521,11 @@ export function AdminEmailNotificationAnalyticsPage({
 
       {!isLoading && !errorMessage && notification && (
         <>
-      <section className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
+      <section className="w-full min-w-0 rounded-lg border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
-            <h2 className="text-xl font-black text-[#0b1f3a]">{notification.name}</h2>
-            <p className="mt-1 text-sm font-semibold text-slate-500">{notification.subject}</p>
+            <h2 className="break-words text-xl font-black text-[#0b1f3a]">{notification.name}</h2>
+            <p className="mt-1 break-words text-sm font-semibold text-slate-500">{notification.subject}</p>
           </div>
           <div className="rounded-full bg-blue-50 px-3 py-1 text-xs font-black uppercase text-blue-700">
             {progress}% complete
@@ -509,21 +542,21 @@ export function AdminEmailNotificationAnalyticsPage({
         </div>
       </section>
 
-      <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <section className="grid w-full min-w-0 grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4 xl:grid-cols-4">
         {cards.map(([label, value, Icon]) => (
           <AnalyticsCard icon={Icon} key={label} label={label} value={value} />
         ))}
       </section>
 
-      <section className="rounded-lg border border-slate-200 bg-white shadow-sm">
-        <div className="flex items-center gap-3 border-b border-slate-200 p-5">
+      <section className="w-full min-w-0 rounded-lg border border-slate-200 bg-white shadow-sm">
+        <div className="flex min-w-0 items-center gap-3 border-b border-slate-200 p-3 sm:p-5">
           <BarChart3 className="text-blue-600" size={22} />
           <div>
             <h2 className="text-lg font-black">Recipient Status</h2>
             <p className="text-sm text-slate-500">Per-recipient delivery attempts and outcomes</p>
           </div>
         </div>
-        <div className="overflow-x-auto">
+        <div className="hidden w-full min-w-0 overflow-x-auto overscroll-x-contain md:block">
           <table className="w-full min-w-[68rem] border-collapse text-left text-sm">
             <thead className="bg-slate-50 text-xs font-bold uppercase text-slate-500">
               <tr>
@@ -563,11 +596,33 @@ export function AdminEmailNotificationAnalyticsPage({
             </tbody>
           </table>
         </div>
-        <div className="flex flex-wrap items-center justify-between gap-3 border-t border-slate-200 p-4 text-sm text-slate-600">
+        <div className="divide-y divide-slate-100 md:hidden">
+          {recipients.length === 0 ? (
+            <p className="p-4 text-center text-sm font-semibold text-slate-500">No recipient rows are available for this notification.</p>
+          ) : recipients.map((recipient) => (
+            <article className="grid min-w-0 gap-3 p-4" key={recipient.id}>
+              <div className="flex min-w-0 items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="break-words text-sm font-black text-[#0b1f3a]">{recipient.recipientName ?? "-"}</p>
+                  <p className="break-all text-sm text-slate-700">{recipient.email}</p>
+                </div>
+                <span className={`max-w-[45%] shrink-0 whitespace-normal break-words rounded-full px-2.5 py-1 text-center text-xs font-bold ${statusClasses(recipient.deliveryStatus)}`}>
+                  {recipient.deliveryStatus}
+                </span>
+              </div>
+              <dl className="grid grid-cols-1 gap-2 text-sm min-[420px]:grid-cols-2">
+                <div><dt className="text-xs font-bold text-slate-500">Attempts</dt><dd className="text-slate-700">{recipient.attemptCount}</dd></div>
+                <div><dt className="text-xs font-bold text-slate-500">Last Attempt</dt><dd className="text-slate-700">{recipient.lastAttempt ? formatDate(recipient.lastAttempt) : "-"}</dd></div>
+                <div className="min-[420px]:col-span-2 min-w-0"><dt className="text-xs font-bold text-slate-500">Failure Reason</dt><dd className="break-words text-slate-700">{recipient.failureReason ?? "-"}</dd></div>
+              </dl>
+            </article>
+          ))}
+        </div>
+        <div className="flex flex-col items-start justify-between gap-3 border-t border-slate-200 p-3 text-sm text-slate-600 sm:flex-row sm:items-center sm:p-4">
           <div className="font-semibold">
             Showing {totalRecipients === 0 ? 0 : (recipientPage - 1) * recipientPageSize + 1}-{Math.min(recipientPage * recipientPageSize, totalRecipients)} of {totalRecipients}
           </div>
-          <div className="flex flex-wrap items-center gap-3">
+          <div className="flex w-full flex-wrap items-center justify-between gap-3 sm:w-auto sm:justify-start">
             <label className="inline-flex items-center gap-2 font-semibold">
               Rows
               <select
@@ -669,8 +724,8 @@ function PreviewPanel({
   const recipient = mode === "individual" ? draft.recipientEmail : draft.emails.split(",").map((email) => email.trim()).filter(Boolean)[0] ?? "bulk recipient list";
 
   return (
-    <section className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
-      <div className="flex items-center gap-3">
+    <section className="w-full min-w-0 rounded-lg border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
+      <div className="flex min-w-0 items-center gap-3">
         <Mail className="text-blue-600" size={21} />
         <h2 className="text-lg font-black">Preview Email</h2>
       </div>
@@ -681,15 +736,15 @@ function PreviewPanel({
         </div>
         <div>
           <p className="text-xs font-black uppercase text-slate-500">Recipient</p>
-          <p className="mt-1 font-semibold text-[#0b1f3a]">{recipient || "Not selected"}</p>
+          <p className="mt-1 break-all font-semibold text-[#0b1f3a]">{recipient || "Not selected"}</p>
         </div>
         <div>
           <p className="text-xs font-black uppercase text-slate-500">Subject</p>
-          <p className="mt-1 font-semibold text-[#0b1f3a]">{draft.subject || "No subject yet"}</p>
+          <p className="mt-1 break-words font-semibold text-[#0b1f3a]">{draft.subject || "No subject yet"}</p>
         </div>
         <div>
           <p className="text-xs font-black uppercase text-slate-500">Rendered Body</p>
-          <div className="mt-2 min-h-40 whitespace-pre-wrap rounded-md border border-slate-200 bg-slate-50 p-4 font-normal leading-7 text-slate-700">
+          <div className="mt-2 min-h-40 break-words whitespace-pre-wrap rounded-md border border-slate-200 bg-slate-50 p-4 font-normal leading-7 text-slate-700">
             {draft.body || "Message body preview will appear here."}
           </div>
         </div>
@@ -871,14 +926,14 @@ export function AdminEmailNotificationNewPage({
 
   return (
     <AdminShell eyebrow="Compose and prepare participant email notifications" title={isEditing ? "Modify Notification" : "New Notification"}>
-      <div className="flex flex-wrap items-center justify-between gap-3">
+      <div className="flex min-w-0 flex-wrap items-center justify-between gap-3">
         <Link className="inline-flex items-center gap-2 text-sm font-bold text-blue-600" href="/admin/email-notifications">
           <ArrowLeft size={16} />
           Back to Email Notification
         </Link>
-        <div className="flex flex-wrap items-center gap-3">
+        <div className="flex w-full flex-col items-stretch gap-2 sm:w-auto sm:flex-row sm:items-center sm:gap-3">
           <button
-            className="inline-flex h-10 items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 text-sm font-bold text-slate-700"
+            className="inline-flex min-h-10 items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-bold text-slate-700"
             disabled={isDeleting || isSubmitting}
             onClick={clearDraft}
             type="button"
@@ -888,7 +943,7 @@ export function AdminEmailNotificationNewPage({
           </button>
           {isEditing && (
             <button
-              className="inline-flex h-10 items-center gap-2 rounded-lg border border-rose-200 bg-white px-4 text-sm font-bold text-rose-600 transition hover:bg-rose-50 disabled:cursor-not-allowed disabled:opacity-50"
+              className="inline-flex min-h-10 items-center justify-center gap-2 rounded-lg border border-rose-200 bg-white px-4 py-2 text-sm font-bold text-rose-600 transition hover:bg-rose-50 disabled:cursor-not-allowed disabled:opacity-50"
               disabled={isDeleting || isSubmitting}
               onClick={deleteDraft}
               type="button"
@@ -900,7 +955,7 @@ export function AdminEmailNotificationNewPage({
         </div>
       </div>
 
-      <section className="rounded-lg border border-slate-200 bg-white p-2 shadow-sm">
+      <section className="w-full min-w-0 rounded-lg border border-slate-200 bg-white p-2 shadow-sm">
         <div className="grid grid-cols-2 gap-2">
           {[
             ["individual", "Individual Email"],
@@ -932,9 +987,9 @@ export function AdminEmailNotificationNewPage({
         </section>
       )}
 
-      <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_24rem]">
-        <section className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
-          <div className="flex items-center gap-3">
+      <div className="grid w-full min-w-0 gap-4 xl:grid-cols-[minmax(0,1fr)_24rem]">
+        <section className="w-full min-w-0 rounded-lg border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
+          <div className="flex min-w-0 items-center gap-3">
             <Send className="text-blue-600" size={21} />
             <div>
               <h2 className="text-lg font-black">{mode === "individual" ? "Individual Email" : "Bulk Email"}</h2>
@@ -977,9 +1032,9 @@ export function AdminEmailNotificationNewPage({
           </div>
         </section>
 
-        <div className="grid gap-4 content-start">
-          <section className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
-            <div className="flex items-center gap-3">
+        <div className="grid min-w-0 content-start gap-4">
+          <section className="w-full min-w-0 rounded-lg border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
+            <div className="flex min-w-0 items-center gap-3">
               <Clock3 className="text-blue-600" size={21} />
               <h2 className="text-lg font-black">Email Delivery Settings</h2>
             </div>
@@ -992,8 +1047,8 @@ export function AdminEmailNotificationNewPage({
           </section>
 
           {mode === "bulk" && (
-            <section className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
-              <div className="flex items-center gap-3">
+            <section className="w-full min-w-0 rounded-lg border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
+              <div className="flex min-w-0 items-center gap-3">
                 <ShieldCheck className="text-blue-600" size={21} />
                 <h2 className="text-lg font-black">Delivery Safeguards</h2>
               </div>
@@ -1021,10 +1076,10 @@ export function AdminEmailNotificationNewPage({
 
       <PreviewPanel draft={draft} mode={mode} />
 
-      <section className="flex flex-wrap items-center justify-end gap-3 rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
+      <section className="flex w-full min-w-0 flex-col items-stretch justify-end gap-3 rounded-lg border border-slate-200 bg-white p-4 shadow-sm sm:flex-row sm:flex-wrap sm:items-center sm:p-5">
         {actionMessage && (
           <p
-            className={`mr-auto text-sm font-semibold ${
+            className={`text-sm font-semibold sm:mr-auto ${
               isDuplicateNotificationMessage ? "text-rose-600" : "text-emerald-700"
             }`}
           >
@@ -1032,7 +1087,7 @@ export function AdminEmailNotificationNewPage({
           </p>
         )}
         <button
-          className="inline-flex h-11 items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 text-sm font-bold text-slate-700 transition hover:bg-slate-50"
+          className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-bold text-slate-700 transition hover:bg-slate-50"
           disabled={isSubmitting || isDeleting}
           onClick={saveDraft}
           type="button"
@@ -1041,7 +1096,7 @@ export function AdminEmailNotificationNewPage({
           {isSubmitting ? "Saving..." : "Save Draft"}
         </button>
         <button
-          className="inline-flex h-11 items-center gap-2 rounded-lg bg-blue-600 px-4 text-sm font-bold text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-slate-300 disabled:text-slate-600"
+          className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-bold text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-slate-300 disabled:text-slate-600"
           disabled={isSubmitting || isDeleting || !canSubmit}
           onClick={sendNotification}
           type="button"
@@ -1055,7 +1110,7 @@ export function AdminEmailNotificationNewPage({
         </button>
         {isEditing && (
           <button
-            className="inline-flex h-11 items-center gap-2 rounded-lg border border-rose-200 bg-white px-4 text-sm font-bold text-rose-600 transition hover:bg-rose-50 disabled:cursor-not-allowed disabled:opacity-50"
+            className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg border border-rose-200 bg-white px-4 py-2 text-sm font-bold text-rose-600 transition hover:bg-rose-50 disabled:cursor-not-allowed disabled:opacity-50"
             disabled={isDeleting || isSubmitting}
             onClick={deleteDraft}
             type="button"

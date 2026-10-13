@@ -221,12 +221,12 @@ function Section({
   title: string;
 }>) {
   return (
-    <section className="rounded-lg border border-slate-200 bg-white shadow-sm">
-      <div className="flex items-center gap-3 border-b border-slate-200 p-5">
+    <section className="w-full min-w-0 rounded-lg border border-slate-200 bg-white shadow-sm">
+      <div className="flex min-w-0 items-center gap-3 border-b border-slate-200 p-3 sm:p-5">
         <Icon className="text-blue-600" size={21} />
-        <h2 className="text-lg font-black">{title}</h2>
+        <h2 className="min-w-0 break-words text-lg font-black">{title}</h2>
       </div>
-      <div className="grid gap-4 p-5">{children}</div>
+      <div className="grid min-w-0 gap-4 p-4 sm:p-5">{children}</div>
     </section>
   );
 }
@@ -245,10 +245,10 @@ function TextInput({
   value: string;
 }>) {
   return (
-    <label className="grid gap-1 text-sm font-bold text-[#0b1f3a]">
+    <label className="grid min-w-0 gap-1 text-sm font-bold text-[#0b1f3a]">
       {label}
       <input
-        className="h-11 rounded-lg border border-slate-200 px-3 text-sm font-medium outline-none focus:border-blue-500"
+        className="h-11 w-full min-w-0 rounded-lg border border-slate-200 px-3 text-sm font-medium outline-none focus:border-blue-500"
         onChange={(event) => onChange(name, event.target.value)}
         type={type}
         value={value}
@@ -269,10 +269,10 @@ function TextArea({
   value: string;
 }>) {
   return (
-    <label className="grid gap-1 text-sm font-bold text-[#0b1f3a]">
+    <label className="grid min-w-0 gap-1 text-sm font-bold text-[#0b1f3a]">
       {label}
       <textarea
-        className="min-h-24 rounded-lg border border-slate-200 px-3 py-2 text-sm font-medium outline-none focus:border-blue-500"
+        className="min-h-24 w-full min-w-0 rounded-lg border border-slate-200 px-3 py-2 text-sm font-medium outline-none focus:border-blue-500"
         onChange={(event) => onChange(name, event.target.value)}
         value={value}
       />
@@ -294,10 +294,10 @@ function SelectField({
   value: string;
 }>) {
   return (
-    <label className="grid gap-1 text-sm font-bold text-[#0b1f3a]">
+    <label className="grid min-w-0 gap-1 text-sm font-bold text-[#0b1f3a]">
       {label}
       <select
-        className="h-11 rounded-lg border border-slate-200 bg-white px-3 text-sm font-medium outline-none focus:border-blue-500"
+        className="h-11 w-full min-w-0 rounded-lg border border-slate-200 bg-white px-3 text-sm font-medium outline-none focus:border-blue-500"
         onChange={(event) => onChange(name, event.target.value)}
         value={value}
       >
@@ -562,7 +562,7 @@ export function AdminApplicationEditPage({
 
       {!isLoading && editForm && (
         <form
-          className="grid gap-5"
+          className="grid w-full min-w-0 gap-5"
           onSubmit={(event) => {
             event.preventDefault();
             saveApplication();
@@ -817,7 +817,7 @@ export function AdminApplicationEditPage({
           </Section>
 
           <Section icon={Users} title="Team Members">
-            <div className="overflow-x-auto">
+            <div className="w-full min-w-0 overflow-x-auto overscroll-x-contain">
               <table className="w-full min-w-[42rem] text-left text-sm">
                 <thead className="bg-slate-50 text-xs font-bold uppercase text-slate-500">
                   <tr>
@@ -896,15 +896,15 @@ export function AdminApplicationEditPage({
             </div>
           </Section>
 
-          <section className="flex flex-wrap justify-end gap-2 rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
+          <section className="flex w-full min-w-0 flex-col justify-end gap-2 rounded-lg border border-slate-200 bg-white p-4 shadow-sm sm:flex-row sm:flex-wrap sm:p-5">
             <Link
-              className="inline-flex h-11 items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 text-sm font-bold text-[#0b1f3a]"
+              className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-4 text-sm font-bold text-[#0b1f3a] sm:w-auto"
               href={`/admin/applications/${applicationId}`}
             >
               Cancel
             </Link>
             <button
-              className="inline-flex h-11 items-center gap-2 rounded-lg bg-blue-600 px-4 text-sm font-bold text-white disabled:cursor-not-allowed disabled:opacity-50"
+              className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 text-sm font-bold text-white disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto"
               disabled={isSaving}
               type="submit"
             >
@@ -918,7 +918,7 @@ export function AdminApplicationEditPage({
       {documentToDelete && (
         <div className="fixed inset-0 z-50 grid place-items-center bg-slate-950/45 p-4">
           <div className="w-full max-w-md rounded-lg bg-white shadow-xl">
-            <div className="border-b border-slate-200 p-5">
+            <div className="border-b border-slate-200 p-4 sm:p-5">
               <h2 className="text-lg font-black text-[#0b1f3a]">
                 Delete Document
               </h2>
@@ -927,9 +927,9 @@ export function AdminApplicationEditPage({
                 remove the document record and file from storage.
               </p>
             </div>
-            <div className="flex flex-wrap justify-end gap-2 p-5">
+            <div className="flex flex-col justify-end gap-2 p-4 sm:flex-row sm:flex-wrap sm:p-5">
               <button
-                className="inline-flex h-10 items-center rounded-lg border border-slate-200 bg-white px-4 text-sm font-bold text-[#0b1f3a]"
+                className="inline-flex h-10 w-full items-center justify-center rounded-lg border border-slate-200 bg-white px-4 text-sm font-bold text-[#0b1f3a] sm:w-auto"
                 disabled={isDeletingDocument}
                 onClick={() => setDocumentToDelete(null)}
                 type="button"
@@ -937,7 +937,7 @@ export function AdminApplicationEditPage({
                 Cancel
               </button>
               <button
-                className="inline-flex h-10 items-center gap-2 rounded-lg bg-rose-600 px-4 text-sm font-bold text-white disabled:cursor-not-allowed disabled:opacity-50"
+                className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-lg bg-rose-600 px-4 text-sm font-bold text-white disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto"
                 disabled={isDeletingDocument}
                 onClick={deleteDocument}
                 type="button"

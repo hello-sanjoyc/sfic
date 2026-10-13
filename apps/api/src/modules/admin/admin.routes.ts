@@ -38,6 +38,7 @@ export const adminRoutes: FastifyPluginAsync = async (app) => {
         "/dashboard-challenge-category-counts",
         adminController.getDashboardChallengeCategoryCounts,
     );
+    app.get("/server-health", adminController.getServerHealth);
     app.get("/page-view-analytics", adminController.getPageViewAnalytics);
     app.get("/email-notifications", adminController.getEmailNotifications);
     app.post("/email-notifications", adminController.createEmailNotification);

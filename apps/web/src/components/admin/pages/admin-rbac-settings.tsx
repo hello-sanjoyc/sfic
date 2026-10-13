@@ -263,7 +263,7 @@ export function AdminRbacSettingsPage() {
       eyebrow="Role based access configuration"
       title="RBAC Settings"
     >
-      <div className="flex flex-wrap items-center justify-between gap-3">
+      <div className="flex min-w-0 flex-wrap items-center justify-between gap-3">
         <Link
           className="inline-flex items-center gap-2 text-sm font-bold text-blue-600"
           href="/admin/settings"
@@ -272,7 +272,7 @@ export function AdminRbacSettingsPage() {
           Back to Settings
         </Link>
         <button
-          className="inline-flex h-11 items-center gap-2 rounded-lg bg-blue-600 px-4 text-sm font-bold text-white"
+          className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 text-sm font-bold text-white sm:w-auto"
           onClick={openCreateForm}
           type="button"
         >
@@ -289,7 +289,7 @@ export function AdminRbacSettingsPage() {
 
       {isFormOpen && (
         <form
-          className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm"
+          className="w-full min-w-0 rounded-lg border border-slate-200 bg-white p-4 shadow-sm sm:p-5"
           onSubmit={submit}
         >
           <div className="flex flex-wrap items-start justify-between gap-3 border-b border-slate-200 pb-4">
@@ -311,11 +311,11 @@ export function AdminRbacSettingsPage() {
             </button>
           </div>
 
-          <div className="mt-5 grid gap-4 md:grid-cols-2">
-            <label className="grid gap-2 text-sm font-bold text-[#0b1f3a]">
+          <div className="mt-5 grid min-w-0 gap-4 md:grid-cols-2">
+            <label className="grid min-w-0 gap-2 text-sm font-bold text-[#0b1f3a]">
               Role
               <select
-                className="h-11 rounded-lg border border-slate-200 bg-white px-3 font-normal text-slate-700 outline-none focus:border-blue-500"
+                className="h-11 w-full min-w-0 rounded-lg border border-slate-200 bg-white px-3 font-normal text-slate-700 outline-none focus:border-blue-500"
                 disabled={isRolesLoading || !roleOptionsForForm.length}
                 onChange={(event) => updateField("role", event.target.value)}
                 required
@@ -328,10 +328,10 @@ export function AdminRbacSettingsPage() {
                 ))}
               </select>
             </label>
-            <label className="grid gap-2 text-sm font-bold text-[#0b1f3a]">
+            <label className="grid min-w-0 gap-2 text-sm font-bold text-[#0b1f3a]">
               Scope
               <select
-                className="h-11 rounded-lg border border-slate-200 bg-white px-3 font-normal text-slate-700 outline-none focus:border-blue-500"
+                className="h-11 w-full min-w-0 rounded-lg border border-slate-200 bg-white px-3 font-normal text-slate-700 outline-none focus:border-blue-500"
                 onChange={(event) => updateField("scope", event.target.value)}
                 required
                 value={form.scope}
@@ -343,20 +343,20 @@ export function AdminRbacSettingsPage() {
                 ))}
               </select>
             </label>
-            <label className="grid gap-2 text-sm font-bold text-[#0b1f3a] md:col-span-2">
+            <label className="grid min-w-0 gap-2 text-sm font-bold text-[#0b1f3a] md:col-span-2">
               Description
               <textarea
-                className="min-h-24 rounded-lg border border-slate-200 px-3 py-2 font-normal text-slate-700 outline-none focus:border-blue-500"
+                className="min-h-24 w-full min-w-0 rounded-lg border border-slate-200 px-3 py-2 font-normal text-slate-700 outline-none focus:border-blue-500"
                 onChange={(event) => updateField("description", event.target.value)}
                 required
                 value={form.description}
               />
             </label>
             {moduleColumns.map(([key, label]) => (
-              <label className="grid gap-2 text-sm font-bold text-[#0b1f3a]" key={key}>
+              <label className="grid min-w-0 gap-2 text-sm font-bold text-[#0b1f3a]" key={key}>
                 {label} Access
                 <select
-                  className="h-11 rounded-lg border border-slate-200 bg-white px-3 font-normal text-slate-700 outline-none focus:border-blue-500"
+                  className="h-11 w-full min-w-0 rounded-lg border border-slate-200 bg-white px-3 font-normal text-slate-700 outline-none focus:border-blue-500"
                   onChange={(event) => updateField(key, event.target.value)}
                   required
                   value={form[key]}
@@ -369,10 +369,10 @@ export function AdminRbacSettingsPage() {
                 </select>
               </label>
             ))}
-            <label className="grid gap-2 text-sm font-bold text-[#0b1f3a] md:col-span-2">
+            <label className="grid min-w-0 gap-2 text-sm font-bold text-[#0b1f3a] md:col-span-2">
               Scope Notes
               <textarea
-                className="min-h-28 rounded-lg border border-slate-200 px-3 py-2 font-normal text-slate-700 outline-none focus:border-blue-500"
+                className="min-h-28 w-full min-w-0 rounded-lg border border-slate-200 px-3 py-2 font-normal text-slate-700 outline-none focus:border-blue-500"
                 onChange={(event) => updateField("scopeNotes", event.target.value)}
                 placeholder="One note per line"
                 value={form.scopeNotes}
@@ -396,16 +396,16 @@ export function AdminRbacSettingsPage() {
             </div>
           )}
 
-          <div className="mt-5 flex flex-wrap justify-end gap-3 border-t border-slate-200 pt-5">
+          <div className="mt-5 flex flex-col justify-end gap-3 border-t border-slate-200 pt-5 sm:flex-row sm:flex-wrap">
             <button
-              className="inline-flex h-11 items-center rounded-lg border border-slate-200 px-5 text-sm font-bold text-slate-700"
+              className="inline-flex h-11 w-full items-center justify-center rounded-lg border border-slate-200 px-5 text-sm font-bold text-slate-700 sm:w-auto"
               onClick={() => setIsFormOpen(false)}
               type="button"
             >
               Cancel
             </button>
             <button
-                className="inline-flex h-11 items-center gap-2 rounded-lg bg-blue-600 px-5 text-sm font-bold text-white disabled:cursor-not-allowed disabled:opacity-60"
+                className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-lg bg-blue-600 px-5 text-sm font-bold text-white disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
                 disabled={isSaving || isRolesLoading || !roleOptionsForForm.length}
                 type="submit"
               >
@@ -416,8 +416,8 @@ export function AdminRbacSettingsPage() {
         </form>
       )}
 
-      <section className="rounded-lg border border-slate-200 bg-white shadow-sm">
-        <div className="border-b border-slate-200 p-5">
+      <section className="w-full min-w-0 rounded-lg border border-slate-200 bg-white shadow-sm">
+        <div className="border-b border-slate-200 p-4 sm:p-5">
           <div>
             <p className="text-xs font-black uppercase tracking-wide text-blue-600">
               Access matrix
@@ -431,7 +431,7 @@ export function AdminRbacSettingsPage() {
           </div>
         </div>
 
-        <div className="overflow-x-auto">
+        <div className="hidden w-full min-w-0 overflow-x-auto overscroll-x-contain md:block">
           <table className="w-full min-w-[76rem] border-collapse text-left text-sm">
             <thead className="bg-slate-50 text-xs font-black uppercase text-slate-500">
               <tr>
@@ -503,17 +503,53 @@ export function AdminRbacSettingsPage() {
             </tbody>
           </table>
         </div>
+        <div className="divide-y divide-slate-100 md:hidden">
+          {isLoading ? (
+            <p className="p-4 text-center text-sm font-semibold text-slate-500">Loading RBAC rules...</p>
+          ) : !rules.length ? (
+            <p className="p-4 text-center text-sm font-semibold text-slate-500">No RBAC rules configured.</p>
+          ) : rules.map((rule) => (
+            <article className="grid min-w-0 gap-3 p-4" key={rule.id}>
+              <div className="flex min-w-0 items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <h3 className="break-words text-sm font-black text-[#0b1f3a]">{rule.role}</h3>
+                  <p className="mt-1 break-words text-sm text-slate-600">{rule.description}</p>
+                </div>
+                <span className={`shrink-0 rounded-full px-2.5 py-1 text-xs font-bold ${rule.isActive ? "bg-emerald-50 text-emerald-700" : "bg-rose-50 text-rose-700"}`}>
+                  {rule.isActive ? "Active" : "Inactive"}
+                </span>
+              </div>
+              <p className="text-xs font-semibold text-slate-500">Scope: <span className="text-slate-700">{rule.scope}</span></p>
+              <dl className="grid min-w-0 grid-cols-1 gap-3 min-[420px]:grid-cols-2">
+                {moduleColumns.map(([key, label]) => (
+                  <div className="min-w-0" key={key}>
+                    <dt className="mb-1 text-xs font-bold text-slate-500">{label}</dt>
+                    <dd>{accessBadge(rule[key])}</dd>
+                  </div>
+                ))}
+              </dl>
+              <button
+                aria-label={`Edit ${rule.role}`}
+                className="inline-flex min-h-10 items-center gap-2 self-start rounded-lg border border-slate-200 px-3 text-sm font-bold text-blue-600 hover:bg-blue-50"
+                onClick={() => openEditForm(rule)}
+                type="button"
+              >
+                <Edit size={16} /> Edit rule
+              </button>
+            </article>
+          ))}
+        </div>
       </section>
 
-      <section className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
+      <section className="w-full min-w-0 rounded-lg border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
         <h2 className="text-lg font-black text-[#0b1f3a]">
           Scope Enforcement Notes
         </h2>
-        <div className="mt-4 grid gap-3 md:grid-cols-2">
+        <div className="mt-4 grid min-w-0 gap-3 md:grid-cols-2">
           {activeRules.flatMap((rule) =>
             rule.scopeNotes.map((note) => (
               <div
-                className="flex gap-3 rounded-lg border border-slate-200 bg-slate-50 p-4 text-sm font-semibold leading-6 text-slate-700"
+                className="flex min-w-0 gap-3 rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm font-semibold leading-6 text-slate-700 sm:p-4"
                 key={`${rule.id}-${note}`}
               >
                 <CheckCircle2 className="mt-0.5 shrink-0 text-emerald-600" size={18} />

@@ -61,6 +61,7 @@ export const endpoints = {
         dashboardCounts: `${api}/admin/dashboard-counts`,
         dashboardDistrictCounts: `${api}/admin/dashboard-district-counts`,
         dashboardOrganisationTypeCounts: `${api}/admin/dashboard-organisation-type-counts`,
+        serverHealth: `${api}/admin/server-health`,
         emailNotificationAnalytics: (id: string | number) =>
             `${api}/admin/email-notifications/${id}/analytics`,
         emailNotification: (id: string | number) =>

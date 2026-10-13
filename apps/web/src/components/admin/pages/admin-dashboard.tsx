@@ -2,13 +2,18 @@
 
 import {
   Building2,
+  Cpu,
   FileText,
+  Folder,
+  HardDrive,
   MapPinned,
+  MemoryStick,
+  Server,
   Tags,
   User,
   Users,
 } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { AdminShell } from "@/components/admin/common/admin-shell";
 import { AUTH_STORAGE_KEY } from "@/components/auth";
 import { apiClient } from "@/lib/api-client";
@@ -44,6 +49,7 @@ type OrganisationTypeCountKey =
   | "juniorUndergraduate"
   | "openCommunityGroup"
   | "openGraduate"
+  | "openGovernmentFunded"
   | "openProfessional"
   | "openStartup";
 
@@ -98,6 +104,47 @@ type AdminSession = {
     role?: string;
   };
 };
+
+type AdminServerHealthResponse = {
+  success: true;
+  timestamp: string;
+  server: {
+    hostname: string;
+    osName?: string;
+    osVersion?: string;
+    platform: string;
+    architecture: string;
+    release: string;
+    uptimeSeconds: number;
+  };
+  cpu: {
+    cores: number;
+    usagePercent: number;
+    loadAverage: number[];
+  };
+  memory: {
+    totalGB: number;
+    usedGB: number;
+    freeGB: number;
+    usagePercent: number;
+  };
+  disk: {
+    path: string;
+    totalGB: number;
+    usedGB: number;
+    freeGB: number;
+    availableGB: number;
+    usagePercent: number;
+  };
+  uploads: {
+    path: string;
+    sizeBytes?: number;
+    sizeGB: number;
+    fileCount: number;
+  };
+};
+
+const dashboardRefreshMs = 60_000;
 
 const defaultCountCards: DashboardCountCard[] = [
   {
@@ -224,6 +271,12 @@ const defaultOrganisationTypeCards: OrganisationTypeCountCard[] = [
     label: "Undergraduate",
   },
   { count: 0, detail: "Organisation Type", key: "openGraduate", label: "Graduate" },
+  {
+    count: 0,
+    detail: "Organisation Type",
+    key: "openGovernmentFunded",
+    label: "Government / Government Funded",
+  },
   {
     count: 0,
     detail: "Organisation Type",
@@ -364,13 +417,13 @@ function MetricCard({
   value: string;
 }) {
   return (
-    <div className="flex min-h-28 items-center gap-5 rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
-      <div className={`grid h-14 w-14 shrink-0 place-items-center rounded-full ${accent}`}>
-        <Icon size={27} />
+    <div className="flex min-h-24 w-full min-w-0 items-center gap-3 rounded-lg border border-slate-200 bg-white p-3 shadow-sm sm:min-h-28 sm:gap-5 sm:p-5">
+      <div className={`grid size-11 shrink-0 place-items-center rounded-full sm:size-14 ${accent}`}>
+        <Icon className="size-5 sm:size-7" />
       </div>
       <div className="min-w-0">
-        <p className="text-2xl font-black">{value}</p>
-        <p className="truncate text-sm font-medium text-slate-600">{label}</p>
+        <p className="break-words text-xl font-black leading-tight sm:text-2xl">{value}</p>
+        <p className="break-words text-sm font-medium leading-snug text-slate-600">{label}</p>
         <p className="mt-2 text-xs font-semibold text-slate-500">{detail}</p>
       </div>
     </div>
@@ -388,6 +441,263 @@ function parseAdminRole() {
   }
 }
 
+function normalizeAdminRole(role: string) {
+  return role.trim().toUpperCase().replace(/[\s-]+/g, "_");
+}
+
+function formatPercent(value?: number) {
+  if (typeof value !== "number" || !Number.isFinite(value)) return "--";
+  return `${value.toFixed(2).replace(/\.?0+$/, "")}%`;
+}
+
+function formatGB(value?: number) {
+  if (typeof value !== "number" || !Number.isFinite(value)) return "--";
+  return value.toFixed(2).replace(/\.00$/, "");
+}
+
+function formatDiskSizeFromGB(value?: number) {
+  if (typeof value !== "number" || !Number.isFinite(value)) return "--";
+
+  if (value >= 1024) {
+    return `${(value / 1024).toFixed(2).replace(/\.00$/, "")} TB`;
+  }
+
+  return `${formatGB(value)} GB`;
+}
+
+function formatStorageSize(bytes?: number, fallbackGB?: number) {
+  if (typeof bytes !== "number" || !Number.isFinite(bytes)) {
+    if (typeof fallbackGB !== "number" || !Number.isFinite(fallbackGB)) return "--";
+    bytes = fallbackGB * 1024 * 1024 * 1024;
+  }
+
+  if (bytes >= 1024 * 1024 * 1024) {
+    return formatDiskSizeFromGB(bytes / 1024 / 1024 / 1024);
+  }
+
+  if (bytes >= 1024 * 1024) {
+    return `${(bytes / 1024 / 1024).toFixed(2).replace(/\.00$/, "")} MB`;
+  }
+
+  return `${(bytes / 1024).toFixed(2).replace(/\.00$/, "")} KB`;
+}
+
+function formatUptime(seconds?: number) {
+  if (typeof seconds !== "number" || !Number.isFinite(seconds)) return "--";
+
+  const days = Math.floor(seconds / 86400);
+  const hours = Math.floor((seconds % 86400) / 3600);
+  const minutes = Math.floor((seconds % 3600) / 60);
+
+  if (days > 0) return `${days} day${days === 1 ? "" : "s"}`;
+  if (hours > 0) return `${hours} hour${hours === 1 ? "" : "s"}`;
+  return `${minutes} min${minutes === 1 ? "" : "s"}`;
+}
+
+function formatHealthTimestamp(value?: string) {
+  if (!value) return "--";
+
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "--";
+
+  return date.toLocaleString("en-IN", {
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    month: "short",
+    second: "2-digit",
+    year: "numeric",
+  });
+}
+
+function DashboardRefreshBar({
+  progress,
+}: {
+  progress: number;
+}) {
+  return (
+    <div className="w-full min-w-0 rounded-lg border border-slate-200 bg-white p-3 shadow-sm sm:p-4">
+      <div className="flex flex-wrap items-center justify-between gap-2 text-xs font-black uppercase tracking-wide text-slate-500">
+        <span>Dashboard auto refresh</span>
+        <span>{Math.round(Math.min(Math.max(progress, 0), 100))}%</span>
+      </div>
+      <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-slate-100">
+        <div
+          className="h-full rounded-full bg-emerald-500 transition-[width] duration-1000 ease-linear"
+          style={{ width: `${Math.min(Math.max(progress, 0), 100)}%` }}
+        />
+      </div>
+    </div>
+  );
+}
+
+function usageTone(usage: number) {
+  if (usage > 80) {
+    return {
+      bar: "bg-red-500",
+      text: "text-red-600",
+    };
+  }
+
+  if (usage >= 60) {
+    return {
+      bar: "bg-amber-500",
+      text: "text-amber-600",
+    };
+  }
+
+  return {
+    bar: "bg-emerald-500",
+    text: "text-emerald-600",
+  };
+}
+
+function usageStatus(usage: number) {
+  if (usage > 80) return "High usage";
+  if (usage >= 60) return "Moderate usage";
+  return "Low usage";
+}
+
+function ServerHealthCard({
+  health,
+}: {
+  health: AdminServerHealthResponse | null;
+}) {
+  const systemCards = [
+    {
+      accent: "bg-emerald-100 text-emerald-600",
+      detail: health ? `${health.cpu.cores} cores` : "-- cores",
+      icon: Cpu,
+      label: "CPU Usage",
+      progress: health?.cpu.usagePercent ?? 0,
+      subdetail: usageStatus(health?.cpu.usagePercent ?? 0),
+      value: formatPercent(health?.cpu.usagePercent),
+    },
+    {
+      accent: "bg-sky-100 text-sky-600",
+      detail: health ? `${formatDiskSizeFromGB(health.memory.totalGB)} total` : "-- total",
+      icon: MemoryStick,
+      label: "RAM Usage",
+      progress: health?.memory.usagePercent ?? 0,
+      subdetail: health
+        ? `${formatDiskSizeFromGB(health.memory.usedGB)} of ${formatDiskSizeFromGB(health.memory.totalGB)} used`
+        : "-- of -- used",
+      value: formatPercent(health?.memory.usagePercent),
+    },
+    {
+      accent: "bg-violet-100 text-violet-600",
+      detail: health ? `${formatDiskSizeFromGB(health.disk.totalGB)} total` : "-- total",
+      icon: HardDrive,
+      label: "Disk Usage",
+      progress: health?.disk.usagePercent ?? 0,
+      subdetail: health
+        ? `${formatDiskSizeFromGB(health.disk.usedGB)} of ${formatDiskSizeFromGB(health.disk.totalGB)} used`
+        : "-- of -- used",
+      value: formatPercent(health?.disk.usagePercent),
+    },
+  ];
+  const serverLabel = health
+    ? `${health.server.osName || health.server.platform} ${health.server.osVersion || health.server.release}`
+    : "Server health";
+
+  return (
+    <section className="w-full min-w-0 rounded-xl border border-slate-200 bg-white p-3 shadow-sm sm:p-5">
+      <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+        <div className="flex min-w-0 items-start gap-3 sm:gap-4">
+          <div className="grid size-11 shrink-0 place-items-center rounded-lg bg-slate-100 text-slate-600">
+            <Server size={25} />
+          </div>
+          <div className="min-w-0 flex-1">
+            <h2 className="break-words text-lg font-black tracking-normal text-[#0b1f3a] sm:text-xl">
+              System Usage
+            </h2>
+            <p className="mt-1 text-sm font-semibold leading-snug text-slate-500">
+              CPU, memory, storage and uploads overview
+            </p>
+          </div>
+        </div>
+        <div className="min-w-0 break-words text-left text-xs font-semibold text-slate-500 md:max-w-[40%] md:text-right">
+          <p>{serverLabel}</p>
+          <p>{formatHealthTimestamp(health?.timestamp)}</p>
+        </div>
+      </div>
+
+      <div className="mt-6 grid w-full min-w-0 grid-cols-[repeat(auto-fit,minmax(min(100%,14rem),1fr))] gap-3 sm:gap-4">
+        {systemCards.map((card) => {
+          const Icon = card.icon;
+          const tone = usageTone(card.progress);
+
+          return (
+            <div
+              className="w-full min-w-0 rounded-lg border border-slate-200 bg-white p-3 shadow-sm sm:p-5"
+              key={card.label}
+            >
+              <div className="flex min-w-0 items-start gap-3 sm:gap-4">
+                <div className={`grid size-11 shrink-0 place-items-center rounded-full ${card.accent}`}>
+                  <Icon size={23} />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="break-words text-sm font-black text-[#0b1f3a]">
+                    {card.label}
+                  </p>
+                  <p className="mt-1 break-words text-xs font-semibold text-slate-500">
+                    {card.detail}
+                  </p>
+                </div>
+              </div>
+
+              <p className="mt-6 break-words text-2xl font-black leading-none text-[#071a33] sm:mt-7 sm:text-3xl">
+                {card.value}
+              </p>
+              <div className="mt-5 h-2.5 overflow-hidden rounded-full bg-slate-100">
+                <div
+                  className={`h-full rounded-full ${tone.bar}`}
+                  style={{ width: `${Math.min(Math.max(card.progress, 0), 100)}%` }}
+                />
+              </div>
+              <p className={`mt-5 break-words text-sm font-semibold ${card.label === "CPU Usage" ? tone.text : "text-slate-500"}`}>
+                {card.subdetail}
+              </p>
+            </div>
+          );
+        })}
+
+        <div className="w-full min-w-0 rounded-lg border border-slate-200 bg-white p-3 shadow-sm sm:p-5">
+          <div className="flex min-w-0 items-start gap-3 sm:gap-4">
+            <div className="grid size-11 shrink-0 place-items-center rounded-full bg-amber-100 text-amber-600">
+              <Folder size={24} />
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-black text-[#0b1f3a]">Uploads</p>
+              <p className="mt-1 break-all text-xs font-semibold text-slate-500">
+                {health?.uploads.path ?? "uploads"}
+              </p>
+            </div>
+          </div>
+
+          <p className="mt-6 break-words text-2xl font-black leading-none text-[#071a33] sm:mt-7 sm:text-3xl">
+            {formatStorageSize(health?.uploads.sizeBytes, health?.uploads.sizeGB)}
+          </p>
+          <div className="mt-6 border-t border-slate-200 pt-5">
+            <div className="flex min-w-0 items-center gap-3 sm:gap-4">
+              <div className="grid size-9 shrink-0 place-items-center rounded-full bg-violet-100 text-violet-500">
+                <FileText size={18} />
+              </div>
+              <p className="min-w-0 break-words text-sm font-black text-[#0b1f3a]">
+                {(health?.uploads.fileCount ?? 0).toLocaleString("en-IN")} files
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <p className="mt-4 break-words text-sm font-semibold text-slate-500">
+        Uptime: {formatUptime(health?.server.uptimeSeconds)}
+      </p>
+    </section>
+  );
+}
+
 export function AdminDashboardPage() {
   const [adminRole, setAdminRole] = useState("");
   const [countCards, setCountCards] =
@@ -401,9 +711,15 @@ export function AdminDashboardPage() {
   const [districtCountRows, setDistrictCountRows] = useState<
     DashboardDistrictCountRow[]
   >([]);
+  const [serverHealth, setServerHealth] =
+    useState<AdminServerHealthResponse | null>(null);
+  const [dashboardRefreshProgress, setDashboardRefreshProgress] =
+    useState(0);
+  const dashboardRefreshStartedAtRef = useRef<number | null>(null);
   const countCardMap = new Map(countCards.map((card) => [card.key, card]));
   const visibleTopCountKeys =
     adminRole === "ADMIN_DISTRICT" ? districtTopCountKeys : topCountKeys;
+  const isSuperAdmin = normalizeAdminRole(adminRole) === "SUPERADMIN";
   const topCountCards = visibleTopCountKeys.map(
     (key) => countCardMap.get(key) ?? defaultCountCards.find((card) => card.key === key),
   );
@@ -413,20 +729,36 @@ export function AdminDashboardPage() {
 
   useEffect(() => {
     let isMounted = true;
-    setAdminRole(parseAdminRole());
+    const role = parseAdminRole();
+    const isSuperAdminSession = normalizeAdminRole(role) === "SUPERADMIN";
+    setAdminRole(role);
 
-    void Promise.allSettled([
-      apiClient.get<DashboardCountsResponse>(endpoints.admin.dashboardCounts),
-      apiClient.get<DashboardDistrictCountsResponse>(
-        endpoints.admin.dashboardDistrictCounts,
-      ),
-      apiClient.get<OrganisationTypeCountsResponse>(
-        endpoints.admin.dashboardOrganisationTypeCounts,
-      ),
-      apiClient.get<ChallengeCategoryCountsResponse>(
-        endpoints.admin.dashboardChallengeCategoryCounts,
-      ),
-    ]).then(([dashboardCounts, districtCounts, organisationTypeCounts, challengeCategoryCounts]) => {
+    const fetchDashboardData = async () => {
+      dashboardRefreshStartedAtRef.current = Date.now();
+      setDashboardRefreshProgress(0);
+
+      const [
+        dashboardCounts,
+        districtCounts,
+        organisationTypeCounts,
+        challengeCategoryCounts,
+        health,
+      ] = await Promise.allSettled([
+        apiClient.get<DashboardCountsResponse>(endpoints.admin.dashboardCounts),
+        apiClient.get<DashboardDistrictCountsResponse>(
+          endpoints.admin.dashboardDistrictCounts,
+        ),
+        apiClient.get<OrganisationTypeCountsResponse>(
+          endpoints.admin.dashboardOrganisationTypeCounts,
+        ),
+        apiClient.get<ChallengeCategoryCountsResponse>(
+          endpoints.admin.dashboardChallengeCategoryCounts,
+        ),
+        isSuperAdminSession
+          ? apiClient.get<AdminServerHealthResponse>(endpoints.admin.serverHealth)
+          : Promise.resolve(null),
+      ]);
+
       if (!isMounted) return;
 
       if (
@@ -447,14 +779,17 @@ export function AdminDashboardPage() {
         setDistrictCountRows([]);
       }
 
-      if (
-        organisationTypeCounts.status === "fulfilled" &&
-        organisationTypeCounts.value.cards.length
-      ) {
-        setOrganisationTypeCards(organisationTypeCounts.value.cards);
-      } else {
-        setOrganisationTypeCards(defaultOrganisationTypeCards);
-      }
+      const returnedOrganisationTypes =
+        organisationTypeCounts.status === "fulfilled"
+          ? new Map(
+              organisationTypeCounts.value.cards.map((card) => [card.key, card]),
+            )
+          : new Map<OrganisationTypeCountKey, OrganisationTypeCountCard>();
+      setOrganisationTypeCards(
+        defaultOrganisationTypeCards.map(
+          (card) => returnedOrganisationTypes.get(card.key) ?? card,
+        ),
+      );
 
       if (
         challengeCategoryCounts.status === "fulfilled" &&
@@ -464,10 +799,32 @@ export function AdminDashboardPage() {
       } else {
         setChallengeCategoryCards(defaultChallengeCategoryCards);
       }
-    });
+
+      if (health.status === "fulfilled" && health.value) {
+        setServerHealth(health.value);
+      } else {
+        setServerHealth(null);
+      }
+    };
+
+    void fetchDashboardData();
+
+    const dashboardRefreshInterval = window.setInterval(() => {
+      void fetchDashboardData();
+    }, dashboardRefreshMs);
+    const dashboardProgressInterval = window.setInterval(() => {
+      const startedAt = dashboardRefreshStartedAtRef.current;
+      if (!startedAt) return;
+
+      const elapsed = Date.now() - startedAt;
+      const next = (elapsed / dashboardRefreshMs) * 100;
+      setDashboardRefreshProgress(next >= 100 ? 100 : next);
+    }, 1000);
 
     return () => {
       isMounted = false;
+      window.clearInterval(dashboardRefreshInterval);
+      window.clearInterval(dashboardProgressInterval);
     };
   }, []);
 
@@ -476,7 +833,9 @@ export function AdminDashboardPage() {
       eyebrow="Programme overview, review queues and operational status"
       title="Dashboards"
     >
-      <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <DashboardRefreshBar progress={dashboardRefreshProgress} />
+
+      <section className="grid w-full min-w-0 grid-cols-[repeat(auto-fit,minmax(min(100%,14rem),1fr))] gap-3 sm:gap-4">
         {topCountCards.map((card) => {
           if (!card) return null;
           const style = countCardStyles[card.key];
@@ -494,7 +853,7 @@ export function AdminDashboardPage() {
         })}
       </section>
 
-      <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <section className="grid w-full min-w-0 grid-cols-[repeat(auto-fit,minmax(min(100%,14rem),1fr))] gap-3 sm:gap-4">
         {participantCountCards.map((card) => {
           if (!card) return null;
           const style = countCardStyles[card.key];
@@ -512,11 +871,11 @@ export function AdminDashboardPage() {
         })}
       </section>
 
-      <section>
+      <section className="w-full min-w-0">
         <h2 className="mb-4 text-lg font-black text-[#0b1f3a]">
           Organisation Type wise
         </h2>
-        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <div className="grid w-full min-w-0 grid-cols-1 gap-3 min-[480px]:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 sm:gap-4">
           {organisationTypeCards.map((card) => (
             <MetricCard
               accent="bg-slate-100 text-slate-700"
@@ -532,13 +891,13 @@ export function AdminDashboardPage() {
 
       {(adminRole === "ADMIN_STATE" || adminRole === "ADMIN_DISTRICT") &&
         districtCountRows.length > 0 && (
-          <section>
+          <section className="w-full min-w-0">
             <h2 className="mb-4 text-lg font-black text-[#0b1f3a]">
               District wise count
             </h2>
-            <div className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
+            <div className="min-w-0 overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
               <div className="overflow-x-auto">
-                <table className="min-w-[640px] w-full border-collapse text-left text-sm">
+                <table className="w-full min-w-[36rem] border-collapse text-left text-sm">
                   <thead className="bg-slate-50 text-xs font-black uppercase tracking-wide text-slate-600">
                     <tr>
                       <th className="px-5 py-4">State</th>
@@ -565,13 +924,13 @@ export function AdminDashboardPage() {
           </section>
         )}
 
-      <section>
+      <section className="w-full min-w-0">
         <h2 className="mb-4 text-lg font-black text-[#0b1f3a]">
           Challenge Category wise count
         </h2>
-        <div className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
+        <div className="min-w-0 overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
           <div className="overflow-x-auto">
-            <table className="min-w-[760px] w-full border-collapse text-left text-sm">
+            <table className="w-full min-w-[42rem] border-collapse text-left text-sm">
               <thead className="bg-slate-50 text-xs font-black uppercase tracking-wide text-slate-600">
                 <tr>
                   <th className="px-5 py-4">Category Name</th>
@@ -636,6 +995,12 @@ export function AdminDashboardPage() {
           </div>
         </div>
       </section>
+
+      {isSuperAdmin && (
+        <ServerHealthCard
+          health={serverHealth}
+        />
+      )}
     </AdminShell>
   );
 }

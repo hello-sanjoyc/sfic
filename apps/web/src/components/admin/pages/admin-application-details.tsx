@@ -250,12 +250,12 @@ function Section({
   title: string;
 }>) {
   return (
-    <section className="rounded-lg border border-slate-200 bg-white shadow-sm">
-      <div className="flex items-center gap-3 border-b border-slate-200 p-5">
+    <section className="w-full min-w-0 rounded-lg border border-slate-200 bg-white shadow-sm">
+      <div className="flex min-w-0 items-center gap-3 border-b border-slate-200 p-3 sm:p-5">
         <Icon className="text-blue-600" size={21} />
-        <h2 className="text-lg font-black">{title}</h2>
+        <h2 className="min-w-0 break-words text-lg font-black">{title}</h2>
       </div>
-      <div className="p-5">{children}</div>
+      <div className="min-w-0 p-4 sm:p-5">{children}</div>
     </section>
   );
 }
@@ -441,7 +441,7 @@ export function AdminApplicationDetailsPage({
 
   return (
     <AdminShell eyebrow="Review complete application submission data" title={title}>
-      <div className="flex flex-wrap items-center justify-between gap-3">
+      <div className="flex min-w-0 flex-wrap items-center justify-between gap-3">
         <Link
           className="inline-flex items-center gap-2 text-sm font-bold text-blue-600"
           href="/admin/applications"
@@ -449,10 +449,10 @@ export function AdminApplicationDetailsPage({
           <ArrowLeft size={17} />
           Back to applications
         </Link>
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto">
           {application ? (
             <button
-              className="inline-flex h-11 items-center gap-2 rounded-lg bg-blue-600 px-4 text-sm font-bold text-white disabled:cursor-not-allowed disabled:opacity-60"
+              className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 text-sm font-bold text-white disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
               disabled={isDownloading}
               onClick={downloadApplication}
               type="button"
@@ -462,7 +462,7 @@ export function AdminApplicationDetailsPage({
             </button>
           ) : (
             <button
-              className="inline-flex h-11 items-center gap-2 rounded-lg bg-blue-600 px-4 text-sm font-bold text-white opacity-50"
+              className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 text-sm font-bold text-white opacity-50 sm:w-auto"
               disabled
               type="button"
             >
@@ -493,7 +493,7 @@ export function AdminApplicationDetailsPage({
 
       {!isLoading && application && (
         <>
-          <section className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
+          <section className="w-full min-w-0 rounded-lg border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
             <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
               <Field label="Application Number" value={application.applicationNumber} />
               <Field label="Status" value={formatStatus(application.status)} />
@@ -620,7 +620,7 @@ export function AdminApplicationDetailsPage({
           </Section>
 
           <Section icon={Users} title="Team Members">
-            <div className="overflow-x-auto">
+            <div className="w-full min-w-0 overflow-x-auto overscroll-x-contain">
               <table className="w-full min-w-[42rem] text-left text-sm">
                 <thead className="bg-slate-50 text-xs font-bold uppercase text-slate-500">
                   <tr>
@@ -709,7 +709,7 @@ export function AdminApplicationDetailsPage({
           </Section>
 
           {isSuperAdmin && (
-            <section className="flex flex-wrap items-center justify-end gap-2 rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
+            <section className="flex w-full min-w-0 flex-wrap items-center justify-end gap-2 rounded-lg border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
               <Link
                 className="inline-flex h-11 items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 text-sm font-bold text-[#0b1f3a] disabled:cursor-not-allowed disabled:opacity-50"
                 href={`/admin/applications/${applicationId}/edit`}
@@ -735,7 +735,7 @@ export function AdminApplicationDetailsPage({
       {isDeleteDialogOpen && application && (
         <div className="fixed inset-0 z-50 grid place-items-center bg-slate-950/45 p-4">
           <div className="w-full max-w-md rounded-lg bg-white shadow-xl">
-            <div className="border-b border-slate-200 p-5">
+            <div className="border-b border-slate-200 p-4 sm:p-5">
               <h2 className="text-lg font-black text-[#0b1f3a]">
                 Delete Application
               </h2>
@@ -755,9 +755,9 @@ export function AdminApplicationDetailsPage({
                 This action cannot be undone.
               </p>
             </div>
-            <div className="flex flex-wrap justify-end gap-2 p-5">
+            <div className="flex flex-col justify-end gap-2 p-4 sm:flex-row sm:flex-wrap sm:p-5">
               <button
-                className="inline-flex h-10 items-center rounded-lg border border-slate-200 bg-white px-4 text-sm font-bold text-[#0b1f3a]"
+                className="inline-flex h-10 w-full items-center justify-center rounded-lg border border-slate-200 bg-white px-4 text-sm font-bold text-[#0b1f3a] sm:w-auto"
                 disabled={isDeleting}
                 onClick={() => setIsDeleteDialogOpen(false)}
                 type="button"
@@ -765,7 +765,7 @@ export function AdminApplicationDetailsPage({
                 Cancel
               </button>
               <button
-                className="inline-flex h-10 items-center gap-2 rounded-lg bg-rose-600 px-4 text-sm font-bold text-white disabled:cursor-not-allowed disabled:opacity-50"
+                className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-lg bg-rose-600 px-4 text-sm font-bold text-white disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto"
                 disabled={isDeleting}
                 onClick={deleteApplication}
                 type="button"

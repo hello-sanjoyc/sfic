@@ -1,4 +1,9 @@
+import { execFile } from "node:child_process";
 import { createHash, randomUUID } from "node:crypto";
+import { readdir, readFile, stat } from "node:fs/promises";
+import os from "node:os";
+import { isAbsolute, relative, resolve } from "node:path";
+import { setTimeout as delay } from "node:timers/promises";
 import type { PoolClient, QueryResultRow } from "pg";
 import { getApiContent } from "../../content/index.js";
 import { emailService } from "../email/email.service.js";
@@ -22,6 +27,7 @@ import type {
     AdminManagedUsersResult,
     AdminPageViewAnalyticsResult,
     AdminRbacRule,
+    AdminServerHealthResult,
     AdminSettingsChallengeCategory,
     AdminSettingsConfiguration,
     AdminSettingsConfigurationType,
@@ -65,6 +71,8 @@ export class AdminRuleError extends Error {
         this.statusCode = statusCode;
     }
 }
+
+const apiPackageRoot = resolve(__dirname, "../../..");
 
 type AdminUserRow = {
     analytics_access?: string | null;
@@ -190,6 +198,7 @@ type OrganisationTypeCountRow = {
         | "juniorUndergraduate"
         | "openCommunityGroup"
         | "openGraduate"
+        | "openGovernmentFunded"
         | "openProfessional"
         | "openStartup";
     label: string;
@@ -330,6 +339,259 @@ function isSuperAdmin(access?: AdminAccessContext) {
 function assertSuperAdmin(access?: AdminAccessContext) {
     if (isSuperAdmin(access)) return;
     throw new AdminRuleError("Only SUPERADMIN can edit or delete applications.", 403);
+}
+
+type CpuSnapshot = {
+    idle: number;
+    total: number;
+};
+
+function roundTo(value: number, decimals = 2) {
+    const factor = 10 ** decimals;
+    return Math.round(value * factor) / factor;
+}
+
+function bytesToGB(value: number) {
+    return roundTo(value / 1024 / 1024 / 1024);
+}
+
+function kibToGB(value: number) {
+    return roundTo(value / 1024 / 1024);
+}
+
+function getCpuSnapshot(): CpuSnapshot {
+    return os.cpus().reduce<CpuSnapshot>(
+        (snapshot, cpu) => {
+            const total = Object.values(cpu.times).reduce(
+                (sum, time) => sum + time,
+                0,
+            );
+
+            return {
+                idle: snapshot.idle + cpu.times.idle,
+                total: snapshot.total + total,
+            };
+        },
+        { idle: 0, total: 0 },
+    );
+}
+
+async function getCpuUsagePercent() {
+    const start = getCpuSnapshot();
+    await delay(100);
+    const end = getCpuSnapshot();
+    const idle = end.idle - start.idle;
+    const total = end.total - start.total;
+
+    if (total <= 0) return 0;
+
+    return roundTo(((total - idle) / total) * 100);
+}
+
+function execFileAsync(command: string, args: string[]) {
+    return new Promise<{ stdout: string; stderr: string }>((resolve, reject) => {
+        execFile(command, args, (error, stdout, stderr) => {
+            if (error) {
+                reject(error);
+                return;
+            }
+
+            resolve({ stdout, stderr });
+        });
+    });
+}
+
+function fallbackOsInfo() {
+    return {
+        osName: os.type(),
+        osVersion: os.release(),
+    };
+}
+
+async function getMacOsInfo() {
+    const [nameResult, versionResult] = await Promise.all([
+        execFileAsync("sw_vers", ["-productName"]),
+        execFileAsync("sw_vers", ["-productVersion"]),
+    ]);
+
+    return {
+        osName: nameResult.stdout.trim() || "macOS",
+        osVersion: versionResult.stdout.trim() || os.release(),
+    };
+}
+
+async function getLinuxOsInfo() {
+    const content = await readFile("/etc/os-release", "utf8");
+    const values = new Map(
+        content
+            .split(/\r?\n/)
+            .map((line) => line.match(/^([A-Z_]+)=(.*)$/))
+            .filter((match): match is RegExpMatchArray => Boolean(match))
+            .map((match) => [
+                match[1],
+                match[2].replace(/^"|"$/g, "").replace(/\\"/g, '"'),
+            ]),
+    );
+
+    return {
+        osName: values.get("NAME") || "Linux",
+        osVersion: values.get("VERSION_ID") || values.get("VERSION") || os.release(),
+    };
+}
+
+async function getOsInfo() {
+    try {
+        if (os.platform() === "darwin") return await getMacOsInfo();
+        if (os.platform() === "linux") return await getLinuxOsInfo();
+    } catch {
+        return fallbackOsInfo();
+    }
+
+    return fallbackOsInfo();
+}
+
+async function getDiskHealth(): Promise<AdminServerHealthResult["disk"]> {
+    const { stdout } = await execFileAsync("df", ["-kP", "/"]);
+    const values = stdout.trim().split(/\r?\n/).at(-1)?.trim().split(/\s+/) ?? [];
+    const totalKib = Number(values[1]);
+    const availableKib = Number(values[3]);
+
+    if (
+        !Number.isFinite(totalKib) ||
+        !Number.isFinite(availableKib) ||
+        totalKib <= 0
+    ) {
+        throw new AdminRuleError("Server disk health could not be read.", 500);
+    }
+
+    const usedKib = totalKib - availableKib;
+    const totalGB = kibToGB(totalKib);
+    const usedGB = kibToGB(usedKib);
+    const availableGB = kibToGB(availableKib);
+
+    return {
+        path: "/",
+        totalGB,
+        usedGB,
+        freeGB: roundTo(totalGB - usedGB),
+        availableGB,
+        usagePercent: roundTo((usedKib / totalKib) * 100),
+    };
+}
+
+function getUploadRoot() {
+    return process.env.UPLOAD_DIR ?? process.env.LOCAL_STORAGE_DIR ?? "uploads";
+}
+
+function getUploadRootPath() {
+    const configuredRoot = getUploadRoot();
+    return isAbsolute(configuredRoot)
+        ? configuredRoot
+        : resolve(apiPackageRoot, configuredRoot);
+}
+
+function displayPathFromApiRoot(path: string) {
+    const relativePath = relative(apiPackageRoot, path);
+
+    if (!relativePath || relativePath.startsWith("..")) return path;
+
+    return `./${relativePath}`;
+}
+
+async function getDirectoryStats(path: string): Promise<{
+    fileCount: number;
+    sizeBytes: number;
+}> {
+    let fileCount = 0;
+    let sizeBytes = 0;
+    const entries = await readdir(path, { withFileTypes: true });
+
+    await Promise.all(
+        entries.map(async (entry) => {
+            const entryPath = resolve(path, entry.name);
+
+            if (entry.isDirectory()) {
+                const nested = await getDirectoryStats(entryPath);
+                fileCount += nested.fileCount;
+                sizeBytes += nested.sizeBytes;
+                return;
+            }
+
+            if (!entry.isFile()) return;
+
+            const entryStat = await stat(entryPath);
+            fileCount += 1;
+            sizeBytes += entryStat.size;
+        }),
+    );
+
+    return { fileCount, sizeBytes };
+}
+
+async function getUploadsHealth(): Promise<AdminServerHealthResult["uploads"]> {
+    const uploadRoot = getUploadRootPath();
+    const displayPath = displayPathFromApiRoot(uploadRoot);
+
+    try {
+        const uploadStats = await getDirectoryStats(uploadRoot);
+
+        return {
+            path: displayPath,
+            sizeBytes: uploadStats.sizeBytes,
+            sizeGB: bytesToGB(uploadStats.sizeBytes),
+            fileCount: uploadStats.fileCount,
+        };
+    } catch {
+        return {
+            path: displayPath,
+            sizeBytes: 0,
+            sizeGB: 0,
+            fileCount: 0,
+        };
+    }
+}
+
+async function getServerHealth(
+    access?: AdminAccessContext,
+): Promise<AdminServerHealthResult> {
+    assertSuperAdmin(access);
+
+    const totalMemory = os.totalmem();
+    const freeMemory = os.freemem();
+    const usedMemory = totalMemory - freeMemory;
+    const [cpuUsagePercent, disk, osInfo, uploads] = await Promise.all([
+        getCpuUsagePercent(),
+        getDiskHealth(),
+        getOsInfo(),
+        getUploadsHealth(),
+    ]);
+
+    return {
+        success: true,
+        timestamp: new Date().toISOString(),
+        server: {
+            hostname: os.hostname(),
+            osName: osInfo.osName,
+            osVersion: osInfo.osVersion,
+            platform: os.platform(),
+            architecture: os.arch(),
+            release: os.release(),
+            uptimeSeconds: Math.floor(os.uptime()),
+        },
+        cpu: {
+            cores: os.cpus().length,
+            usagePercent: cpuUsagePercent,
+            loadAverage: os.loadavg().map((value) => roundTo(value)),
+        },
+        memory: {
+            totalGB: bytesToGB(totalMemory),
+            usedGB: bytesToGB(usedMemory),
+            freeGB: bytesToGB(freeMemory),
+            usagePercent: roundTo((usedMemory / totalMemory) * 100),
+        },
+        disk,
+        uploads,
+    };
 }
 
 function maskEmail(value: unknown) {
@@ -4219,6 +4481,13 @@ async function getDashboardOrganisationTypeCounts(
                     'Community Group',
                     'Community Group',
                     8
+                ),
+                (
+                    'openGovernmentFunded',
+                    'OPEN',
+                    'Government / Government Funded',
+                    'Government / Government Funded',
+                    9
                 )
         )
 
@@ -5281,6 +5550,7 @@ export const adminService = {
     getSettingsStates,
     getSettingsUserRole,
     getSettingsUserRoles,
+    getServerHealth,
     getUser,
     getUsers,
     normalizeLanguage,

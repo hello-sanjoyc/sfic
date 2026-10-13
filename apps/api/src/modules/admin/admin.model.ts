@@ -189,6 +189,45 @@ export type AdminDashboardCountsResult = {
   cards: AdminDashboardCountCard[];
 };
 
+export type AdminServerHealthResult = {
+  success: true;
+  timestamp: string;
+  server: {
+    hostname: string;
+    osName: string;
+    osVersion: string;
+    platform: NodeJS.Platform;
+    architecture: string;
+    release: string;
+    uptimeSeconds: number;
+  };
+  cpu: {
+    cores: number;
+    usagePercent: number;
+    loadAverage: number[];
+  };
+  memory: {
+    totalGB: number;
+    usedGB: number;
+    freeGB: number;
+    usagePercent: number;
+  };
+  disk: {
+    path: string;
+    totalGB: number;
+    usedGB: number;
+    freeGB: number;
+    availableGB: number;
+    usagePercent: number;
+  };
+  uploads: {
+    path: string;
+    sizeBytes: number;
+    sizeGB: number;
+    fileCount: number;
+  };
+};
+
 export type AdminEmailNotificationStatus =
   | "draft"
   | "queued"
@@ -296,6 +335,7 @@ export type AdminDashboardOrganisationTypeCountCard = {
     | "juniorUndergraduate"
     | "openCommunityGroup"
     | "openGraduate"
+    | "openGovernmentFunded"
     | "openProfessional"
     | "openStartup";
   label: string;

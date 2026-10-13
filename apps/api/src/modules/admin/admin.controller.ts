@@ -473,6 +473,27 @@ async function getDashboardCounts(
     }
 }
 
+async function getServerHealth(
+    request: FastifyRequest,
+    reply: FastifyReply,
+) {
+    try {
+        const result = await adminService.getServerHealth(getAdminAccess(request));
+
+        return reply.code(200).send(result);
+    } catch (error) {
+        request.server.log.error(error);
+
+        return sendError(request, reply, {
+            message:
+                error instanceof Error
+                    ? error.message
+                    : getApiContent("en").api.internalServerError,
+            statusCode: getErrorStatusCode(error) ?? 500,
+        });
+    }
+}
+
 async function getUsers(
     request: FastifyRequest<{ Querystring: UsersQuery }>,
     reply: FastifyReply,
@@ -2233,6 +2254,7 @@ export const adminController = {
     getSettingsStates,
     getSettingsUserRole,
     getSettingsUserRoles,
+    getServerHealth,
     getUser,
     getUsers,
     requestLoginCode,
