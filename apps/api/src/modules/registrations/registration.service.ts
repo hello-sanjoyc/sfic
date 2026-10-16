@@ -215,7 +215,8 @@ function getApiBaseUrl() {
         );
     }
 
-    return apiUrl.replace(/\/+$/, "");
+    // Accept a server URL or a base that already includes the API prefix.
+    return `${apiUrl.replace(/\/+$/, "").replace(/\/api(?:\/v1)?$/, "")}/api/v1`;
 }
 
 function getAppBaseUrl() {
@@ -753,7 +754,7 @@ function buildVerificationUrl(input: {
     language: RegistrationLanguage;
     token: string;
 }) {
-    const url = new URL(`${getApiBaseUrl()}/api/v1/registrations/verify-email`);
+    const url = new URL(`${getApiBaseUrl()}/registrations/verify-email`);
     url.searchParams.set("token", input.token);
     url.searchParams.set("locale", input.language);
     url.searchParams.set("applicationId", String(input.applicationId));
