@@ -168,6 +168,7 @@ export const bnContent = {
                 },
             ],
             participantButton: "অংশগ্রহণকারী লগইন খুলুন",
+            juryButton: "জুরি লগইন খুলুন",
             adminButton: "অ্যাডমিন লগইন খুলুন",
         },
         screenReader: {

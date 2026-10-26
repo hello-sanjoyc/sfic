@@ -19,6 +19,8 @@ import { endpoints } from "@/lib/endpoints";
 type ApplicationStatus =
   | "Draft"
   | "Email Verification"
+  | "Evaluated"
+  | "On Evaluation"
   | "Profile Completion"
   | "Proposal Submission"
   | "Submitted"
@@ -27,7 +29,9 @@ type ApplicationStatus =
 type Application = {
   id: number;
   number: string;
+  recommendation: string;
   review: string;
+  totalScore: number | null;
   state: string;
   status: ApplicationStatus;
   title: string;
@@ -51,6 +55,12 @@ type AdminApplicationApiItem = {
     name?: LocalizedText | null;
   } | null;
   documents?: unknown[];
+  evaluation?: {
+    level?: string;
+    recommendation?: string | null;
+    status?: "evaluated" | "on_evaluation";
+    totalScore?: number | null;
+  } | null;
   id?: number | string | null;
   participant?: {
     fullName?: string | null;
@@ -97,11 +107,20 @@ function formatStatus(status = "draft"): ApplicationStatus {
 }
 
 function statusClasses(status: ApplicationStatus) {
-  if (status === "Submitted") return "bg-emerald-50 text-emerald-700";
+  if (status === "Evaluated") return "bg-emerald-100 text-emerald-800";
+  if (status === "On Evaluation") return "bg-amber-100 text-amber-800";
+  if (status === "Submitted") return "bg-blue-100 text-blue-700";
   if (status === "Draft") return "bg-slate-100 text-slate-600";
   if (status === "Withdrawn") return "bg-rose-50 text-rose-700";
   if (status === "Email Verification") return "bg-blue-50 text-blue-700";
   return "bg-amber-50 text-amber-700";
+}
+
+function recommendationClasses(recommendation: string) {
+  if (recommendation === "Recommend") return "bg-emerald-50 text-emerald-700";
+  if (recommendation === "Reject") return "bg-red-100 text-red-700";
+  if (recommendation === "Review") return "bg-amber-100 text-amber-800";
+  return "bg-slate-100 text-slate-600";
 }
 
 function localizedName(value?: LocalizedText | null) {
@@ -125,9 +144,23 @@ function toTableApplication(application: AdminApplicationApiItem): Application {
   return {
     id: Number(application.id ?? 0),
     number: application.applicationNumber ?? "Not assigned",
+    recommendation:
+      application.evaluation?.status === "evaluated"
+        ? (application.evaluation.recommendation ?? "")
+        : "",
     review: `${formatCount(membersCount, "member")} / ${formatCount(documentsCount, "document")}`,
+    totalScore:
+      application.evaluation?.status === "evaluated"
+        ? (application.evaluation.totalScore ?? null)
+        : null,
     state: localizedName(application.state?.name) || "Not selected",
-    status: formatStatus(application.status ?? undefined),
+    // A jury evaluation replaces "Submitted" with its own state.
+    status:
+      application.evaluation?.status === "evaluated"
+        ? "Evaluated"
+        : application.evaluation?.status === "on_evaluation"
+          ? "On Evaluation"
+          : formatStatus(application.status ?? undefined),
     title,
   };
 }
@@ -243,7 +276,7 @@ export function AdminApplicationsPage() {
           </div>
         </div>
         <div className="hidden w-full min-w-0 overflow-x-auto overscroll-x-contain md:block">
-          <table className="w-full min-w-[58rem] border-collapse text-left text-sm">
+          <table className="w-full min-w-[72rem] border-collapse text-left text-sm">
             <thead className="bg-slate-50 text-xs font-bold text-slate-500">
               <tr>
                 {columns.map((column) => (
@@ -261,20 +294,22 @@ export function AdminApplicationsPage() {
                     </button>
                   </th>
                 ))}
+                <th className="px-4 py-3 uppercase text-slate-500">Score</th>
+                <th className="px-4 py-3 uppercase text-slate-500">Recommendation</th>
                 <th className="px-4 py-3 uppercase text-slate-500">Action</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
               {isLoading && (
                 <tr>
-                  <td className="px-4 py-8 text-center text-sm font-semibold text-slate-500" colSpan={6}>
+                  <td className="px-4 py-8 text-center text-sm font-semibold text-slate-500" colSpan={8}>
                     Loading applications...
                   </td>
                 </tr>
               )}
               {!isLoading && errorMessage && (
                 <tr>
-                  <td className="px-4 py-8 text-center text-sm font-semibold text-rose-600" colSpan={6}>
+                  <td className="px-4 py-8 text-center text-sm font-semibold text-rose-600" colSpan={8}>
                     {errorMessage}
                   </td>
                 </tr>
@@ -290,6 +325,18 @@ export function AdminApplicationsPage() {
                     </span>
                   </td>
                   <td className="px-4 py-3 text-slate-600">{application.review}</td>
+                  <td className="px-4 py-3 font-black text-[#0b1f3a]">
+                    {application.totalScore === null ? <span className="font-normal text-slate-400">-</span> : `${application.totalScore} / 100`}
+                  </td>
+                  <td className="px-4 py-3">
+                    {application.recommendation ? (
+                      <span className={`rounded-full px-3 py-1 text-xs font-bold ${recommendationClasses(application.recommendation)}`}>
+                        {application.recommendation}
+                      </span>
+                    ) : (
+                      <span className="text-slate-400">-</span>
+                    )}
+                  </td>
                   <td className="px-4 py-3">
                     <Link className="inline-flex items-center gap-1 text-sm font-bold text-blue-600" href={`/admin/applications/${application.id}`}>
                       View <ArrowRight size={15} />
@@ -299,7 +346,7 @@ export function AdminApplicationsPage() {
               ))}
               {!isLoading && !errorMessage && applications.length === 0 && (
                 <tr>
-                  <td className="px-4 py-8 text-center text-sm font-semibold text-slate-500" colSpan={6}>
+                  <td className="px-4 py-8 text-center text-sm font-semibold text-slate-500" colSpan={8}>
                     No applications match your search.
                   </td>
                 </tr>
@@ -328,6 +375,12 @@ export function AdminApplicationsPage() {
               <dl className="grid grid-cols-1 gap-2 text-sm min-[420px]:grid-cols-2">
                 <div className="min-w-0"><dt className="text-xs font-bold text-slate-500">State</dt><dd className="break-words text-slate-700">{application.state}</dd></div>
                 <div className="min-w-0"><dt className="text-xs font-bold text-slate-500">Review</dt><dd className="break-words text-slate-700">{application.review}</dd></div>
+                {application.totalScore !== null && (
+                  <div className="min-w-0"><dt className="text-xs font-bold text-slate-500">Score</dt><dd className="break-words font-black text-[#0b1f3a]">{application.totalScore} / 100</dd></div>
+                )}
+                {application.recommendation && (
+                  <div className="min-w-0"><dt className="text-xs font-bold text-slate-500">Recommendation</dt><dd className="break-words text-slate-700">{application.recommendation}</dd></div>
+                )}
               </dl>
               <Link className="inline-flex min-h-10 items-center gap-1 self-start text-sm font-bold text-blue-600" href={`/admin/applications/${application.id}`}>
                 View application <ArrowRight size={15} />

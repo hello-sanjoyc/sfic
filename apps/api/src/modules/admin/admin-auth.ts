@@ -43,6 +43,7 @@ function routeModule(request: FastifyRequest): AdminAccessModule | null {
     }
 
     if (path.includes("/users")) return "users";
+    if (path.includes("/jury/admin/")) return "users";
     if (path.includes("/email-notifications")) return "emailNotifications";
     if (path.includes("/settings/user-roles")) return "users";
     if (path.includes("/applications")) return "applications";

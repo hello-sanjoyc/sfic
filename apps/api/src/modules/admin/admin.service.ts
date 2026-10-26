@@ -662,7 +662,7 @@ function appendUserScopeCondition(
     }
 }
 
-function appendApplicationScopeCondition(
+export function appendApplicationScopeCondition(
     conditions: string[],
     params: unknown[],
     access?: AdminAccessContext,

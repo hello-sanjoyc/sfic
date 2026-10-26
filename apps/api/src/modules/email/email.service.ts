@@ -296,6 +296,94 @@ async function sendAdminLoginVerificationEmail(input: {
     });
 }
 
+async function sendJuryLoginVerificationEmail(input: {
+    code: string;
+    juryEmail: string;
+    juryName: string;
+    language: string;
+}) {
+    const ttlMinutes = emailVerificationTokenTtlMinutes();
+    const text = {
+        footer: "This email was sent by Seva First Innovation Challenge. If you did not request this jury login code, you can safely ignore it.",
+        greeting: (name: string) => `Dear ${name},`,
+        intro: "A login request was made for your Seva First Innovation Challenge jury workspace.",
+        preheader: "Use this code to login to your jury workspace.",
+        title: "Jury login verification",
+        verificationCodeLabel: "Verification Code",
+        verifyInstruction: `Please enter this 6-digit code within ${ttlMinutes} minutes to continue to your workspace.`,
+        verifyTextInstruction: `Enter this 6-digit verification code within ${ttlMinutes} minutes:`,
+    };
+    const html = renderVerificationEmail({
+        code: input.code,
+        language: input.language === "bn" || input.language === "hi" ? input.language : "en",
+        participantName: input.juryName,
+        text,
+    });
+
+    return sendEmail({
+        html,
+        subject: "Your Seva First Innovation Challenge jury login code",
+        text: [text.greeting(input.juryName), "", text.intro, text.verifyTextInstruction, input.code].join("\n"),
+        to: input.juryEmail,
+    });
+}
+
+async function sendJuryInvitationAcceptedEmail(input: {
+    juryEmail: string;
+    juryName: string;
+    loginUrl: string;
+}) {
+    const name = escapeHtml(input.juryName);
+    const html = renderEmailTemplate({
+        bodyHtml: `<p>Dear ${name},</p><p>Thank you for accepting the invitation to join the Seva First Innovation Challenge jury panel. Your email address has been verified.</p><p>Please complete your jury profile and then sign in with your email address and the one-time code we send you.</p>`,
+        cta: { label: "Go to jury login", url: input.loginUrl },
+        footerText: "This email was sent by Seva First Innovation Challenge.",
+        preheader: "Your jury invitation has been accepted.",
+        title: "Jury invitation accepted",
+    });
+
+    return sendEmail({
+        html,
+        subject: "Your SFIC jury invitation has been accepted",
+        text: [
+            `Dear ${input.juryName},`,
+            "",
+            "Thank you for accepting the invitation to join the Seva First Innovation Challenge jury panel. Your email address has been verified.",
+            "Please complete your jury profile and then sign in with your email address and the one-time code we send you.",
+            input.loginUrl,
+        ].join("\n"),
+        to: input.juryEmail,
+    });
+}
+
+async function sendJuryInvitationAcceptedAdminEmail(input: {
+    adminEmail: string;
+    adminName: string;
+    juryEmail: string;
+    juryName: string;
+}) {
+    const adminName = escapeHtml(input.adminName);
+    const juryName = escapeHtml(input.juryName);
+    const juryEmail = escapeHtml(input.juryEmail);
+    const html = renderEmailTemplate({
+        bodyHtml: `<p>Dear ${adminName},</p><p><strong>${juryName}</strong> (${juryEmail}) has accepted your jury invitation and verified their email address.</p>`,
+        footerText: "This email was sent by Seva First Innovation Challenge.",
+        preheader: `${input.juryName} accepted the jury invitation.`,
+        title: "Jury invitation accepted",
+    });
+
+    return sendEmail({
+        html,
+        subject: `${input.juryName} accepted the SFIC jury invitation`,
+        text: [
+            `Dear ${input.adminName},`,
+            "",
+            `${input.juryName} (${input.juryEmail}) has accepted your jury invitation and verified their email address.`,
+        ].join("\n"),
+        to: input.adminEmail,
+    });
+}
+
 async function sendApplicationSubmittedEmail(input: {
     applicationNumber: string;
     details: Array<{ label: string; value?: string }>;
@@ -392,6 +480,9 @@ export const emailService = {
     sendAdminNotificationEmail,
     sendApplicationSubmittedEmail,
     sendEmail,
+    sendJuryInvitationAcceptedAdminEmail,
+    sendJuryInvitationAcceptedEmail,
+    sendJuryLoginVerificationEmail,
     sendParticipantLoginVerificationEmail,
     sendParticipantPasswordResetEmail,
     sendParticipantVerificationEmail,

@@ -37,6 +37,28 @@ const nextConfig: NextConfig = {
 
     allowedDevOrigins: [],
 
+    // The jury sign-in pages carry a language code (/en/jury/login) like the
+    // admin login; the workspace pages after sign-in do not. Keep old links working.
+    async redirects() {
+        return [
+            {
+                source: "/jury/login",
+                destination: "/en/jury/login",
+                permanent: false,
+            },
+            {
+                source: "/jury/verify",
+                destination: "/en/jury/verify",
+                permanent: false,
+            },
+            {
+                source: "/:locale(en|bn|hi)/jury/:section(dashboard|applications|profile)/:rest*",
+                destination: "/jury/:section/:rest*",
+                permanent: false,
+            },
+        ];
+    },
+
     async headers() {
         return [
             {

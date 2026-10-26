@@ -20,6 +20,20 @@ type ApiError = {
 
 const AUTH_STORAGE_KEY = "seva-first-innovation-challenge-session";
 
+// An error response from the API. It is still a plain Error with the server's
+// message; `data` carries any extra details the server sent with it.
+export class ApiRequestError extends Error {
+  data?: Record<string, unknown>;
+  statusCode?: number;
+
+  constructor(message: string, statusCode?: number, data?: Record<string, unknown>) {
+    super(message);
+    this.name = "ApiRequestError";
+    this.statusCode = statusCode;
+    this.data = data;
+  }
+}
+
 export type ApiRequestOptions = Omit<RequestInit, "body"> & {
   baseUrl?: string;
   body?: BodyInit | Record<string, unknown> | null;
@@ -79,7 +93,11 @@ function getErrorMessage(body: unknown) {
 }
 
 function isAdminEndpoint(endpoint: string) {
-  return endpoint.includes("/api/v1/admin/") || endpoint.startsWith("/admin/");
+  return (
+    endpoint.includes("/api/v1/admin/") ||
+    endpoint.includes("/api/v1/jury/admin/") ||
+    endpoint.startsWith("/admin/")
+  );
 }
 
 function isPublicAdminAuthEndpoint(endpoint: string) {
@@ -148,7 +166,12 @@ export async function apiRequest<T>(
     return responseBody as T;
   } catch (error) {
     if (error instanceof AxiosError) {
-      throw new Error(getErrorMessage(error.response?.data));
+      const body = error.response?.data as ApiEnvelope<Record<string, unknown>> | undefined;
+      throw new ApiRequestError(
+        getErrorMessage(error.response?.data),
+        error.response?.status,
+        body && typeof body.data === "object" && body.data !== null ? body.data : undefined,
+      );
     }
 
     throw error;

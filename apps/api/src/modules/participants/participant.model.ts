@@ -89,6 +89,8 @@ export type ParticipantApplicationSummary = {
 };
 
 export type ParticipantApplicationDetails = ParticipantApplicationSummary & {
+  evaluationStarted?: boolean;
+  isLocked?: boolean;
   challenge: {
     code: string | null;
     title: {

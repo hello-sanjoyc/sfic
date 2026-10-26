@@ -168,6 +168,7 @@ export const hiContent = {
                 },
             ],
             participantButton: "प्रतिभागी लॉग इन खोलें",
+            juryButton: "जूरी लॉग इन खोलें",
             adminButton: "एडमिन लॉग इन खोलें",
         },
         screenReader: {

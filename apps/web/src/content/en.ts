@@ -154,6 +154,7 @@ export const enContent = {
                 },
             ],
             participantButton: "Open Participant Login",
+            juryButton: "Open Jury Login",
             adminButton: "Open Admin Login",
         },
         screenReader: {

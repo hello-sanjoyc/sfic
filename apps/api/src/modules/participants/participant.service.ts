@@ -360,14 +360,6 @@ function integerSetting(settings: AppSettingsMap, key: string) {
     return Number.isInteger(value) ? value : 0;
 }
 
-function dateSetting(settings: AppSettingsMap, key: string) {
-    const value = settings[key];
-    if (!value) return null;
-
-    const date = new Date(value);
-    return Number.isNaN(date.getTime()) ? null : date;
-}
-
 function createVerificationCode() {
     return String(Math.floor(100000 + Math.random() * 900000));
 }
@@ -1203,11 +1195,14 @@ function assertApplicationSettingsAllowSubmit(input: {
     }
 
     const now = new Date();
-    const startDate = dateSetting(
-        settings,
-        appSettingKeys.registrationStartDate,
+    const startDate = registrationDateInstant(
+        settings[appSettingKeys.registrationStartDate],
+        "start",
     );
-    const endDate = dateSetting(settings, appSettingKeys.registrationEndDate);
+    const endDate = registrationDateInstant(
+        settings[appSettingKeys.registrationEndDate],
+        "end",
+    );
 
     if (startDate && now < startDate) {
         throw new ParticipantRuleError(
@@ -1583,6 +1578,54 @@ async function insertApplicationDocuments(input: {
                 index + 1,
             ],
         );
+    }
+}
+
+// Registration dates are Indian dates: a date-only value covers the whole day in IST (UTC+05:30).
+function registrationDateInstant(value: string | undefined, boundary: "start" | "end") {
+    const text = value?.trim();
+    if (!text) return null;
+    const dateOnly = /^\d{4}-\d{2}-\d{2}$/.test(text);
+    const date = new Date(
+        dateOnly
+            ? `${text}T${boundary === "start" ? "00:00:00.000" : "23:59:59.999"}+05:30`
+            : text,
+    );
+    return Number.isNaN(date.getTime()) ? null : date;
+}
+
+// Participants (never SuperAdmin) cannot edit or delete an application once an evaluation has started
+// or the registration end date has passed, whichever is earlier. Admin edits are SuperAdmin-only in the admin module.
+const registrationEndedMessage =
+    "The registration period has ended. This application can no longer be edited or deleted.";
+const underEvaluationMessage =
+    "This application is under evaluation and can no longer be edited or deleted.";
+
+function isRegistrationEnded(settings: AppSettingsMap) {
+    const endDate = registrationDateInstant(
+        settings[appSettingKeys.registrationEndDate],
+        "end",
+    );
+    return Boolean(endDate && new Date() > endDate);
+}
+
+async function assertApplicationEditable(
+    client: Pick<DatabasePool, "query">,
+    applicationId: string | number,
+) {
+    const settings = await getApplicationSettings(client as PoolClient);
+
+    if (isRegistrationEnded(settings)) {
+        throw new ParticipantRuleError(registrationEndedMessage, 403);
+    }
+
+    const evaluation = await client.query<{ started: boolean }>(
+        `SELECT EXISTS (SELECT 1 FROM public.jury_evaluations WHERE application_id = $1) AS started`,
+        [applicationId],
+    );
+
+    if (evaluation.rows[0]?.started) {
+        throw new ParticipantRuleError(underEvaluationMessage, 403);
     }
 }
 
@@ -2084,6 +2127,8 @@ async function updateApplicationSubmission(
                 409,
             );
         }
+
+        await assertApplicationEditable(client, existingApplication.id);
 
         const existingDocumentCount = Number(
             existingApplication.document_count ?? 0,
@@ -2693,6 +2738,7 @@ async function getApplication(
           'submittedAt', pa.submitted_at,
           'createdAt', pa.created_at,
           'updatedAt', pa.updated_at,
+          'evaluationStarted', EXISTS (SELECT 1 FROM public.jury_evaluations je WHERE je.application_id = pa.id),
           'title', COALESCE(NULLIF(pa.proposed_solution, ''), c.title_en, pa.application_number),
           'profile', jsonb_build_object(
             'city', pa.city,
@@ -2850,8 +2896,19 @@ async function getApplication(
         [input.email, input.applicationHash],
     );
 
-    const application = result.rows[0]?.application;
-    return application ? { application } : null;
+    const row = result.rows[0]?.application;
+    if (!row) return null;
+
+    // The UI hides Edit / Delete when the application is locked (evaluation started or registration ended).
+    const { evaluationStarted, ...application } = row;
+    const settings = await getApplicationSettings(pg as unknown as PoolClient);
+
+    return {
+        application: {
+            ...application,
+            isLocked: Boolean(evaluationStarted) || isRegistrationEnded(settings),
+        },
+    };
 }
 
 async function getApplicationDocumentDownload(
@@ -2904,6 +2961,22 @@ async function deleteApplicationDocument(
         email: string;
     },
 ): Promise<DeleteParticipantApplicationDocumentResult | null> {
+    const application = await pg.query<{ id: string }>(
+        `
+      SELECT pa.id::text
+      FROM public.participant_applications pa
+      JOIN public.participants p ON p.id = pa.participant_id
+      WHERE md5(pa.id::text) = LOWER($1)
+        AND LOWER(p.email::text) = LOWER($2)
+      LIMIT 1
+    `,
+        [input.applicationHash, input.email],
+    );
+
+    if (application.rows[0]) {
+        await assertApplicationEditable(pg, application.rows[0].id);
+    }
+
     const result = await pg.query<
         ApplicationDocumentDownloadRow & {
             id: string;

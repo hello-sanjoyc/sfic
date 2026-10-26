@@ -5,6 +5,7 @@ import { join, resolve } from "node:path";
 import { getApiContent } from "../../content/index.js";
 import { sendError, sendSuccess } from "../common/api-response.js";
 import { generateApplicationPdf } from "./admin-application-pdf.js";
+import { attachEvaluationSummaries } from "./admin.evaluations.js";
 import type { AuthenticatedAdminRequest } from "./admin-auth.js";
 import type { AdminLanguage } from "./admin.model.js";
 import {
@@ -255,12 +256,12 @@ function getUploadRootCandidates() {
     );
 }
 
-function contentDispositionFileName(fileName: string) {
+export function contentDispositionFileName(fileName: string) {
     const fallbackName = fileName.replace(/[^\w. -]/g, "_");
     return `attachment; filename="${fallbackName}"; filename*=UTF-8''${encodeURIComponent(fileName)}`;
 }
 
-async function resolveStoredFilePath(storageKey: string) {
+export async function resolveStoredFilePath(storageKey: string) {
     for (const uploadRoot of getUploadRootCandidates()) {
         const candidatePath = resolve(uploadRoot, storageKey);
 
@@ -1384,7 +1385,14 @@ async function getApplications(
         });
 
         return sendSuccess(request, reply, {
-            data: result,
+            data: {
+                ...result,
+                applications: await attachEvaluationSummaries(
+                    pg,
+                    result.applications,
+                    (error) => request.server.log.error(error),
+                ),
+            },
             message: "Applications fetched successfully.",
         });
     } catch (error) {
@@ -1419,14 +1427,20 @@ async function getApplication(
             applicationId,
             pageSize: 1,
         });
-        const application = result.applications[0];
+        const found = result.applications[0];
 
-        if (!application) {
+        if (!found) {
             return sendError(request, reply, {
                 message: "Application not found.",
                 statusCode: 404,
             });
         }
+
+        const [application] = await attachEvaluationSummaries(
+            pg,
+            [found],
+            (error) => request.server.log.error(error),
+        );
 
         return sendSuccess(request, reply, {
             data: { application },

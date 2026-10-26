@@ -42,6 +42,31 @@ export const endpoints = {
         resendLoginCode: `${api}/participants/resend-login-code`,
         verifyLogin: `${api}/participants/verify-login`,
     },
+    jury: {
+        adminProfiles: `${api}/jury/admin/profiles`,
+        adminProfile: (id: string | number) => `${api}/jury/admin/profiles/${id}`,
+        resendInvitation: (id: string | number) => `${api}/jury/admin/profiles/${id}/resend-invitation`,
+        application: (id: string | number) => `${api}/jury/applications/${id}`,
+        applicationDocumentDownload: (
+            applicationId: string | number,
+            documentId: string | number,
+        ) =>
+            `${api}/jury/applications/${applicationId}/documents/${documentId}/download`,
+        applicationDownload: (id: string | number) =>
+            `${api}/jury/applications/${id}/download`,
+        applicationEvaluation: (id: string | number) =>
+            `${api}/jury/applications/${id}/evaluation`,
+        applicationEvaluationSubmit: (id: string | number) =>
+            `${api}/jury/applications/${id}/evaluation/submit`,
+        applications: `${api}/jury/applications`,
+        dashboard: `${api}/jury/dashboard`,
+        login: `${api}/jury/login`,
+        profile: `${api}/jury/profile`,
+        profileDocument: (kind: "avatar" | "cv") => `${api}/jury/profile/documents/${kind}`,
+        profileDocuments: `${api}/jury/profile/documents`,
+        verifyEmail: `${api}/jury/verify-email`,
+        verifyLogin: `${api}/jury/verify-login`,
+    },
     admin: {
         application: (id: string | number) => `${api}/admin/applications/${id}`,
         applicationDownload: (id: string | number) =>
@@ -57,6 +82,7 @@ export const endpoints = {
         ) =>
             `${api}/admin/applications/${applicationId}/documents/${documentId}`,
         applications: `${api}/admin/applications`,
+        applicationRankings: `${api}/admin/applications/rankings`,
         dashboardChallengeCategoryCounts: `${api}/admin/dashboard-challenge-category-counts`,
         dashboardCounts: `${api}/admin/dashboard-counts`,
         dashboardDistrictCounts: `${api}/admin/dashboard-district-counts`,

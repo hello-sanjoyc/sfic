@@ -347,20 +347,22 @@ function StandardPage({
                                   {text}
                               </p>
                           </div>
-                          {page === pages.login &&
-                              (index === 0 || index === 2) && (
+                          {page === pages.login && (
                                   <Link
                                       className="inline-flex shrink-0 items-center justify-center self-start rounded-md bg-[#0b1f3a] px-5 py-3 text-sm font-bold text-white transition hover:bg-[#000080] sm:self-center"
                                       href={
                                           index === 0
                                               ? `/${locale}/participants/login`
-                                              : `/${locale}/admin/login`
+                                              : index === 1
+                                                ? `/${locale}/jury/login`
+                                                : `/${locale}/admin/login`
                                       }
                                   >
                                       {index === 0
-                                          ? content.pages.login
-                                                .participantButton
-                                          : content.pages.login.adminButton}
+                                          ? content.pages.login.participantButton
+                                          : index === 1
+                                            ? content.pages.login.juryButton
+                                            : content.pages.login.adminButton}
                                       <ArrowRight className="ml-2" size={16} />
                                   </Link>
                               )}

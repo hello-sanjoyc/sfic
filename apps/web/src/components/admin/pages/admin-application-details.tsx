@@ -41,6 +41,12 @@ type ApplicationDetails = {
   district?: {
     name?: LocalizedText | null;
   } | null;
+  evaluation?: {
+    level?: string;
+    recommendation?: string | null;
+    status?: "evaluated" | "on_evaluation";
+    totalScore?: number | null;
+  } | null;
   documents?: Array<{
     documentType?: string | null;
     fileSizeBytes?: number | string | null;
@@ -496,9 +502,35 @@ export function AdminApplicationDetailsPage({
           <section className="w-full min-w-0 rounded-lg border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
             <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
               <Field label="Application Number" value={application.applicationNumber} />
-              <Field label="Status" value={formatStatus(application.status)} />
+              <Field
+                label="Status"
+                value={
+                  application.evaluation?.status === "evaluated"
+                    ? "Evaluated"
+                    : application.evaluation?.status === "on_evaluation"
+                      ? "On Evaluation"
+                      : formatStatus(application.status)
+                }
+              />
               <Field label="Submitted At" value={formatDate(application.submittedAt)} />
               <Field label="Created At" value={formatDate(application.createdAt)} />
+              {application.evaluation?.status === "evaluated" && (
+                <>
+                  <Field
+                    label="Jury Total Score"
+                    value={
+                      application.evaluation.totalScore === null ||
+                      application.evaluation.totalScore === undefined
+                        ? null
+                        : `${application.evaluation.totalScore} / 100`
+                    }
+                  />
+                  <Field
+                    label="Jury Recommendation"
+                    value={application.evaluation.recommendation}
+                  />
+                </>
+              )}
             </div>
           </section>
 

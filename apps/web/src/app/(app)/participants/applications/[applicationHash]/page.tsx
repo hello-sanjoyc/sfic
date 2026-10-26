@@ -29,6 +29,7 @@ type LocalizedText = {
 
 type ParticipantApplicationDetails = {
   applicationHash: string;
+  isLocked?: boolean;
   applicationNumber?: string | null;
   challenge?: {
     code?: string | null;
@@ -293,7 +294,8 @@ export default function Page() {
   const canEdit =
     participantRole === "applicant" &&
     Boolean(application) &&
-    application?.status !== "submitted";
+    application?.status !== "submitted" &&
+    !application?.isLocked;
   const canDownload = Boolean(application) && !isDraftEditableStatus;
 
   const downloadApplication = async () => {

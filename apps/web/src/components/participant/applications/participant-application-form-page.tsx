@@ -94,6 +94,7 @@ type ParticipantRole = "applicant" | "team_member";
 
 type ParticipantApplicationDetails = {
     applicationHash?: string | null;
+    isLocked?: boolean;
     challengeCategory?: {
         id?: number | null;
         name?: LocalizedText | null;
@@ -1071,7 +1072,9 @@ export function ParticipantApplicationFormPage({
             ? isEditMode
                 ? "Only the applicant can edit this application."
                 : "Only the applicant can create a new application."
-            : "";
+            : isEditMode && applicantData?.isLocked
+              ? "This application can no longer be edited because the registration period has ended or its evaluation has started."
+              : "";
     const emailVerificationBlockReason =
         !isEditMode && applicantData?.participant?.emailVerified === false
             ? "Verify your email address to create a new application."
@@ -2677,6 +2680,7 @@ export function ParticipantApplicationFormPage({
                                                                 ),
                                                             )}
                                                         </span>
+                                                        {!applicantData?.isLocked && (
                                                         <button
                                                             aria-label={`Delete ${
                                                                 document.originalFileName ??
@@ -2701,6 +2705,7 @@ export function ParticipantApplicationFormPage({
                                                                 ? "Deleting..."
                                                                 : "Delete"}
                                                         </button>
+                                                        )}
                                                     </span>
                                                 </li>
                                             ),

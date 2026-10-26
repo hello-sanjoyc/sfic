@@ -1426,9 +1426,14 @@ async function deleteApplicationDocument(
     } catch (error) {
         request.server.log.error(error);
 
+        const statusCode = getErrorStatusCode(error) ?? 500;
+
         return sendError(request, reply, {
-            message: "Document could not be deleted.",
-            statusCode: getErrorStatusCode(error) ?? 500,
+            message:
+                error instanceof Error && statusCode < 500
+                    ? error.message
+                    : "Document could not be deleted.",
+            statusCode,
         });
     }
 }

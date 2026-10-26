@@ -1,11 +1,13 @@
 import type { FastifyPluginAsync } from "fastify";
 import { authenticateAdmin } from "./admin-auth.js";
 import { adminController } from "./admin.controller.js";
+import { adminRankingsController } from "./admin.rankings.js";
 
 export const adminRoutes: FastifyPluginAsync = async (app) => {
     app.addHook("preHandler", authenticateAdmin);
 
     app.get("/applications", adminController.getApplications);
+    app.get<{ Querystring: { page?: string; pageSize?: string; search?: string; sortBy?: string; sortDirection?: string } }>("/applications/rankings", adminRankingsController.getRankings);
     app.patch("/applications/:applicationId", adminController.updateApplication);
     app.put("/applications/:applicationId", adminController.updateApplication);
     app.delete(

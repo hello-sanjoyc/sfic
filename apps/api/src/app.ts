@@ -13,6 +13,8 @@ import { participantService } from "./modules/participants/participant.service.j
 import { registrationService } from "./modules/registrations/registration.service.js";
 import { registrationRoutes } from "./modules/registrations/index.js";
 import { analyticsRoutes } from "./modules/analytics/index.js";
+import { juryRoutes } from "./modules/jury/index.js";
+import { autoSubmitExpiredEvaluations } from "./modules/jury/jury.evaluation.js";
 
 function envFlag(name: string, defaultValue = false) {
     const value = process.env[name];
@@ -231,6 +233,16 @@ export function buildApp() {
 
             cleanupTimer.unref();
             app.addHook("onClose", async () => clearInterval(cleanupTimer));
+
+            // Submit jury evaluations automatically once their deadline passes.
+            const evaluationTimer = setInterval(() => {
+                autoSubmitExpiredEvaluations(app.pg).catch((error) =>
+                    app.log.error(error),
+                );
+            }, 60_000);
+
+            evaluationTimer.unref();
+            app.addHook("onClose", async () => clearInterval(evaluationTimer));
         });
     }
 
@@ -286,6 +298,7 @@ export function buildApp() {
     app.register(commonRoutes, { prefix: "/api/v1/common" });
     app.register(adminRoutes, { prefix: "/api/v1/admin" });
     app.register(participantRoutes, { prefix: "/api/v1/participants" });
+    app.register(juryRoutes, { prefix: "/api/v1/jury" });
     app.register(registrationRoutes, { prefix: "/api/v1/registrations" });
 
     app.setNotFoundHandler((request, reply) =>
