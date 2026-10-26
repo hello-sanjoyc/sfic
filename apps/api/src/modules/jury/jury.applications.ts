@@ -398,7 +398,7 @@ async function resolveJuryApplication(
         return null;
     }
 
-    return { application, applicationId, juryId, pg, scopeValues: loaded.values };
+    return { application, applicationId, isSubmissionClosed: access.level === "District" && access.isSubmissionClosed, juryId, pg, scopeValues: loaded.values };
 }
 
 async function getJuryApplication(
@@ -417,8 +417,20 @@ async function getJuryApplication(
         [resolved.juryId, resolved.applicationId],
     );
 
+    const evaluation = await resolved.pg.query<{ id: string }>(
+        `SELECT id::text FROM public.jury_evaluations
+         WHERE application_id = $1 AND jury_profile_id = $2
+         LIMIT 1`,
+        [resolved.applicationId, resolved.juryId],
+    );
+
     return sendSuccess(request, reply, {
-        data: { application: resolved.application },
+        data: {
+            application: resolved.application,
+            // Once the district level final submission date has passed, the page offers "View evaluation" (if this jury member evaluated it) instead of Evaluate.
+            // State level jury members are not affected for now.
+            submission: { hasEvaluation: evaluation.rows.length > 0, isClosed: resolved.isSubmissionClosed },
+        },
         message: "Jury application fetched.",
     });
 }

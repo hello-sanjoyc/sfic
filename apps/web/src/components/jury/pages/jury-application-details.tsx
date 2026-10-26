@@ -74,6 +74,7 @@ type ApplicationDetails = {
 
 type ApplicationDetailsResponse = {
   application: ApplicationDetails;
+  submission?: { hasEvaluation: boolean; isClosed: boolean };
 };
 
 function localizedName(value?: LocalizedText | null) {
@@ -229,6 +230,8 @@ export function JuryApplicationDetailsPage({
   const [errorMessage, setErrorMessage] = useState("");
   const [isDownloading, setIsDownloading] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [hasEvaluation, setHasEvaluation] = useState(false);
+  const [isSubmissionClosed, setIsSubmissionClosed] = useState(false);
 
   useEffect(() => {
     let isMounted = true;
@@ -243,6 +246,8 @@ export function JuryApplicationDetailsPage({
       .then((result) => {
         if (!isMounted) return;
         setApplication(result.application);
+        setIsSubmissionClosed(Boolean(result.submission?.isClosed));
+        setHasEvaluation(Boolean(result.submission?.hasEvaluation));
       })
       .catch((error) => {
         if (!isMounted) return;
@@ -265,6 +270,17 @@ export function JuryApplicationDetailsPage({
   const title =
     application?.applicationNumber ??
     (isLoading ? "Application Details" : "Application Not Found");
+
+  // After the final submission date the evaluation is read-only, so the button only lets the jury view it.
+  const viewEvaluationLink = (
+    <Link
+      className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-lg border border-emerald-600 bg-white px-4 text-sm font-bold text-emerald-700 hover:bg-emerald-50 sm:w-auto"
+      href={`/jury/applications/${applicationId}/evaluate`}
+    >
+      <ClipboardCheck size={17} />
+      View evaluation
+    </Link>
+  );
 
   const downloadApplication = async () => {
     if (!application || isDownloading) return;
@@ -398,7 +414,7 @@ export function JuryApplicationDetailsPage({
               Download Application
             </button>
           )}
-          {application ? (
+          {isSubmissionClosed ? (hasEvaluation ? viewEvaluationLink : null) : application ? (
             <Link
               className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-lg bg-emerald-600 px-4 text-sm font-bold text-white hover:bg-emerald-700 sm:w-auto"
               href={`/jury/applications/${applicationId}/evaluate`}
@@ -644,15 +660,19 @@ export function JuryApplicationDetailsPage({
             </div>
           </Section>
 
-          <section className="flex w-full min-w-0 flex-wrap items-center justify-end gap-2 rounded-lg border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
-            <Link
-              className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-lg bg-emerald-600 px-4 text-sm font-bold text-white hover:bg-emerald-700 sm:w-auto"
-              href={`/jury/applications/${applicationId}/evaluate`}
-            >
-              <ClipboardCheck size={17} />
-              Evaluate
-            </Link>
-          </section>
+          {(!isSubmissionClosed || hasEvaluation) && (
+            <section className="flex w-full min-w-0 flex-wrap items-center justify-end gap-2 rounded-lg border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
+              {isSubmissionClosed ? viewEvaluationLink : (
+                <Link
+                  className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-lg bg-emerald-600 px-4 text-sm font-bold text-white hover:bg-emerald-700 sm:w-auto"
+                  href={`/jury/applications/${applicationId}/evaluate`}
+                >
+                  <ClipboardCheck size={17} />
+                  Evaluate
+                </Link>
+              )}
+            </section>
+          )}
         </>
       )}
     </JuryShell>

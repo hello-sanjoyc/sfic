@@ -824,24 +824,37 @@ export function JuryApplicationEvaluatePage({
                             <div className="flex flex-wrap gap-x-5 gap-y-2">
                                 {recommendations.map((option) => (
                                     <label
-                                        className="flex cursor-pointer items-center gap-2 text-base font-black"
+                                        className={`flex items-center gap-2 text-base font-black ${
+                                            isReadOnly
+                                                ? recommendation === option
+                                                    ? "rounded-full bg-[#fbc878] px-3 py-1 text-[#0b1f3a]"
+                                                    : "px-1 opacity-50"
+                                                : "cursor-pointer"
+                                        }`}
                                         key={option}
                                     >
                                         <input
                                             checked={recommendation === option}
-                                            className="size-4 accent-[#fbc878] disabled:cursor-not-allowed"
+                                            className={`size-4 accent-[#fbc878] disabled:cursor-not-allowed ${
+                                                isReadOnly ? "pointer-events-none accent-[#0b1f3a]" : ""
+                                            }`}
+                                            // A locked evaluation is shown with its saved recommendation selected.
+                                            // The radio stays enabled (not greyed out) but cannot be changed.
                                             disabled={
-                                                isReadOnly ||
+                                                !isReadOnly &&
                                                 (option === "Reject"
                                                     ? band === "green" || band === "yellow"
                                                     : band === "red")
                                             }
                                             name="jury-recommendation"
                                             onChange={() => {
+                                                if (isReadOnly) return;
                                                 dirtyRef.current = true;
                                                 setSaveState("pending");
                                                 setRecommendation(option);
                                             }}
+                                            readOnly={isReadOnly}
+                                            tabIndex={isReadOnly ? -1 : undefined}
                                             type="radio"
                                             value={option}
                                         />
@@ -849,6 +862,11 @@ export function JuryApplicationEvaluatePage({
                                     </label>
                                 ))}
                             </div>
+                            {isReadOnly && !recommendation && (
+                                <p className="text-xs font-semibold text-[#fbc878]">
+                                    No recommendation was recorded for this evaluation.
+                                </p>
+                            )}
                             {!isReadOnly && band === "red" && (
                                 <p className="text-xs font-semibold text-[#fbc878]">
                                     A total below 50 is recorded as Reject.
