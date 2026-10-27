@@ -387,6 +387,16 @@ export function JuryLoginPage({
     );
 }
 
+type JuryInvitationVerification = {
+    jury: { email: string; full_name: string };
+    session: { token: string };
+};
+
+const invitationVerifications = new Map<
+    string,
+    Promise<JuryInvitationVerification>
+>();
+
 export function JuryVerificationPage({
     locale = "en",
     portalPath = "/jury",
@@ -398,17 +408,24 @@ export function JuryVerificationPage({
     const params = useSearchParams();
     const [error, setError] = useState("");
     const [ready, setReady] = useState(false);
+    const token = params.get("token");
     useEffect(() => {
-        const token = params.get("token");
         if (!token) {
             setError(content.missingToken);
             return;
         }
-        apiClient
-            .post<{
-                jury: { email: string; full_name: string };
-                session: { token: string };
-            }>(endpoints.jury.verifyEmail, { token })
+        let cancelled = false;
+        // The invitation token is single-use, so a re-run of this effect
+        // (Strict Mode, search-params identity change) must share the first request.
+        let verification = invitationVerifications.get(token);
+        if (!verification) {
+            verification = apiClient.post<JuryInvitationVerification>(
+                endpoints.jury.verifyEmail,
+                { token },
+            );
+            invitationVerifications.set(token, verification);
+        }
+        verification
             .then((result) => {
                 localStorage.setItem(
                     JURY_SESSION_KEY,
@@ -420,16 +437,20 @@ export function JuryVerificationPage({
                         profileCompleted: false,
                     }),
                 );
-                setReady(true);
+                if (!cancelled) setReady(true);
             })
-            .catch((requestError) =>
+            .catch((requestError) => {
+                if (cancelled) return;
                 setError(
                     requestError instanceof Error
                         ? requestError.message
                         : content.verifyFailed,
-                ),
-            );
-    }, [content, params]);
+                );
+            });
+        return () => {
+            cancelled = true;
+        };
+    }, [content, token]);
     return (
         <PortalFrame>
             <div className="mx-auto max-w-2xl rounded-xl border border-slate-200 bg-white p-8 text-center shadow-sm sm:p-12">

@@ -157,6 +157,18 @@ function CategoryCountTable({ rows }: { rows: CategoryCountRow[] }) {
               </tr>
             ))}
           </tbody>
+          {rows.length > 0 && (
+            <tfoot className="border-t-2 border-slate-300 bg-slate-50">
+              <tr>
+                <td className="px-5 py-4 text-xs font-black uppercase tracking-wide text-slate-600">Total</td>
+                {categoryColumns.map((column) => (
+                  <td className="px-2 py-4 text-center font-black text-[#0b1f3a]" key={column.key}>
+                    {rows.reduce((sum, row) => sum + (row[column.key] as number), 0)}
+                  </td>
+                ))}
+              </tr>
+            </tfoot>
+          )}
         </table>
       </div>
     </div>
@@ -214,22 +226,28 @@ export function JuryDashboardPage() {
       )}
 
       {scope && (
-        <p className="text-sm font-semibold text-slate-600">
+        <p className="text-sm font-normal text-slate-600">
           {scope.scope === "District" && scope.district ? (
             <>
               Showing submitted applications from districts of{" "}
-              <span className="font-black text-[#0b1f3a]">{scope.state}</span> other than{" "}
-              <span className="font-black text-[#0b1f3a]">{scope.district}</span>
+              <span className="font-bold text-[#0b1f3a]">{scope.state}</span> other than{" "}
+              <span className="font-bold text-[#0b1f3a]">{scope.district}</span>
             </>
           ) : (
             <>
-              Showing submitted applications from <span className="font-black text-[#0b1f3a]">{location}</span>
+              Showing submitted applications from <span className="font-bold text-[#0b1f3a]">{location}</span>
             </>
           )}
           {scope.categories.length > 0 && (
             <>
               {" "}
-              in <span className="font-black text-[#0b1f3a]">{scope.categories.join(", ")}</span>
+              in{" "}
+              {scope.categories.map((category, index) => (
+                <span key={category}>
+                  {index > 0 && ", "}
+                  <span className="font-bold text-[#0b1f3a]">{category}</span>
+                </span>
+              ))}
             </>
           )}
           .
