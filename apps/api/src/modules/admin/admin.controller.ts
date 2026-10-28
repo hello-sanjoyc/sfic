@@ -1381,7 +1381,8 @@ async function getApplications(
             search: request.query.search,
             sortBy: normalizeSortBy(request.query.sortBy),
             sortDirection: normalizeSortDirection(request.query.sortDirection),
-            status: request.query.status,
+            // Only completed (submitted) applications are listed for admins.
+            status: "submitted",
         });
 
         return sendSuccess(request, reply, {

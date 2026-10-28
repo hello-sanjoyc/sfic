@@ -107,7 +107,7 @@ const maxSupportingDocuments = Number(
     process.env.SUPPORTING_DOCUMENT_MAX_FILES ?? 3,
 );
 const maxSupportingDocumentSizeMb = Number(
-    process.env.SUPPORTING_DOCUMENT_MAX_SIZE_MB ?? 2,
+    process.env.SUPPORTING_DOCUMENT_MAX_SIZE_MB ?? 5,
 );
 const maxSupportingDocumentSizeBytes =
     maxSupportingDocumentSizeMb * 1024 * 1024;
@@ -248,7 +248,8 @@ function validateSubmitApplicationBody(
     body: SubmitApplicationBody = {},
     options: { requireSupportingDocuments?: boolean } = {},
 ) {
-    const requireSupportingDocuments = options.requireSupportingDocuments ?? true;
+    const requireSupportingDocuments =
+        options.requireSupportingDocuments ?? true;
     const errors: string[] = [];
     const language = participantService.normalizeLanguage(
         body.language ?? "en",
@@ -379,9 +380,7 @@ function validateSubmitApplicationBody(
             errors,
             validationMessages.fieldRequired,
         ),
-        gender: gender
-            ? (gender as "Male" | "Female" | "Others")
-            : undefined,
+        gender: gender ? (gender as "Male" | "Female" | "Others") : undefined,
         highestEducationalQualification: requiredText(
             body,
             "highestEducationalQualification",
@@ -562,8 +561,10 @@ async function relocateStoredDocuments(input: {
 
     await mkdir(applicationDirectory, { recursive: true });
 
-    const mappings: Array<{ nextStorageKey: string; previousStorageKey: string }> =
-        [];
+    const mappings: Array<{
+        nextStorageKey: string;
+        previousStorageKey: string;
+    }> = [];
 
     for (const document of input.documents) {
         const previousStorageKey = document.storageKey;
@@ -1115,11 +1116,14 @@ async function updateApplicationSubmission(
     }
 
     try {
-        const result = await participantService.updateApplicationSubmission(pg, {
-            ...validated.value,
-            applicationHash,
-            email: participant.email,
-        });
+        const result = await participantService.updateApplicationSubmission(
+            pg,
+            {
+                ...validated.value,
+                applicationHash,
+                email: participant.email,
+            },
+        );
         const documentStorageMappings = await relocateStoredDocuments({
             applicationId: result.application.id,
             documents: storedDocuments,
@@ -1188,7 +1192,8 @@ async function getApplications(
 async function getProfile(request: FastifyRequest, reply: FastifyReply) {
     const pg = requireDatabase(request, reply);
     if (!pg) return reply;
-    const participant = (request as AuthenticatedParticipantRequest).participant;
+    const participant = (request as AuthenticatedParticipantRequest)
+        .participant;
 
     try {
         const result = await participantService.getProfile(pg, {
@@ -1225,7 +1230,8 @@ async function requestProfileVerificationLink(
 ) {
     const pg = requireDatabase(request, reply);
     if (!pg) return reply;
-    const participant = (request as AuthenticatedParticipantRequest).participant;
+    const participant = (request as AuthenticatedParticipantRequest)
+        .participant;
     const language = participantService.normalizeLanguage(
         request.body?.language ?? "en",
     );
@@ -1408,7 +1414,9 @@ async function deleteApplicationDocument(
             });
         }
 
-        const filePath = await resolveStoredFilePath(result.document.storageKey);
+        const filePath = await resolveStoredFilePath(
+            result.document.storageKey,
+        );
         let fileDeleted = false;
 
         if (filePath) {

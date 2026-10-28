@@ -3576,6 +3576,9 @@ async function getApplications(
 
     if (search) {
         values.push(`%${search.toLowerCase()}%`);
+        // Keep the searchable set to what admins actually look applications up
+        // by. Every extra column (or subquery) is scanned with a leading-wildcard
+        // LIKE for each application, which cannot use an index.
         const applicantSensitiveSearchFields = canViewSensitiveContact
             ? `
                     p.email,
@@ -3590,117 +3593,30 @@ async function getApplications(
                         , search_member_participant.mobile
             `
             : "";
-        const sensitiveVerificationSearchSql = canViewSensitiveContact
-            ? `
-                OR EXISTS (
-                    SELECT 1
-                    FROM public.application_form_saves search_afs
-                    WHERE search_afs.application_id = pa.id
-                      AND LOWER(CONCAT_WS(
-                        ' ',
-                        search_afs.id,
-                        search_afs.language_code,
-                        search_afs.form_data::text,
-                        search_afs.is_current
-                      )) LIKE $${values.length}
-                )
-                OR EXISTS (
-                    SELECT 1
-                    FROM public.participant_email_verification_attempts search_pea
-                    WHERE (
-                        LOWER(search_pea.email::text) = LOWER(p.email::text)
-                        OR search_pea.mobile = p.mobile
-                    )
-                      AND LOWER(CONCAT_WS(
-                        ' ',
-                        search_pea.email,
-                        search_pea.mobile,
-                        search_pea.send_count,
-                        search_pea.locked_until
-                      )) LIKE $${values.length}
-                )
-                OR EXISTS (
-                    SELECT 1
-                    FROM public.participant_login_verification_attempts search_pla
-                    WHERE LOWER(search_pla.email::text) = LOWER(p.email::text)
-                      AND LOWER(CONCAT_WS(
-                        ' ',
-                        search_pla.email,
-                        search_pla.send_count,
-                        search_pla.locked_until
-                      )) LIKE $${values.length}
-                )
-                OR EXISTS (
-                    SELECT 1
-                    FROM public.participant_login_verification_tokens search_plt
-                    WHERE search_plt.application_id = pa.id
-                      AND LOWER(CONCAT_WS(
-                        ' ',
-                        search_plt.id,
-                        search_plt.member_id,
-                        search_plt.email,
-                        search_plt.expires_at,
-                        search_plt.consumed_at
-                      )) LIKE $${values.length}
-                )
-            `
-            : "";
         where.push(`
             (
                 LOWER(CONCAT_WS(
                     ' ',
-                    pa.id,
                     pa.application_number,
-                    pa.status,
-                    pa.form_language,
-                    pa.participation_mode,
                     pa.city,
-                    pa.pin_code,
-                    pa.address,
                     pa.institute_name,
-                    pa.other_institute_type,
-                    pa.problem_location,
-                    pa.proposed_solution,
-                    pa.technology_method,
-                    pa.implementation_route,
-                    pa.cost_funding,
-                    pa.beneficiaries,
-                    pa.project_timeline,
-                    pa.expected_impact,
-                    pa.scalability,
-                    pa.prototype_pilot,
-                    pa.highest_educational_qualification,
-                    pa.last_attended_educational_institute,
-                    pa.year_of_passing,
-                    pa.mentor_acknowledge_to,
-                    pa.intellectual_property_publication,
-                    pa.video_url,
                     p.full_name,
                     ${applicantSensitiveSearchFields}
-                    p.gender,
                     s.name_en,
                     s.name_bn,
                     s.name_hi,
                     d.name_en,
                     d.name_bn,
                     d.name_hi,
-                    pc.code,
                     pc.name_en,
                     pc.name_bn,
                     pc.name_hi,
-                    it.name_en,
-                    it.name_bn,
-                    it.name_hi,
                     cc.name_en,
                     cc.name_bn,
                     cc.name_hi,
-                    c.code,
                     c.title_en,
                     c.title_bn,
-                    c.title_hi,
-                    c.description_en,
-                    c.description_bn,
-                    c.description_hi
+                    c.title_hi
                 )) LIKE $${values.length}
                 OR EXISTS (
                     SELECT 1
@@ -3710,30 +3626,11 @@ async function getApplications(
                     WHERE search_atm.application_id = pa.id
                       AND LOWER(CONCAT_WS(
                         ' ',
-                        search_atm.id,
                         search_atm.full_name,
                         search_member_participant.full_name
                         ${teamSensitiveSearchFields}
                       )) LIKE $${values.length}
                 )
-                OR EXISTS (
-                    SELECT 1
-                    FROM public.application_documents search_ad
-                    WHERE search_ad.application_id = pa.id
-                      AND LOWER(CONCAT_WS(
-                        ' ',
-                        search_ad.id,
-                        search_ad.document_type,
-                        search_ad.language_code,
-                        search_ad.original_file_name,
-                        search_ad.storage_key,
-                        search_ad.public_url,
-                        search_ad.mime_type,
-                        search_ad.file_size_bytes,
-                        search_ad.checksum_sha256
-                      )) LIKE $${values.length}
-                )
-                ${sensitiveVerificationSearchSql}
             )
         `);
     }
