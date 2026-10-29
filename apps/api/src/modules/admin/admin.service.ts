@@ -260,6 +260,7 @@ type AdminApplicationSortKey =
 type AdminApplicationQueryOptions = {
     access?: AdminAccessContext;
     applicationId?: number;
+    includeIncomplete?: boolean;
     page?: number;
     pageSize?: number;
     search?: string;
@@ -298,7 +299,14 @@ const applicationStatuses = new Set([
     "submitted",
     "withdrawn",
 ]);
-const rbacAccessValues = new Set(["Full Access", "View Only", "No Access"]);
+const incompleteListingStatuses = [
+    "draft",
+    "email_verification",
+    "profile_completion",
+    "proposal_submission",
+    "submitted",
+];
+const rbacAccessValues =new Set(["Full Access", "View Only", "No Access"]);
 const rbacScopeValues = new Set(["Application", "Region", "State", "District"]);
 const hiddenAdminUserEmail = "sany.chowdhury@gmail.com";
 const hiddenAdminUserMobile = "9830799651";
@@ -3567,6 +3575,11 @@ async function getApplications(
     if (options.applicationId) {
         values.push(options.applicationId);
         where.push(`pa.id = $${values.length}`);
+    } else if (options.includeIncomplete && isSuperAdmin(options.access)) {
+        // SUPERADMIN only: list submitted and in-progress applications
+        // together. Withdrawn applications stay excluded.
+        values.push(incompleteListingStatuses);
+        where.push(`pa.status = ANY($${values.length}::text[])`);
     } else if (status) {
         values.push(status);
         where.push(`pa.status = $${values.length}`);

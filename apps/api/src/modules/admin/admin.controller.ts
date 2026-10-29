@@ -46,6 +46,7 @@ type ApplicationsQuery = {
     sortBy?: string;
     sortDirection?: string;
     status?: string;
+    includeIncomplete?: string;
 };
 
 type UsersQuery = {
@@ -1376,12 +1377,14 @@ async function getApplications(
     try {
         const result = await adminService.getApplications(pg, {
             access: getAdminAccess(request),
+            // Honoured for SUPERADMIN only; the service ignores it otherwise.
+            includeIncomplete: request.query.includeIncomplete === "true",
             page,
             pageSize,
             search: request.query.search,
             sortBy: normalizeSortBy(request.query.sortBy),
             sortDirection: normalizeSortDirection(request.query.sortDirection),
-            // Only completed (submitted) applications are listed for admins.
+            // Only completed (submitted) applications are listed by default.
             status: "submitted",
         });
 

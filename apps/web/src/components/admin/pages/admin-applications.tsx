@@ -13,6 +13,7 @@ import {
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { AdminShell } from "@/components/admin/common/admin-shell";
+import { AUTH_STORAGE_KEY } from "@/components/auth";
 import { apiClient } from "@/lib/api-client";
 import { endpoints } from "@/lib/endpoints";
 
@@ -92,6 +93,22 @@ const columns = [
   { key: "status", label: "Status" },
   { key: "review", label: "Review" },
 ] satisfies { key: SortKey; label: string }[];
+
+function isCurrentAdminSuperAdmin() {
+  if (typeof window === "undefined") return false;
+
+  try {
+    const session = JSON.parse(localStorage.getItem(AUTH_STORAGE_KEY) ?? "{}") as {
+      actor?: string;
+      admin?: { role?: string };
+    };
+    const role = session.actor === "admin" ? (session.admin?.role ?? "") : "";
+
+    return role.trim().toUpperCase().replace(/[\s-]+/g, "_") === "SUPERADMIN";
+  } catch {
+    return false;
+  }
+}
 
 function formatStatus(status = "draft"): ApplicationStatus {
   const labels: Record<string, ApplicationStatus> = {
@@ -179,7 +196,9 @@ function SortIcon({
 export function AdminApplicationsPage() {
   const [applications, setApplications] = useState<Application[]>([]);
   const [errorMessage, setErrorMessage] = useState("");
+  const [includeIncomplete, setIncludeIncomplete] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [isSuperAdmin, setIsSuperAdmin] = useState(false);
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
   const [query, setQuery] = useState("");
@@ -192,6 +211,10 @@ export function AdminApplicationsPage() {
   const resultEnd = Math.min(page * pageSize, totalApplications);
 
   useEffect(() => {
+    setIsSuperAdmin(isCurrentAdminSuperAdmin());
+  }, []);
+
+  useEffect(() => {
     if (effectiveSearch.length > 0 && effectiveSearch.length < 3) return;
 
     let isMounted = true;
@@ -202,6 +225,7 @@ export function AdminApplicationsPage() {
     void apiClient
       .get<AdminApplicationsResponse>(endpoints.admin.applications, {
         query: {
+          includeIncomplete: includeIncomplete ? true : undefined,
           page,
           pageSize,
           search: effectiveSearch || undefined,
@@ -235,7 +259,7 @@ export function AdminApplicationsPage() {
     return () => {
       isMounted = false;
     };
-  }, [effectiveSearch, page, pageSize, sortDirection, sortKey]);
+  }, [effectiveSearch, includeIncomplete, page, pageSize, sortDirection, sortKey]);
 
   const sortBy = (key: SortKey) => {
     setPage(1);
@@ -260,19 +284,35 @@ export function AdminApplicationsPage() {
               <p className="text-sm text-slate-500">Current application pipeline</p>
             </div>
           </div>
-          <div className="flex h-11 w-full items-center gap-3 rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-500 sm:w-80 lg:w-96">
-            <Search size={18} />
-            <input
-              aria-label="Search application register"
-              className="min-w-0 flex-1 bg-transparent font-medium text-slate-700 outline-none placeholder:text-slate-500"
-              onChange={(event) => {
-                setPage(1);
-                setQuery(event.target.value);
-              }}
-              placeholder="Search applications"
-              type="search"
-              value={query}
-            />
+          <div className="flex w-full flex-wrap items-center gap-3 sm:w-auto">
+            {isSuperAdmin && (
+              <label className="inline-flex h-11 cursor-pointer items-center gap-2 text-sm font-semibold text-slate-700">
+                <input
+                  checked={includeIncomplete}
+                  className="h-4 w-4 accent-blue-600"
+                  onChange={(event) => {
+                    setPage(1);
+                    setIncludeIncomplete(event.target.checked);
+                  }}
+                  type="checkbox"
+                />
+                Incomplete
+              </label>
+            )}
+            <div className="flex h-11 w-full items-center gap-3 rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-500 sm:w-80 lg:w-96">
+              <Search size={18} />
+              <input
+                aria-label="Search application register"
+                className="min-w-0 flex-1 bg-transparent font-medium text-slate-700 outline-none placeholder:text-slate-500"
+                onChange={(event) => {
+                  setPage(1);
+                  setQuery(event.target.value);
+                }}
+                placeholder="Search applications"
+                type="search"
+                value={query}
+              />
+            </div>
           </div>
         </div>
         <div className="hidden w-full min-w-0 overflow-x-auto overscroll-x-contain md:block">
