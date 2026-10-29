@@ -8,6 +8,7 @@ import {
     KeyRound,
     Mail,
     MapPin,
+    Pencil,
     ShieldCheck,
     Tags,
     Upload,
@@ -62,14 +63,15 @@ function validateJuryProfile(
         Number(form.professionalExperienceYears) > 100
     )
         errors.professionalExperienceYears = "Enter whole years from 0 to 100.";
-    if (!form.cv) errors.cv = "Upload your CV as a PDF.";
-    else if (
-        form.cv.type !== "application/pdf" &&
-        !form.cv.name.toLowerCase().endsWith(".pdf")
-    )
-        errors.cv = "CV must be a PDF file.";
-    else if (form.cv.size > limits.cvMb * 1024 * 1024)
-        errors.cv = `CV must not exceed ${limits.cvMb} MB.`;
+    if (form.cv) {
+        if (
+            form.cv.type !== "application/pdf" &&
+            !form.cv.name.toLowerCase().endsWith(".pdf")
+        )
+            errors.cv = "CV must be a PDF file.";
+        else if (form.cv.size > limits.cvMb * 1024 * 1024)
+            errors.cv = `CV must not exceed ${limits.cvMb} MB.`;
+    }
     if (form.avatar) {
         if (!["image/jpeg", "image/png"].includes(form.avatar.type))
             errors.avatar = "Avatar must be a JPG or PNG image.";
@@ -483,7 +485,15 @@ export function JuryVerificationPage({
     );
 }
 
-function JuryProfileCompletionForm() {
+function JuryProfileCompletionForm({
+    initialValues,
+    isEditing = false,
+    onEditSaved,
+}: {
+    initialValues?: Partial<Omit<JuryProfileForm, "cv" | "avatar">>;
+    isEditing?: boolean;
+    onEditSaved?: () => void;
+}) {
     const router = useRouter();
     const pathname = usePathname();
     const [saved, setSaved] = useState(false);
@@ -498,14 +508,14 @@ function JuryProfileCompletionForm() {
         cvMb: 5,
     });
     const [form, setForm] = useState<JuryProfileForm>({
-        address: "",
+        address: initialValues?.address ?? "",
         avatar: null,
-        city: "",
+        city: initialValues?.city ?? "",
         cv: null,
-        designation: "",
-        organisationName: "",
-        pinCode: "",
-        professionalExperienceYears: "",
+        designation: initialValues?.designation ?? "",
+        organisationName: initialValues?.organisationName ?? "",
+        pinCode: initialValues?.pinCode ?? "",
+        professionalExperienceYears: initialValues?.professionalExperienceYears ?? "",
     });
     useEffect(() => {
         let mounted = true;
@@ -645,9 +655,13 @@ function JuryProfileCompletionForm() {
             );
             window.dispatchEvent(new Event("jury-profile-completed"));
             setSaved(true);
-            router.replace(
-                pathname.replace(/\/jury\/profile$/, "/jury/dashboard"),
-            );
+            if (isEditing && onEditSaved) {
+                onEditSaved();
+            } else {
+                router.replace(
+                    pathname.replace(/\/jury\/profile$/, "/jury/dashboard"),
+                );
+            }
         } catch (requestError) {
             setError(
                 requestError instanceof Error
@@ -667,16 +681,16 @@ function JuryProfileCompletionForm() {
                             JURY PROFILE
                         </p>
                         <h1 className="mt-2 text-3xl font-black text-[#0b1f3a]">
-                            Complete your professional profile
+                            {isEditing ? "Edit your professional profile" : "Complete your professional profile"}
                         </h1>
                         <p className="mt-2 text-slate-600">
                             Your details help SFIC maintain a trusted and
                             well-matched jury panel.
                         </p>
                     </div>
-                    <span className="w-fit rounded-full bg-amber-50 px-3 py-1.5 text-sm font-bold text-amber-700">
+                    {!isEditing && <span className="w-fit rounded-full bg-amber-50 px-3 py-1.5 text-sm font-bold text-amber-700">
                         Profile completion required
-                    </span>
+                    </span>}
                 </div>
                 <form className="mt-6 grid gap-6" onSubmit={submit}>
                     <section className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
@@ -841,11 +855,10 @@ function JuryProfileCompletionForm() {
                                 accept="application/pdf"
                                 description={`PDF only, maximum ${uploadLimits.cvMb} MB`}
                                 fieldName="cv"
-                                label="Curriculum vitae (PDF)"
+                                label="Curriculum vitae (PDF, optional)"
                                 file={form.cv}
                                 onChange={(file) => updateForm("cv", file)}
                                 error={fieldErrors.cv}
-                                required
                             />
                             <UploadField
                                 accept="image/png,image/jpeg"
@@ -858,7 +871,16 @@ function JuryProfileCompletionForm() {
                             />
                         </div>
                     </section>
-                    <div className="flex justify-end">
+                    <div className="flex flex-wrap justify-end gap-3">
+                        {isEditing && onEditSaved && (
+                            <button
+                                className="rounded-md border border-slate-200 px-5 py-3 text-sm font-bold text-slate-600 transition hover:bg-slate-100"
+                                onClick={onEditSaved}
+                                type="button"
+                            >
+                                Cancel
+                            </button>
+                        )}
                         <button
                             aria-disabled={isSubmitDisabled}
                             className={`inline-flex items-center gap-2 rounded-md bg-[#0b1f3a] px-6 py-3 text-sm font-bold text-white transition hover:bg-[#000080] disabled:cursor-not-allowed disabled:bg-slate-300 disabled:text-slate-600 ${isSubmitDisabled ? "pointer-events-none" : ""}`}
@@ -868,7 +890,7 @@ function JuryProfileCompletionForm() {
                             }}
                             type="submit"
                         >
-                            <CheckCircle2 size={18} /> Save profile
+                            <CheckCircle2 size={18} /> {isEditing ? "Save changes" : "Save profile"}
                         </button>
                     </div>
                     {saved && (
@@ -1041,7 +1063,13 @@ function DocumentLink({
     );
 }
 
-function JuryProfileView({ profile }: { profile: JuryProfileDetails }) {
+function JuryProfileView({
+    onEdit,
+    profile,
+}: {
+    onEdit?: () => void;
+    profile: JuryProfileDetails;
+}) {
     return (
         <div className="grid gap-4">
             <section className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
@@ -1138,6 +1166,17 @@ function JuryProfileView({ profile }: { profile: JuryProfileDetails }) {
                     }
                 />
             </ProfileCard>
+            {onEdit && (
+                <div className="flex justify-end">
+                    <button
+                        className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-5 py-2.5 text-sm font-bold text-slate-700 shadow-sm hover:bg-slate-50"
+                        onClick={onEdit}
+                        type="button"
+                    >
+                        <Pencil size={15} /> Edit profile
+                    </button>
+                </div>
+            )}
         </div>
     );
 }
@@ -1146,6 +1185,8 @@ export function JuryProfilePage() {
     const [profile, setProfile] = useState<JuryProfileDetails | null>(null);
     const [error, setError] = useState("");
     const [isLoading, setIsLoading] = useState(true);
+    const [isEditing, setIsEditing] = useState(false);
+    const [profileKey, setProfileKey] = useState(0);
 
     useEffect(() => {
         let mounted = true;
@@ -1161,6 +1202,7 @@ export function JuryProfilePage() {
             token = "";
         }
 
+        setIsLoading(true);
         apiClient
             .get<{ jury: JuryProfileDetails }>(endpoints.jury.profile, {
                 headers: { Authorization: `Bearer ${token}` },
@@ -1183,7 +1225,7 @@ export function JuryProfilePage() {
         return () => {
             mounted = false;
         };
-    }, []);
+    }, [profileKey]);
 
     // Active jury members with a completed profile see their saved details;
     // the completion form is only shown until the profile has been completed.
@@ -1191,12 +1233,19 @@ export function JuryProfilePage() {
         profile?.is_active && profile.profile_completed_at,
     );
 
+    const handleEditSaved = () => {
+        setIsEditing(false);
+        setProfileKey((k) => k + 1);
+    };
+
     return (
         <JuryShell
             eyebrow={
-                isCompleted
-                    ? "Your jury profile details"
-                    : "Complete your professional profile"
+                isEditing
+                    ? "Update your professional profile"
+                    : isCompleted
+                      ? "Your jury profile details"
+                      : "Complete your professional profile"
             }
             title="Profile"
         >
@@ -1210,13 +1259,29 @@ export function JuryProfilePage() {
                     {error}
                 </section>
             )}
-            {!isLoading &&
-                profile &&
-                (isCompleted ? (
-                    <JuryProfileView profile={profile} />
+            {!isLoading && profile && (
+                isEditing ? (
+                    <JuryProfileCompletionForm
+                        initialValues={{
+                            address: profile.address ?? "",
+                            city: profile.city ?? "",
+                            designation: profile.designation ?? "",
+                            organisationName: profile.organisation_name ?? "",
+                            pinCode: profile.pin_code ?? "",
+                            professionalExperienceYears: profile.professional_experience_years?.toString() ?? "",
+                        }}
+                        isEditing
+                        onEditSaved={handleEditSaved}
+                    />
+                ) : isCompleted ? (
+                    <JuryProfileView
+                        onEdit={() => setIsEditing(true)}
+                        profile={profile}
+                    />
                 ) : (
                     <JuryProfileCompletionForm />
-                ))}
+                )
+            )}
         </JuryShell>
     );
 }
