@@ -3,6 +3,7 @@
 import {
   Award,
   ClipboardList,
+  History,
   LineChart,
   Home,
   LogOut,
@@ -55,6 +56,7 @@ const navItems = [
   ["Juries", Award, "/admin/juries"],
   ["Users", Users, "/admin/users"],
   ["Email Notification", Mail, "/admin/email-notifications"],
+  ["Audit Trail", History, "/admin/activities"],
   ["Page Views", LineChart, "/admin/analytics"],
   ["Settings", Settings, "/admin/settings"],
 ] as const;
@@ -228,7 +230,7 @@ export function AdminShell({
   }, [pathname]);
 
   const visibleNavItems = navItems.filter(([label]) => {
-    if (label === "Email Notification") {
+    if (label === "Email Notification" || label === "Audit Trail") {
       return normalizeAdminRole(admin.role) === "SUPERADMIN";
     }
     if (label === "Applications" || label === "Rankings") {

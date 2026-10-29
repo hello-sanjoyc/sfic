@@ -2,6 +2,7 @@ import type { FastifyReply, FastifyRequest } from "fastify";
 import { sendError, sendSuccess } from "../common/api-response.js";
 import type { AuthenticatedJuryRequest } from "./jury-auth.js";
 import { JURY_SCOPE_SQL, loadJuryScope, type Pool } from "./jury.dashboard.js";
+import { auditService } from "../audit/audit.service.js";
 
 // Do not name a criterion "prototype", "constructor" or "__proto__": axios
 // silently drops those keys from request bodies.
@@ -210,6 +211,28 @@ async function loadScores(pg: Pool, evaluationId: string) {
     );
 }
 
+// Per-criterion before/after diff for editing an already-submitted
+// evaluation. Must be called before `saveDraft` overwrites the scores.
+async function buildScoreChanges(
+    pg: Pool,
+    evaluation: EvaluationRow,
+    draft: Draft,
+) {
+    const before = await loadScores(pg, evaluation.id);
+    const after = Object.fromEntries(draft.scores);
+    const changes: Record<string, { from: number | null; to: number | null }> = {};
+
+    for (const key of EVALUATION_CRITERIA) {
+        const fromValue = before[key] ?? null;
+        const toValue = after[key] ?? null;
+        if (fromValue === toValue) continue;
+
+        changes[key] = { from: fromValue, to: toValue };
+    }
+
+    return changes;
+}
+
 async function toEvaluationDto(
     pg: Pool,
     row: EvaluationRow,
@@ -305,6 +328,29 @@ async function prepare(
     return { access, applicationId, juryId, loaded, pg };
 }
 
+// Application number + applicant identity for an audit entry, so jury
+// evaluation actions can be searched/filtered by applicant name/phone.
+async function auditApplicantContext(pg: Pool, applicationId: number) {
+    const result = await pg.query<{
+        application_number: string;
+        full_name: string | null;
+        mobile: string | null;
+    }>(
+        `SELECT pa.application_number, p.full_name, p.mobile
+         FROM public.participant_applications pa
+         LEFT JOIN public.participants p ON p.id = pa.participant_id
+         WHERE pa.id = $1`,
+        [applicationId],
+    );
+    const row = result.rows[0];
+
+    return {
+        applicantFullName: row?.full_name ?? null,
+        applicantPhone: row?.mobile ?? null,
+        applicationNumber: row?.application_number ?? null,
+    };
+}
+
 async function readEvaluation(
     pg: Pool,
     applicationId: number,
@@ -382,6 +428,19 @@ async function startEvaluation(
         }
 
         evaluation = await readEvaluation(pg, applicationId, access.level);
+
+        if (evaluation && Number(evaluation.jury_profile_id) === juryId) {
+            await auditService.recordRichAuditEntry(request, pg, {
+                actorType: "jury",
+                actorId: juryId,
+                category: "jury_evaluation",
+                action: "jury_evaluation.created",
+                applicationId,
+                ...(await auditApplicantContext(pg, applicationId)),
+                statusCode: 200,
+                details: { level: access.level },
+            });
+        }
     }
 
     if (!evaluation || Number(evaluation.jury_profile_id) !== juryId) {
@@ -403,6 +462,15 @@ type SaveBody = {
     scores?: Record<string, unknown>;
 };
 
+// Accepts up to 2 decimal places, e.g. 7.39. Rounding to 2dp (rather than
+// rejecting) absorbs floating point noise from round-tripping through JSON.
+function parseCriterionScore(raw: unknown) {
+    const score = Number(raw);
+    if (!Number.isFinite(score) || score < 0 || score > 10) return null;
+
+    return Math.round(score * 100) / 100;
+}
+
 function validateDraft(body: SaveBody | undefined) {
     const scores: Array<[string, number]> = [];
 
@@ -413,9 +481,9 @@ function validateDraft(body: SaveBody | undefined) {
 
         if (raw === null || raw === undefined || raw === "") continue;
 
-        const score = Number(raw);
-        if (!Number.isInteger(score) || score < 0 || score > 10) {
-            return { error: "Each score must be a whole number from 0 to 10." };
+        const score = parseCriterionScore(raw);
+        if (score === null) {
+            return { error: "Each score must be a number from 0 to 10, with up to 2 decimal places." };
         }
 
         scores.push([key, score]);
@@ -591,6 +659,17 @@ async function updateEvaluation(
         }
     }
 
+    // Editing an already-submitted evaluation is a meaningful post-submission
+    // correction worth a dedicated audit entry; routine autosave of an
+    // in-progress draft (saved repeatedly while the jury member is still
+    // typing) is not, and would otherwise flood the audit trail. The "before"
+    // scores/comments/recommendation must be captured now, before saveDraft
+    // overwrites them.
+    const scoreChanges =
+        evaluation.status === "submitted"
+            ? await buildScoreChanges(context.pg, evaluation, draft)
+            : null;
+
     await saveDraft(context, evaluation.id, draft, request);
 
     const saved = await readEvaluation(
@@ -598,6 +677,30 @@ async function updateEvaluation(
         context.applicationId,
         context.access.level,
     );
+
+    if (evaluation.status === "submitted") {
+        await auditService.recordRichAuditEntry(request, context.pg, {
+            actorType: "jury",
+            actorId: context.juryId,
+            category: "jury_evaluation",
+            action: "jury_evaluation.updated",
+            applicationId: context.applicationId,
+            ...(await auditApplicantContext(context.pg, context.applicationId)),
+            statusCode: 200,
+            details: {
+                level: context.access.level,
+                totalScore: {
+                    from: evaluation.total_score,
+                    to: saved?.total_score ?? null,
+                },
+                recommendation:
+                    evaluation.recommendation === draft.recommendation
+                        ? undefined
+                        : { from: evaluation.recommendation, to: draft.recommendation },
+                scores: scoreChanges,
+            },
+        });
+    }
 
     return sendSuccess(request, reply, {
         data: {
@@ -661,6 +764,22 @@ async function submitEvaluation(
         context.applicationId,
         context.access.level,
     );
+
+    await auditService.recordRichAuditEntry(request, context.pg, {
+        actorType: "jury",
+        actorId: context.juryId,
+        category: "jury_evaluation",
+        action: "jury_evaluation.updated",
+        applicationId: context.applicationId,
+        ...(await auditApplicantContext(context.pg, context.applicationId)),
+        statusCode: 200,
+        details: {
+            level: context.access.level,
+            recommendation: draft.recommendation,
+            totalScore: saved?.total_score ?? null,
+            scores: Object.fromEntries(draft.scores),
+        },
+    });
 
     return sendSuccess(request, reply, {
         data: {

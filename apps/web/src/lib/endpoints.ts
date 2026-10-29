@@ -46,6 +46,8 @@ export const endpoints = {
         adminProfiles: `${api}/jury/admin/profiles`,
         adminProfile: (id: string | number) => `${api}/jury/admin/profiles/${id}`,
         resendInvitation: (id: string | number) => `${api}/jury/admin/profiles/${id}/resend-invitation`,
+        adminResetEvaluation: (applicationId: string | number, level: string) =>
+            `${api}/jury/admin/applications/${applicationId}/evaluation?level=${encodeURIComponent(level)}`,
         application: (id: string | number) => `${api}/jury/applications/${id}`,
         applicationDocumentDownload: (
             applicationId: string | number,
@@ -68,6 +70,7 @@ export const endpoints = {
         verifyLogin: `${api}/jury/verify-login`,
     },
     admin: {
+        auditLog: `${api}/admin/audit-log`,
         application: (id: string | number) => `${api}/admin/applications/${id}`,
         applicationDownload: (id: string | number) =>
             `${api}/admin/applications/${id}/download`,

@@ -2,6 +2,8 @@ import type { FastifyPluginAsync } from "fastify";
 import { authenticateAdmin } from "./admin-auth.js";
 import { adminController } from "./admin.controller.js";
 import { adminRankingsController } from "./admin.rankings.js";
+import { auditController } from "../audit/audit.controller.js";
+import type { AuditLogQuery } from "../audit/audit.model.js";
 
 export const adminRoutes: FastifyPluginAsync = async (app) => {
     app.addHook("preHandler", authenticateAdmin);
@@ -121,4 +123,8 @@ export const adminRoutes: FastifyPluginAsync = async (app) => {
     app.post("/login", adminController.requestLoginCode);
     app.post("/resend-login-code", adminController.resendLoginCode);
     app.post("/verify-login", adminController.verifyLoginCode);
+    app.get<{ Querystring: AuditLogQuery }>(
+        "/audit-log",
+        auditController.getAuditLog,
+    );
 };

@@ -2,11 +2,17 @@
 
 import { ArrowRight, FileText, RefreshCw } from "lucide-react";
 import { usePathname, useRouter } from "next/navigation";
-import { type ReactNode, useMemo, useState } from "react";
+import { type ReactNode, useEffect, useMemo, useState } from "react";
 import { PARTICIPANT_TOKEN_KEY } from "@/components/auth";
 import { getSiteContent } from "@/content";
 import { apiClient } from "@/lib/api-client";
 import { endpoints } from "@/lib/endpoints";
+import {
+    type AppSettingsMap,
+    getAppSettings,
+    registrationAvailability,
+    settingsMap,
+} from "@/lib/registration-settings";
 
 const guidelinesPdfByLocale: Record<string, string> = {
     bn: "/documents/SFIC-Guidelines-BN.pdf",
@@ -168,6 +174,33 @@ export function RegisterPageBody({
     const content = getSiteContent(locale).register;
     const guidelinesPdfHref =
         guidelinesPdfByLocale[locale] ?? guidelinesPdfByLocale.en;
+    const [appSettings, setAppSettings] = useState<AppSettingsMap>({});
+    const [isSettingsLoading, setIsSettingsLoading] = useState(true);
+    const [settingsError, setSettingsError] = useState("");
+    const registrationStatus = useMemo(
+        () => registrationAvailability(appSettings, locale),
+        [appSettings, locale],
+    );
+
+    useEffect(() => {
+        let mounted = true;
+        getAppSettings()
+            .then(settingsMap)
+            .then((settings) => {
+                if (mounted) setAppSettings(settings);
+            })
+            .catch(() => {
+                if (mounted)
+                    setSettingsError(content.registrationStatus.settingsError);
+            })
+            .finally(() => {
+                if (mounted) setIsSettingsLoading(false);
+            });
+        return () => {
+            mounted = false;
+        };
+    }, []);
+
     const [captcha, setCaptcha] = useState(createCaptcha);
     const [form, setForm] = useState<FormValues>({
         captchaAnswer: "",
@@ -213,6 +246,11 @@ export function RegisterPageBody({
     ) => {
         event.preventDefault();
         setError("");
+
+        if (!registrationStatus.canRegister) {
+            setError(registrationStatus.message);
+            return;
+        }
 
         const nextFieldErrors = validateRegistrationForm(
             form,
@@ -280,6 +318,20 @@ export function RegisterPageBody({
                     </p>
                 </div>
 
+                {isSettingsLoading ||
+                settingsError ||
+                !registrationStatus.canRegister ? (
+                    <div className="mt-6 rounded-lg border border-amber-200 bg-amber-50 p-5">
+                        <h2 className="text-xl font-bold text-[#0b1f3a]">
+                            {content.registrationStatus.heading}
+                        </h2>
+                        <p className="mt-2 leading-7 text-slate-700">
+                            {isSettingsLoading
+                                ? content.registrationStatus.checking
+                                : settingsError || registrationStatus.message}
+                        </p>
+                    </div>
+                ) : (
                 <form className="mt-6 grid gap-5" onSubmit={submitRegistration}>
                     <div>
                         <p className="text-sm font-black text-slate-700">
@@ -562,6 +614,7 @@ export function RegisterPageBody({
                         <ArrowRight className="ml-2" size={16} />
                     </button>
                 </form>
+                )}
             </div>
 
             <div className="mt-16 sm:mt-20">{children}</div>

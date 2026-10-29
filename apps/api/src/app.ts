@@ -4,6 +4,7 @@ import multipart from "@fastify/multipart";
 import postgres from "@fastify/postgres";
 import Fastify from "fastify";
 import type { PoolConfig } from "pg";
+import { types as pgTypes } from "pg";
 import { adminRoutes } from "./modules/admin/index.js";
 import { adminService } from "./modules/admin/admin.service.js";
 import { sendError, sendSuccess } from "./modules/common/api-response.js";
@@ -15,6 +16,13 @@ import { registrationRoutes } from "./modules/registrations/index.js";
 import { analyticsRoutes } from "./modules/analytics/index.js";
 import { juryRoutes } from "./modules/jury/index.js";
 import { autoSubmitExpiredEvaluations } from "./modules/jury/jury.evaluation.js";
+import { auditService } from "./modules/audit/index.js";
+
+// node-postgres returns NUMERIC columns (e.g. jury evaluation scores) as
+// strings by default, to avoid silent precision loss on very large values.
+// Every numeric column in this schema fits safely in a JS number, so parse
+// them as numbers instead of leaving callers to remember to do it per query.
+pgTypes.setTypeParser(1700, (value: string) => Number(value));
 
 function envFlag(name: string, defaultValue = false) {
     const value = process.env[name];
@@ -243,6 +251,29 @@ export function buildApp() {
 
             evaluationTimer.unref();
             app.addHook("onClose", async () => clearInterval(evaluationTimer));
+        });
+
+        // Audit trail: a baseline, best-effort log entry for every mutating
+        // request, for any actor type, that an explicit richer log call
+        // elsewhere hasn't already claimed. Runs onResponse (after the
+        // response is sent) so it can never delay or alter what the caller
+        // receives, and only logs successful requests.
+        app.addHook("onResponse", async (request, reply) => {
+            if (!app.hasDecorator("pg")) return;
+            if (reply.statusCode >= 400) return;
+            if (auditService.isAuditClaimed(request)) return;
+            if (!auditService.shouldAuditGenerically(request)) return;
+
+            const actor = auditService.resolveGenericActor(request);
+            const routePath = new URL(request.url, "http://localhost").pathname;
+            await auditService.recordAuditEntry(app.pg, {
+                ...actor,
+                category: "other",
+                action: `record.${auditService.genericCrudAction(request.method)}`,
+                httpMethod: request.method,
+                routePath,
+                statusCode: reply.statusCode,
+            });
         });
     }
 

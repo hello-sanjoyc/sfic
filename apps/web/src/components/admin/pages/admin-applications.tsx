@@ -1,7 +1,6 @@
 "use client";
 
 import {
-  ArrowRight,
   ChevronDown,
   ChevronLeft,
   ChevronRight,
@@ -9,6 +8,7 @@ import {
   ChevronUp,
   ClipboardList,
   Search,
+  View,
 } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useState } from "react";
@@ -336,7 +336,7 @@ export function AdminApplicationsPage() {
                 ))}
                 <th className="px-4 py-3 uppercase text-slate-500">Score</th>
                 <th className="px-4 py-3 uppercase text-slate-500">Recommendation</th>
-                <th className="px-4 py-3 uppercase text-slate-500">Action</th>
+                <th className="px-4 py-3 text-center uppercase text-slate-500">Action</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
@@ -366,7 +366,7 @@ export function AdminApplicationsPage() {
                   </td>
                   <td className="px-4 py-3 text-slate-600">{application.review}</td>
                   <td className="px-4 py-3 font-black text-[#0b1f3a]">
-                    {application.totalScore === null ? <span className="font-normal text-slate-400">-</span> : `${application.totalScore} / 100`}
+                    {application.totalScore === null ? <span className="font-normal text-slate-400">-</span> : `${application.totalScore.toFixed(2)} / 100`}
                   </td>
                   <td className="px-4 py-3">
                     {application.recommendation ? (
@@ -377,9 +377,9 @@ export function AdminApplicationsPage() {
                       <span className="text-slate-400">-</span>
                     )}
                   </td>
-                  <td className="px-4 py-3">
-                    <Link className="inline-flex items-center gap-1 text-sm font-bold text-blue-600" href={`/admin/applications/${application.id}`}>
-                      View <ArrowRight size={15} />
+                  <td className="px-4 py-3 text-center">
+                    <Link aria-label="View application" className="inline-flex items-center justify-center text-blue-600 hover:text-blue-700" href={`/admin/applications/${application.id}`}>
+                      <View size={18} />
                     </Link>
                   </td>
                 </tr>
@@ -416,14 +416,14 @@ export function AdminApplicationsPage() {
                 <div className="min-w-0"><dt className="text-xs font-bold text-slate-500">State</dt><dd className="break-words text-slate-700">{application.state}</dd></div>
                 <div className="min-w-0"><dt className="text-xs font-bold text-slate-500">Review</dt><dd className="break-words text-slate-700">{application.review}</dd></div>
                 {application.totalScore !== null && (
-                  <div className="min-w-0"><dt className="text-xs font-bold text-slate-500">Score</dt><dd className="break-words font-black text-[#0b1f3a]">{application.totalScore} / 100</dd></div>
+                  <div className="min-w-0"><dt className="text-xs font-bold text-slate-500">Score</dt><dd className="break-words font-black text-[#0b1f3a]">{application.totalScore.toFixed(2)} / 100</dd></div>
                 )}
                 {application.recommendation && (
                   <div className="min-w-0"><dt className="text-xs font-bold text-slate-500">Recommendation</dt><dd className="break-words text-slate-700">{application.recommendation}</dd></div>
                 )}
               </dl>
-              <Link className="inline-flex min-h-10 items-center gap-1 self-start text-sm font-bold text-blue-600" href={`/admin/applications/${application.id}`}>
-                View application <ArrowRight size={15} />
+              <Link aria-label="View application" className="inline-flex min-h-10 items-center self-start text-blue-600 hover:text-blue-700" href={`/admin/applications/${application.id}`}>
+                <View size={20} />
               </Link>
             </article>
           ))}

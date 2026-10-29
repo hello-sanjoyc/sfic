@@ -1158,8 +1158,8 @@ export function RegistrationProcessForm({
         applicationId || participantId,
     );
     const registrationStatus = useMemo(
-        () => registrationAvailability(settings),
-        [settings],
+        () => registrationAvailability(settings, locale),
+        [settings, locale],
     );
     const registrationStatusMessage =
         settingsError || registrationStatus.message;

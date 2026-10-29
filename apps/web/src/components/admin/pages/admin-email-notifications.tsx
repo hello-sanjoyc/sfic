@@ -2,7 +2,6 @@
 
 import {
   ArrowLeft,
-  ArrowRight,
   BarChart3,
   CheckCircle2,
   ChevronDown,
@@ -10,6 +9,7 @@ import {
   ChevronRight,
   ChevronsUpDown,
   Clock3,
+  Cog,
   Mail,
   Plus,
   RefreshCcw,
@@ -18,6 +18,7 @@ import {
   ShieldCheck,
   SkipForward,
   Trash2,
+  View,
   XCircle,
 } from "lucide-react";
 import Link from "next/link";
@@ -245,7 +246,7 @@ export function AdminEmailNotificationsPage() {
                   </th>
                 ))}
                 <th className="px-4 py-3">Status</th>
-                <th className="px-4 py-3">Action</th>
+                <th className="px-4 py-3 text-center">Action</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
@@ -277,20 +278,22 @@ export function AdminEmailNotificationsPage() {
                       {notificationLifecycleLabel(notification.status)}
                     </span>
                   </td>
-                  <td className="px-4 py-3">
+                  <td className="px-4 py-3 text-center">
                     {notification.status === "draft" ? (
                       <Link
-                        className="inline-flex items-center gap-1 text-sm font-bold text-blue-600"
+                        aria-label="Manage draft"
+                        className="inline-flex items-center justify-center text-blue-600 hover:text-blue-700"
                         href={`/admin/email-notifications/${notification.id}/edit`}
                       >
-                        Manage <ArrowRight size={15} />
+                        <Cog size={18} />
                       </Link>
                     ) : (
                       <Link
-                        className="inline-flex items-center gap-1 text-sm font-bold text-blue-600"
+                        aria-label="View analytics"
+                        className="inline-flex items-center justify-center text-blue-600 hover:text-blue-700"
                         href={`/admin/email-notifications/${notification.id}/analytics`}
                       >
-                        View <ArrowRight size={15} />
+                        <View size={18} />
                       </Link>
                     )}
                   </td>
@@ -331,10 +334,11 @@ export function AdminEmailNotificationsPage() {
                 <div><dt className="text-xs font-bold text-slate-500">Sent / Failed</dt><dd className="text-slate-700">{notification.sent} / {notification.failed}</dd></div>
               </dl>
               <Link
-                className="inline-flex min-h-10 items-center gap-1 self-start text-sm font-bold text-blue-600"
+                aria-label={notification.status === "draft" ? "Manage draft" : "View analytics"}
+                className="inline-flex min-h-10 items-center self-start text-blue-600 hover:text-blue-700"
                 href={notification.status === "draft" ? `/admin/email-notifications/${notification.id}/edit` : `/admin/email-notifications/${notification.id}/analytics`}
               >
-                {notification.status === "draft" ? "Manage draft" : "View analytics"} <ArrowRight size={15} />
+                {notification.status === "draft" ? <Cog size={20} /> : <View size={20} />}
               </Link>
             </article>
           ))}

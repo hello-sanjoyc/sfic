@@ -4,8 +4,13 @@ import { Menu, X } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { getSiteContent } from "@/content";
+import {
+  getAppSettings,
+  registrationAvailability,
+  settingsMap,
+} from "@/lib/registration-settings";
 import {
   scrollToPageSection,
 } from "./one-page-nav";
@@ -15,6 +20,14 @@ export function MainHeader() {
   const router = useRouter();
   const locale = pathname.split("/")[1] || "en";
   const content = getSiteContent(locale);
+  const [canRegister, setCanRegister] = useState(true);
+
+  useEffect(() => {
+    getAppSettings()
+      .then(settingsMap)
+      .then((settings) => setCanRegister(registrationAvailability(settings, locale).canRegister))
+      .catch(() => {});
+  }, []);
   const nav = [
     [content.header.nav.home, ""],
     [content.header.nav.about, "#about"],
@@ -66,9 +79,9 @@ export function MainHeader() {
               {nav.map(([label, part]) => <Link className="border-b-2 border-transparent py-2 transition hover:border-[#ff9933] hover:text-[#000080]" href={href(part)} key={label} onClick={handleNavClick(part)}>{label}</Link>)}
             </nav>
             <Link className="rounded-full border border-[#ff9933] px-4 py-2 text-[15px] font-bold text-[#0b1f3a] transition hover:bg-[#fff3e6] hover:text-[#000080]" href={actionHref("/login")}>{content.common.login}</Link>
-            <Link className="rounded-full bg-[#ff9933] px-4 py-2.5 text-base font-extrabold text-[#071426] transition hover:bg-[#f08a24]" href={actionHref("/register")}>{content.common.applyNow}</Link>
+            {canRegister && <Link className="rounded-full bg-[#ff9933] px-4 py-2.5 text-base font-extrabold text-[#071426] transition hover:bg-[#f08a24]" href={actionHref("/register")}>{content.common.applyNow}</Link>}
           </div>
-          <div className="ml-auto hidden items-center gap-3 md:flex xl:hidden"><Link className="rounded-full border border-[#ff9933] px-4 py-2 text-[15px] font-bold text-[#0b1f3a] transition hover:bg-[#fff3e6] hover:text-[#000080]" href={actionHref("/login")}>{content.common.login}</Link><Link className="rounded-full bg-[#ff9933] px-4 py-2.5 text-base font-extrabold text-[#071426] transition hover:bg-[#f08a24]" href={actionHref("/register")}>{content.common.applyNow}</Link></div>
+          <div className="ml-auto hidden items-center gap-3 md:flex xl:hidden"><Link className="rounded-full border border-[#ff9933] px-4 py-2 text-[15px] font-bold text-[#0b1f3a] transition hover:bg-[#fff3e6] hover:text-[#000080]" href={actionHref("/login")}>{content.common.login}</Link>{canRegister && <Link className="rounded-full bg-[#ff9933] px-4 py-2.5 text-base font-extrabold text-[#071426] transition hover:bg-[#f08a24]" href={actionHref("/register")}>{content.common.applyNow}</Link>}</div>
           <button className="rounded-full p-2 text-[#071426] xl:hidden" aria-label="Open navigation" onClick={() => setOpen(true)}><Menu size={26} /></button>
         </div>
       </header>
@@ -98,7 +111,7 @@ export function MainHeader() {
           </nav>
           <div className="border-t border-slate-200 bg-white px-4 py-4">
             <Link className="mb-3 block rounded-full border border-[#ff9933] px-4 py-3 text-center text-base font-extrabold text-[#071426] transition hover:bg-[#fff3e6] hover:text-[#000080]" href={actionHref("/login")} onClick={() => setOpen(false)}>{content.common.login}</Link>
-            <Link className="block rounded-full bg-[#ff9933] px-4 py-3 text-center text-base font-extrabold text-[#071426] transition hover:bg-[#f08a24]" href={actionHref("/register")} onClick={() => setOpen(false)}>{content.common.applyNow}</Link>
+            {canRegister && <Link className="block rounded-full bg-[#ff9933] px-4 py-3 text-center text-base font-extrabold text-[#071426] transition hover:bg-[#f08a24]" href={actionHref("/register")} onClick={() => setOpen(false)}>{content.common.applyNow}</Link>}
           </div>
         </div>
       )}

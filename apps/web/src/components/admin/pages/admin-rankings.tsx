@@ -306,7 +306,7 @@ export function AdminRankingsPage() {
                     <td className="px-4 py-3 text-slate-600">{item.state ?? "-"}</td>
                     <td className="px-4 py-3 text-slate-600">{item.district ?? "-"}</td>
                     <td className="px-4 py-3 text-slate-600">{item.category ?? "-"}</td>
-                    <td className="px-4 py-3 font-black text-[#0b1f3a]">{item.totalScore} / 100</td>
+                    <td className="px-4 py-3 font-black text-[#0b1f3a]">{item.totalScore.toFixed(2)} / 100</td>
                     <td className="px-4 py-3 text-slate-600">{item.recommendation ?? "-"}</td>
                     <RankCell category={category} rank={item.districtRank} />
                     <RankCell category={category} rank={item.stateRank} />

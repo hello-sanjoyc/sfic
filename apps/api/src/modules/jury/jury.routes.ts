@@ -11,6 +11,7 @@ export const juryRoutes: FastifyPluginAsync = async (app) => {
     app.get<{ Params: { id?: string } }>("/admin/profiles/:id", { preHandler: authenticateAdmin }, juryController.getAdminProfile);
     app.patch<{ Params: { id?: string }; Body: Record<string, unknown> }>("/admin/profiles/:id", { preHandler: authenticateAdmin }, juryController.updateAdminProfile);
     app.post<{ Params: { id?: string }; Body: { language?: string } }>("/admin/profiles/:id/resend-invitation", { preHandler: authenticateAdmin }, juryController.resendInvitation);
+    app.delete<{ Params: { applicationId?: string }; Querystring: { level?: string } }>("/admin/applications/:applicationId/evaluation", { preHandler: authenticateAdmin }, juryController.resetEvaluation);
     app.post<{ Body: { categoryIds?: unknown[]; districtId?: unknown; email?: unknown; fullName?: unknown; language?: unknown; mobile?: unknown; scope?: unknown; stateId?: unknown } }>("/admin/profiles", { preHandler: authenticateAdmin }, juryController.createProfile);
     app.post<{ Body: { token?: string } }>("/verify-email", juryController.verifyInvitation);
     app.post<{ Body: { email?: string; language?: string } }>("/login", juryController.requestLogin);

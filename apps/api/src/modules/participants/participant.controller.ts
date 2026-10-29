@@ -7,6 +7,7 @@ import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 import { getApiContent } from "../../content/index.js";
 import { sendError, sendSuccess } from "../common/api-response.js";
 import { generateApplicationPdf } from "../admin/admin-application-pdf.js";
+import { auditService } from "../audit/audit.service.js";
 import type { AuthenticatedParticipantRequest } from "./participant-auth.js";
 import {
     participantService,
@@ -1132,6 +1133,21 @@ async function updateApplicationSubmission(
         await participantService.updateApplicationDocumentStorageKeys(pg, {
             applicationId: result.application.id,
             mappings: documentStorageMappings,
+        });
+
+        await auditService.recordRichAuditEntry(request, pg, {
+            actorType: "participant",
+            actorId: Number(participant.sub),
+            actorName: participant.name,
+            actorEmail: participant.email,
+            category: "application",
+            action: "application.updated",
+            applicationId: result.application.id,
+            applicationNumber: result.application.applicationNumber,
+            applicantFullName: participant.name,
+            applicantPhone: participant.phone,
+            statusCode: 200,
+            details: { fields: Object.keys(validated.value) },
         });
 
         return sendSuccess(request, reply, {

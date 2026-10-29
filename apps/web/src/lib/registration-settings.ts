@@ -1,5 +1,12 @@
 import { apiClient } from "@/lib/api-client";
 import { endpoints } from "@/lib/endpoints";
+import { getSiteContent } from "@/content";
+
+const registrationDateLocales: Record<string, string> = {
+    bn: "bn-IN",
+    en: "en-IN",
+    hi: "hi-IN",
+};
 
 export type AppSetting = {
     key: string;
@@ -137,12 +144,16 @@ export function shortRegistrationPeriodText(
 
 export function registrationAvailability(
     settings: AppSettingsMap,
+    locale = "en",
     now = new Date(),
 ) {
+    const messages = getSiteContent(locale).register.registrationStatus;
+    const dateLocale = registrationDateLocales[locale] ?? registrationDateLocales.en;
+
     if (!booleanSetting(settings, registrationSettingKeys.enabled)) {
         return {
             canRegister: false,
-            message: "Participant registration is currently closed.",
+            message: messages.closed,
         };
     }
 
@@ -152,24 +163,32 @@ export function registrationAvailability(
     if (startDate && now < startDate) {
         return {
             canRegister: false,
-            message: `Participant registration will open on ${formatRegistrationDate(
-                getRegistrationDateValue(
-                    settings,
-                    registrationSettingKeys.startDate,
+            message: messages.notOpenYet.replace(
+                "{date}",
+                formatRegistrationDate(
+                    getRegistrationDateValue(
+                        settings,
+                        registrationSettingKeys.startDate,
+                    ),
+                    dateLocale,
                 ),
-            )}.`,
+            ),
         };
     }
 
     if (endDate && now > endDate) {
         return {
             canRegister: false,
-            message: `Participant registration closed on ${formatRegistrationDate(
-                getRegistrationDateValue(
-                    settings,
-                    registrationSettingKeys.endDate,
+            message: messages.closedOn.replace(
+                "{date}",
+                formatRegistrationDate(
+                    getRegistrationDateValue(
+                        settings,
+                        registrationSettingKeys.endDate,
+                    ),
+                    dateLocale,
                 ),
-            )}.`,
+            ),
         };
     }
 

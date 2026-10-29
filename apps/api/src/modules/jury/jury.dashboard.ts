@@ -22,14 +22,14 @@ type JuryScopeRow = {
 type CountRow = { count: string; key: string; label: string };
 
 // A jury member reviews submitted applications in the challenge categories
-// they were assigned, from their own state. A district-level jury member sees
-// every other district of that state, so they never review applications from
-// their home district; a state-level jury member sees the whole state.
+// they were assigned, from their own state. A district-level jury member only
+// reviews applications from their own home district; a state-level jury
+// member sees the whole state.
 // Bind the parameters returned by `loadJuryScope` as $1, $2 and $3.
 export const JURY_SCOPE_SQL = `
     pa.status = 'submitted'
     AND pa.state_id = $1
-    AND ($2::bigint IS NULL OR pa.district_id IS DISTINCT FROM $2)
+    AND ($2::bigint IS NULL OR pa.district_id = $2)
     AND pa.challenge_category_id = ANY($3::bigint[])
 `;
 

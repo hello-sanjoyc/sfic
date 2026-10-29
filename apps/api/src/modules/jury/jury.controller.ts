@@ -9,6 +9,7 @@ import { sendError, sendSuccess } from "../common/api-response.js";
 import { contentDispositionFileName, resolveStoredFilePath } from "../admin/admin.controller.js";
 import type { AuthenticatedAdminRequest } from "../admin/admin-auth.js";
 import { createJuryJwt, type AuthenticatedJuryRequest } from "./jury-auth.js";
+import { auditService } from "../audit/audit.service.js";
 
 type Pool = { query: <T = Record<string, unknown>>(text: string, values?: unknown[]) => Promise<{ rows: T[] }> };
 type WithDatabase = FastifyInstance & { pg: Pool };
@@ -37,11 +38,59 @@ async function juryById(pool: Pool, id: number) {
     return result.rows[0] ?? null;
 }
 function juryStatus(row: { invitation_accepted: boolean; is_active: boolean }) { return !row.invitation_accepted ? "Invitation pending" : row.is_active ? "Active" : "Inactive"; }
-async function uploadLimit(pool: Pool, settingKey: "JURY_MAX_CV_SIZE" | "JURY_MAX_AVATAR_SIZE", fallback: number) {
+
+// Maps the admin-update body's camelCase field names to the snake_case
+// columns `fullProfileById` returns, so a before/after diff reads against
+// exactly the fields the caller actually submitted (plus categories and
+// isActive, which are handled outside the column-set loop below).
+const juryProfileFieldMap: Record<string, string> = {
+    fullName: "full_name",
+    email: "email",
+    mobile: "mobile",
+    pinCode: "pin_code",
+    professionalExperienceYears: "professional_experience_years",
+    address: "address",
+    city: "city",
+    organisationName: "organisation_name",
+    designation: "designation",
+};
+
+function juryProfileChanges(
+    before: { is_active: boolean } & Record<string, unknown> | null,
+    after: { is_active: boolean } & Record<string, unknown> | null,
+    body: Record<string, unknown>,
+    categoryIds: number[] | null,
+) {
+    const changes: Record<string, { from: unknown; to: unknown }> = {};
+
+    for (const [bodyKey, column] of Object.entries(juryProfileFieldMap)) {
+        if (body[bodyKey] === undefined) continue;
+
+        const fromValue = before?.[column] ?? null;
+        const toValue = after?.[column] ?? null;
+        if (fromValue === toValue) continue;
+
+        changes[bodyKey] = { from: fromValue, to: toValue };
+    }
+
+    if (body.isActive !== undefined && before && after && before.is_active !== after.is_active) {
+        changes.isActive = { from: before.is_active, to: after.is_active };
+    }
+
+    if (categoryIds) {
+        const beforeCategories = (before as { categories?: string[] | null } | null)?.categories ?? [];
+        const afterCategories = (after as { categories?: string[] | null } | null)?.categories ?? [];
+        changes.categories = { from: beforeCategories, to: afterCategories };
+    }
+
+    return changes;
+}
+async function appSettingInt(pool: Pool, settingKey: "JURY_MAX_CV_SIZE" | "JURY_MAX_AVATAR_SIZE" | "JURY_MAX_CHALLENGE_CATEGORY", fallback: number) {
     const result = await pool.query<{ setting_value: string }>(`SELECT setting_value FROM app_settings WHERE setting_key=$1 AND is_active=TRUE LIMIT 1`, [settingKey]);
     const value = Number(result.rows[0]?.setting_value);
     return Number.isFinite(value) && value > 0 ? value : fallback;
 }
+async function maxChallengeCategories(pool: Pool) { return appSettingInt(pool, "JURY_MAX_CHALLENGE_CATEGORY", 2); }
 async function sendInvitation(input: { email: string; name: string; token: string; language: string }) {
     const url = `${appUrl()}/${input.language}/jury/verify?token=${encodeURIComponent(input.token)}`;
     return emailService.sendEmail({ to: input.email, subject: "Complete your SFIC jury profile", text: `Hello ${input.name},\n\nPlease verify your email and complete your jury profile: ${url}`, html: renderEmailTemplate({ title: "Complete your SFIC jury profile", preheader: "Verify your jury invitation", bodyHtml: `<p>Hello ${input.name},</p><p>You have been invited to join the SFIC jury panel. Verify your email to activate your profile.</p>`, cta: { label: "Verify and complete profile", url } }) });
@@ -60,7 +109,8 @@ async function createProfile(request: FastifyRequest<{ Body: { categoryIds?: unk
     const pool = db(request, reply); if (!pool) return reply;
     const admin = (request as AuthenticatedAdminRequest).adminAccess;
     const body = request.body ?? {}; const fullName = String(body.fullName ?? "").trim(); const email = String(body.email ?? "").trim().toLowerCase(); const mobile = String(body.mobile ?? "").replace(/\D/g, ""); const stateId = number(body.stateId); const districtId = body.districtId === null || body.districtId === undefined || body.districtId === "" ? null : number(body.districtId); const scope = body.scope === "District" ? "District" : body.scope === "State" ? "State" : ""; const categoryIds = Array.isArray(body.categoryIds) ? [...new Set(body.categoryIds.map(number).filter((id): id is number => Boolean(id)))] : [];
-    if (!fullName || !emailPattern.test(email) || mobile.length !== 10 || !stateId || !scope || categoryIds.length < 1 || categoryIds.length > 2 || (scope === "District" && !districtId) || (scope === "State" && districtId)) return sendError(request, reply, { message: "Provide a valid name, email, mobile, scope, location and one or two categories.", statusCode: 400 });
+    const maxCategories = await maxChallengeCategories(pool);
+    if (!fullName || !emailPattern.test(email) || mobile.length !== 10 || !stateId || !scope || categoryIds.length < 1 || categoryIds.length > maxCategories || (scope === "District" && !districtId) || (scope === "State" && districtId)) return sendError(request, reply, { message: `Provide a valid name, email, mobile, scope, location and one to ${maxCategories} categories.`, statusCode: 400 });
     if (!scopeAllowed(admin, stateId, districtId)) return sendError(request, reply, { message: "You cannot create a jury outside your assigned jurisdiction.", statusCode: 403 });
     const location = await pool.query<{ valid: boolean }>(`SELECT EXISTS(SELECT 1 FROM states s LEFT JOIN districts d ON d.id=$2 WHERE s.id=$1 AND ($2::bigint IS NULL OR d.state_id=s.id)) AS valid`, [stateId, districtId]);
     if (!location.rows[0]?.valid) return sendError(request, reply, { message: "The selected district does not belong to the selected state.", statusCode: 400 });
@@ -69,6 +119,7 @@ async function createProfile(request: FastifyRequest<{ Body: { categoryIds?: unk
       const juryId = Number(result.rows[0].id); for (const categoryId of categoryIds) await pool.query(`INSERT INTO jury_profile_categories (jury_profile_id,challenge_category_id) VALUES ($1,$2)`, [juryId, categoryId]);
       const token = randomBytes(32).toString("hex"); await pool.query(`INSERT INTO jury_verification_tokens (jury_profile_id,token_hash,expires_at) VALUES ($1,$2,NOW()+INTERVAL '7 days')`, [juryId, hash(token)]);
       const delivery = await sendInvitation({ email, name: fullName, token, language: language(body.language) });
+      await auditService.recordRichAuditEntry(request, pool, { actorType: "admin", actorId: admin.userId, category: "jury_profile", action: "jury_profile.created", statusCode: 200, details: { email, fullName, scope } });
       return sendSuccess(request, reply, { data: { jury: await juryById(pool, juryId), emailDelivery: delivery }, message: "Jury invitation created." });
     } catch (error: unknown) { return sendError(request, reply, { message: String((error as { code?: string }).code) === "23505" ? "A jury profile already exists for this email address." : "Unable to create jury profile.", statusCode: 400 }); }
 }
@@ -100,9 +151,9 @@ async function listProfiles(request: FastifyRequest<{ Querystring: { districtId?
         try {
             const ids = result.rows.map((row) => Number(row.id));
             // Same definitions as the jury dashboard, per jury member: total is every submitted application in their scope
-            // (their state, never their own district, their categories); the rest are their own views and evaluations.
+            // (their state, and only their own district if district-scoped, their categories); the rest are their own views and evaluations.
             const counts = await pool.query<{ evaluated: string; id: string; on_evaluation: string; recommended: string; rejected: string; reviewed: string; total: string; viewed: string }>(`SELECT jp.id::text,
-                (SELECT COUNT(*) FROM participant_applications pa WHERE pa.status='submitted' AND pa.state_id=jp.state_id AND (jp.district_id IS NULL OR pa.district_id IS DISTINCT FROM jp.district_id) AND pa.challenge_category_id IN (SELECT jpc.challenge_category_id FROM jury_profile_categories jpc WHERE jpc.jury_profile_id=jp.id))::text AS total,
+                (SELECT COUNT(*) FROM participant_applications pa WHERE pa.status='submitted' AND pa.state_id=jp.state_id AND (jp.district_id IS NULL OR pa.district_id = jp.district_id) AND pa.challenge_category_id IN (SELECT jpc.challenge_category_id FROM jury_profile_categories jpc WHERE jpc.jury_profile_id=jp.id))::text AS total,
                 (SELECT COUNT(*) FROM jury_application_views v WHERE v.jury_profile_id = jp.id)::text AS viewed,
                 (SELECT COUNT(*) FROM jury_evaluations e WHERE e.jury_profile_id = jp.id AND e.status = 'in_progress')::text AS on_evaluation,
                 (SELECT COUNT(*) FROM jury_evaluations e WHERE e.jury_profile_id = jp.id AND e.status IN ('submitted', 'auto_submitted'))::text AS evaluated,
@@ -118,7 +169,7 @@ async function listProfiles(request: FastifyRequest<{ Querystring: { districtId?
                 FROM jury_profiles jp
                 JOIN jury_profile_categories jpc ON jpc.jury_profile_id = jp.id
                 JOIN challenge_categories cc ON cc.id = jpc.challenge_category_id
-                CROSS JOIN LATERAL (SELECT COUNT(*) AS count FROM participant_applications pa WHERE pa.status='submitted' AND pa.state_id=jp.state_id AND (jp.district_id IS NULL OR pa.district_id IS DISTINCT FROM jp.district_id) AND pa.challenge_category_id=cc.id) t
+                CROSS JOIN LATERAL (SELECT COUNT(*) AS count FROM participant_applications pa WHERE pa.status='submitted' AND pa.state_id=jp.state_id AND (jp.district_id IS NULL OR pa.district_id = jp.district_id) AND pa.challenge_category_id=cc.id) t
                 CROSS JOIN LATERAL (SELECT COUNT(*) AS count FROM jury_application_views v JOIN participant_applications pa ON pa.id=v.application_id WHERE v.jury_profile_id=jp.id AND pa.challenge_category_id=cc.id) vw
                 CROSS JOIN LATERAL (SELECT COUNT(*) FILTER (WHERE e.status='in_progress') AS on_evaluation,
                     COUNT(*) FILTER (WHERE e.status IN ('submitted','auto_submitted')) AS evaluated,
@@ -152,6 +203,7 @@ async function updateAdminProfile(request: FastifyRequest<{ Params: { id?: strin
     if (!scopeAllowed(access, Number(jury.state_id), jury.district_id ? Number(jury.district_id) : null)) return sendError(request, reply, { message: "Access is not available for this jury profile.", statusCode: 403 });
     const isSuperAdmin = access.role.trim().toUpperCase().replace(/[\s-]+/g, "_") === "SUPERADMIN";
     if (!isSuperAdmin && superAdminOnlyFields.some((field) => body[field] !== undefined)) return sendError(request, reply, { message: "Only a SuperAdmin can change these jury profile fields.", statusCode: 403 });
+    const before = await fullProfileById(pool, id);
 
     const sets: string[] = []; const values: unknown[] = [];
     const set = (column: string, value: unknown) => { values.push(value); sets.push(`${column}=$${values.length}`); };
@@ -159,10 +211,11 @@ async function updateAdminProfile(request: FastifyRequest<{ Params: { id?: strin
 
     let categoryIds: number[] | null = null;
     if (body.categoryIds !== undefined) {
+        const maxCategories = await maxChallengeCategories(pool);
         categoryIds = Array.isArray(body.categoryIds) ? [...new Set(body.categoryIds.map(number).filter((value): value is number => Boolean(value)))] : [];
-        if (categoryIds.length < 1 || categoryIds.length > 2 || (Array.isArray(body.categoryIds) && categoryIds.length !== new Set(body.categoryIds.map(Number)).size)) return sendError(request, reply, { message: "Select one or two valid challenge categories.", statusCode: 400 });
+        if (categoryIds.length < 1 || categoryIds.length > maxCategories || (Array.isArray(body.categoryIds) && categoryIds.length !== new Set(body.categoryIds.map(Number)).size)) return sendError(request, reply, { message: `Select one to ${maxCategories} valid challenge categories.`, statusCode: 400 });
         const found = await pool.query<{ count: string }>(`SELECT COUNT(*)::text AS count FROM challenge_categories WHERE id=ANY($1::bigint[])`, [categoryIds]);
-        if (Number(found.rows[0]?.count) !== categoryIds.length) return sendError(request, reply, { message: "Select one or two valid challenge categories.", statusCode: 400 });
+        if (Number(found.rows[0]?.count) !== categoryIds.length) return sendError(request, reply, { message: `Select one to ${maxCategories} valid challenge categories.`, statusCode: 400 });
     }
     if (body.isActive !== undefined) {
         if (typeof body.isActive !== "boolean") return sendError(request, reply, { message: "isActive must be true or false.", statusCode: 400 });
@@ -190,6 +243,8 @@ async function updateAdminProfile(request: FastifyRequest<{ Params: { id?: strin
         }
     } catch (error: unknown) { return sendError(request, reply, { message: String((error as { code?: string }).code) === "23505" ? "A jury profile already exists for this email address." : "Unable to update jury profile.", statusCode: 400 }); }
     const updated = await juryById(pool, id);
+    const after = await fullProfileById(pool, id);
+    await auditService.recordRichAuditEntry(request, pool, { actorType: "admin", actorId: access.userId, category: "jury_profile", action: "jury_profile.updated", statusCode: 200, details: { juryId: id, changes: juryProfileChanges(before, after, body, categoryIds) } });
     return sendSuccess(request, reply, { data: { jury: updated ? { ...updated, status: juryStatus(updated) } : null }, message: "Jury profile updated." });
 }
 
@@ -201,6 +256,24 @@ async function resendInvitation(request: FastifyRequest<{ Params: { id?: string 
     const token = randomBytes(32).toString("hex"); await pool.query(`UPDATE jury_verification_tokens SET consumed_at=NOW() WHERE jury_profile_id=$1 AND consumed_at IS NULL`, [id]); await pool.query(`INSERT INTO jury_verification_tokens (jury_profile_id,token_hash,expires_at) VALUES ($1,$2,NOW()+INTERVAL '7 days')`, [id, hash(token)]);
     const delivery = await sendInvitation({ email: jury.email, name: jury.full_name, token, language: language(request.body?.language) });
     return sendSuccess(request, reply, { data: { emailDelivery: delivery, jury: { id, email: jury.email } }, message: "Jury invitation resent." });
+}
+
+// Permanently deletes a jury member's evaluation of an application (and its
+// per-criterion scores, via ON DELETE CASCADE), so the application becomes
+// available again for evaluation from scratch. SuperAdmin only.
+async function resetEvaluation(request: FastifyRequest<{ Params: { applicationId?: string }; Querystring: { level?: string } }>, reply: FastifyReply) {
+    const pool = db(request, reply); if (!pool) return reply;
+    const access = (request as AuthenticatedAdminRequest).adminAccess;
+    const role = access.role.trim().toUpperCase().replace(/[\s-]+/g, "_");
+    if (role !== "SUPERADMIN") return sendError(request, reply, { message: "Only a SuperAdmin can reset a jury evaluation.", statusCode: 403 });
+    const applicationId = number(request.params.applicationId); if (!applicationId) return sendError(request, reply, { message: "A valid application id is required.", statusCode: 400 });
+    const level = request.query.level === "State" ? "State" : request.query.level === "District" ? "District" : request.query.level === "Region" ? "Region" : null;
+    if (!level) return sendError(request, reply, { message: "A valid evaluation level (District, State or Region) is required.", statusCode: 400 });
+    const deleted = await pool.query<{ id: string }>(`DELETE FROM jury_evaluations WHERE application_id=$1 AND level=$2 RETURNING id::text`, [applicationId, level]);
+    if (deleted.rows.length === 0) return sendError(request, reply, { message: "No evaluation was found for this application and level.", statusCode: 404 });
+    const appRow = await pool.query<{ application_number: string; full_name: string | null; mobile: string | null }>(`SELECT pa.application_number, p.full_name, p.mobile FROM public.participant_applications pa LEFT JOIN public.participants p ON p.id = pa.participant_id WHERE pa.id=$1`, [applicationId]);
+    await auditService.recordRichAuditEntry(request, pool, { actorType: "admin", actorId: access.userId, category: "jury_evaluation", action: "jury_evaluation.deleted", applicationId, applicationNumber: appRow.rows[0]?.application_number ?? null, applicantFullName: appRow.rows[0]?.full_name ?? null, applicantPhone: appRow.rows[0]?.mobile ?? null, statusCode: 200, details: { level, reason: "reset" } });
+    return sendSuccess(request, reply, { data: { applicationId, level }, message: "Jury evaluation has been reset." });
 }
 
 async function verifyInvitation(request: FastifyRequest<{ Body: { token?: string } }>, reply: FastifyReply) {
@@ -238,7 +311,7 @@ async function fullProfileById(pool: Pool, id: number) {
 async function getProfile(request: FastifyRequest, reply: FastifyReply) { const pool = db(request, reply); if (!pool) return reply; const jury = await fullProfileById(pool, Number((request as AuthenticatedJuryRequest).jury.sub)); if (!jury) return sendError(request, reply, { message: "Jury profile was not found.", statusCode: 404 }); return sendSuccess(request, reply, { data: { jury }, message: "Jury profile fetched." }); }
 async function updateProfile(request: FastifyRequest<{ Body: Record<string, unknown> }>, reply: FastifyReply) { const pool = db(request, reply); if (!pool) return reply; const body = request.body ?? {}; const id = Number((request as AuthenticatedJuryRequest).jury.sub); const address = String(body.address ?? "").trim(); const city = String(body.city ?? "").trim(); const pin = String(body.pinCode ?? "").replace(/\D/g, ""); const organisation = String(body.organisationName ?? "").trim(); const designation = String(body.designation ?? "").trim(); const experience = Number(body.professionalExperienceYears); if (!address || !city || !/^\d{6}$/.test(pin) || !organisation || !designation || !Number.isInteger(experience) || experience < 0) return sendError(request, reply, { message: "Complete all required profile fields with a valid PIN code and experience.", statusCode: 400 }); await pool.query(`UPDATE jury_profiles SET address=$1,city=$2,pin_code=$3,organisation_name=$4,designation=$5,professional_experience_years=$6,profile_completed_at=NOW(),updated_at=NOW() WHERE id=$7`, [address, city, pin, organisation, designation, experience, id]); return getProfile(request, reply); }
 
-async function uploadDocument(request: FastifyRequest, reply: FastifyReply) { const pool = db(request, reply); if (!pool) return reply; const file = await request.file(); if (!file) return sendError(request, reply, { message: "Select a file to upload.", statusCode: 400 }); const kind = String((file.fields.kind as { value?: string } | undefined)?.value ?? ""); const isCv = kind === "cv"; const allowed = isCv ? ["application/pdf"] : ["image/jpeg", "image/png"]; if (!allowed.includes(file.mimetype)) return sendError(request, reply, { message: isCv ? "CV must be a PDF." : "Avatar must be a JPG or PNG image.", statusCode: 400 }); const data = await file.toBuffer(); const limit = await uploadLimit(pool, isCv ? "JURY_MAX_CV_SIZE" : "JURY_MAX_AVATAR_SIZE", isCv ? 5 : 200); const max = limit * (isCv ? 1024 * 1024 : 1024); if (data.length > max) return sendError(request, reply, { message: `Uploaded file exceeds the configured ${isCv ? "CV" : "avatar"} size limit.`, statusCode: 400 }); const id = Number((request as AuthenticatedJuryRequest).jury.sub); const extension = basename(file.filename).split(".").pop()?.replace(/[^a-z0-9]/gi, "") || "file"; const storageKey = join("jury", String(id), `${kind}-${Date.now()}.${extension}`); const root = resolve(process.cwd(), process.env.UPLOAD_DIR ?? process.env.LOCAL_STORAGE_DIR ?? "uploads"); await mkdir(join(root, "jury", String(id)), { recursive: true }); await writeFile(join(root, storageKey), data); await pool.query(isCv ? `UPDATE jury_profiles SET cv_storage_key=$1,cv_original_file_name=$2,updated_at=NOW() WHERE id=$3` : `UPDATE jury_profiles SET avatar_storage_key=$1,avatar_original_file_name=$2,updated_at=NOW() WHERE id=$3`, [storageKey, file.filename, id]); return sendSuccess(request, reply, { data: { fileName: file.filename, kind, storageKey }, message: "File uploaded." }); }
+async function uploadDocument(request: FastifyRequest, reply: FastifyReply) { const pool = db(request, reply); if (!pool) return reply; const file = await request.file(); if (!file) return sendError(request, reply, { message: "Select a file to upload.", statusCode: 400 }); const kind = String((file.fields.kind as { value?: string } | undefined)?.value ?? ""); const isCv = kind === "cv"; const allowed = isCv ? ["application/pdf"] : ["image/jpeg", "image/png"]; if (!allowed.includes(file.mimetype)) return sendError(request, reply, { message: isCv ? "CV must be a PDF." : "Avatar must be a JPG or PNG image.", statusCode: 400 }); const data = await file.toBuffer(); const limit = await appSettingInt(pool, isCv ? "JURY_MAX_CV_SIZE" : "JURY_MAX_AVATAR_SIZE", isCv ? 5 : 200); const max = limit * (isCv ? 1024 * 1024 : 1024); if (data.length > max) return sendError(request, reply, { message: `Uploaded file exceeds the configured ${isCv ? "CV" : "avatar"} size limit.`, statusCode: 400 }); const id = Number((request as AuthenticatedJuryRequest).jury.sub); const extension = basename(file.filename).split(".").pop()?.replace(/[^a-z0-9]/gi, "") || "file"; const storageKey = join("jury", String(id), `${kind}-${Date.now()}.${extension}`); const root = resolve(process.cwd(), process.env.UPLOAD_DIR ?? process.env.LOCAL_STORAGE_DIR ?? "uploads"); await mkdir(join(root, "jury", String(id)), { recursive: true }); await writeFile(join(root, storageKey), data); await pool.query(isCv ? `UPDATE jury_profiles SET cv_storage_key=$1,cv_original_file_name=$2,updated_at=NOW() WHERE id=$3` : `UPDATE jury_profiles SET avatar_storage_key=$1,avatar_original_file_name=$2,updated_at=NOW() WHERE id=$3`, [storageKey, file.filename, id]); return sendSuccess(request, reply, { data: { fileName: file.filename, kind, storageKey }, message: "File uploaded." }); }
 
 async function downloadDocument(request: FastifyRequest<{ Params: { kind?: string } }>, reply: FastifyReply) {
     const pool = db(request, reply); if (!pool) return reply;
@@ -255,4 +328,4 @@ async function downloadDocument(request: FastifyRequest<{ Params: { kind?: strin
     return reply.header("Content-Type", contentType).header("Content-Length", String(size)).header("Content-Disposition", contentDispositionFileName(row.file_name ?? `${kind}.${extension ?? "file"}`)).send(createReadStream(filePath));
 }
 
-export const juryController = { downloadDocument, createProfile, getAdminProfile, getProfile, listProfiles, requestLogin, resendInvitation, updateAdminProfile, updateProfile, uploadDocument, verifyInvitation, verifyLogin };
+export const juryController = { downloadDocument, createProfile, getAdminProfile, getProfile, listProfiles, requestLogin, resendInvitation, resetEvaluation, updateAdminProfile, updateProfile, uploadDocument, verifyInvitation, verifyLogin };

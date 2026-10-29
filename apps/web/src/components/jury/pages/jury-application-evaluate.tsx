@@ -11,6 +11,7 @@ import {
     Video,
 } from "lucide-react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import {
     JURY_SESSION_KEY,
@@ -166,9 +167,15 @@ const sections: Array<{
     },
 ];
 
+// A value is "entered" once it parses to a finite number, so a lone "." or
+// trailing decimal point while typing doesn't count as a completed score yet.
+function isEnteredScore(value: string | number) {
+    return value !== "" && Number.isFinite(Number(value));
+}
+
 // Score band of a fully scored evaluation; null while any criterion is blank.
 function scoreBand(scores: Record<string, string | number>) {
-    const entered = Object.values(scores).filter((value) => value !== "");
+    const entered = Object.values(scores).filter(isEnteredScore);
     if (entered.length !== sections.length) return null;
 
     const total = entered.reduce<number>((sum, value) => sum + Number(value), 0);
@@ -247,6 +254,7 @@ function SummaryField({
 export function JuryApplicationEvaluatePage({
     applicationId,
 }: Readonly<{ applicationId: string }>) {
+    const router = useRouter();
     const [application, setApplication] = useState<ApplicationDetails | null>(
         null,
     );
@@ -264,6 +272,8 @@ export function JuryApplicationEvaluatePage({
     const [evaluation, setEvaluation] = useState<SavedEvaluation | null>(null);
     const [isConfirmOpen, setIsConfirmOpen] = useState(false);
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [isMarksUpdatedBannerVisible, setIsMarksUpdatedBannerVisible] =
+        useState(false);
     const [saveError, setSaveError] = useState("");
     const [saveState, setSaveState] = useState<SaveState>("idle");
     const [submitError, setSubmitError] = useState("");
@@ -271,11 +281,11 @@ export function JuryApplicationEvaluatePage({
     const dirtyRef = useRef(false);
     // Read only once the evaluation is submitted or its deadline has passed.
     const isReadOnly = evaluation?.readOnly ?? false;
-    const enteredScores = Object.values(scores).filter((value) => value !== "");
-    const totalScore = enteredScores.reduce(
-        (sum, value) => sum + Number(value),
-        0,
-    );
+    const enteredScores = Object.values(scores).filter(isEnteredScore);
+    const totalScore =
+        Math.round(
+            enteredScores.reduce((sum, value) => sum + Number(value), 0) * 100,
+        ) / 100;
     // The score band only applies once every criterion has been scored, so a
     // half-filled form doesn't flash red or pick "Reject" too early.
     const isFullyScored = enteredScores.length === sections.length;
@@ -313,7 +323,7 @@ export function JuryApplicationEvaluatePage({
                 setScores(
                     Object.fromEntries(
                         Object.entries(started.evaluation.scores).map(
-                            ([key, value]) => [key, String(value)],
+                            ([key, value]) => [key, Number(value).toFixed(2)],
                         ),
                     ),
                 );
@@ -370,6 +380,7 @@ export function JuryApplicationEvaluatePage({
 
         const timer = window.setTimeout(async () => {
             setSaveState("saving");
+            setIsMarksUpdatedBannerVisible(false);
 
             try {
                 await apiClient.put(
@@ -380,6 +391,9 @@ export function JuryApplicationEvaluatePage({
                 dirtyRef.current = false;
                 setSaveError("");
                 setSaveState("saved");
+                if (evaluation?.status === "submitted") {
+                    setIsMarksUpdatedBannerVisible(true);
+                }
             } catch (error) {
                 setSaveState("error");
                 setSaveError(
@@ -393,6 +407,18 @@ export function JuryApplicationEvaluatePage({
         return () => window.clearTimeout(timer);
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [scores, comments, recommendation, isReadOnly, applicationId]);
+
+    // The "marks updated" banner fades out on its own after a few seconds.
+    useEffect(() => {
+        if (!isMarksUpdatedBannerVisible) return;
+
+        const timer = window.setTimeout(
+            () => setIsMarksUpdatedBannerVisible(false),
+            6000,
+        );
+
+        return () => window.clearTimeout(timer);
+    }, [isMarksUpdatedBannerVisible]);
 
     const openDocument = async (document: ApplicationDocument) => {
         if (downloadingId !== null || !document.id) return;
@@ -444,24 +470,31 @@ export function JuryApplicationEvaluatePage({
             dirtyRef.current = false;
             setSaveState("idle");
             setEvaluation(result.evaluation);
+            router.push("/jury/applications");
         } catch (error) {
             setSubmitError(
                 error instanceof Error
                     ? error.message
                     : "Evaluation could not be submitted.",
             );
-        } finally {
             setIsSubmitting(false);
         }
     };
 
-    // Whole numbers from 0 to 10 only: strip anything that is not a digit and
-    // ignore any entry that would go above the maximum. A total below 50 sets
-    // the recommendation to Reject; from 50 up, Reject is not allowed.
+    // Numbers from 0 to 10 with up to 2 decimal places (e.g. 7.39): strip
+    // anything that isn't a digit or a single decimal point, cap decimals at
+    // 2 places, and ignore any entry that would go above the maximum. A
+    // total below 50 sets the recommendation to Reject; from 50 up, Reject
+    // is not allowed.
     const changeScore = (key: string, input: string) => {
-        const digits = input.replace(/\D/g, "");
-        const value = digits === "" ? "" : String(Number(digits));
-        if (value !== "" && Number(value) > MAX_SCORE) return;
+        let value = input.replace(/[^0-9.]/g, "");
+        const firstDot = value.indexOf(".");
+        if (firstDot !== -1) {
+            value =
+                value.slice(0, firstDot + 1) +
+                value.slice(firstDot + 1).replace(/\./g, "").slice(0, 2);
+        }
+        if (value !== "" && value !== "." && Number(value) > MAX_SCORE) return;
 
         const next = { ...scores, [key]: value };
         const nextBand = scoreBand(next);
@@ -477,9 +510,22 @@ export function JuryApplicationEvaluatePage({
         setScores(next);
     };
 
+    // Formats the score to exactly 2 decimal places once the jury member
+    // leaves the field (e.g. 6 -> 6.00, 6.5 -> 6.50), so the value typed
+    // mid-edit isn't forced into that shape while they're still typing.
+    const blurScore = (key: string) => {
+        const current = scores[key];
+        if (current === undefined || current === "" || current === ".") return;
+
+        const formatted = Number(current).toFixed(2);
+        if (formatted === current) return;
+
+        setScores((prev) => ({ ...prev, [key]: formatted }));
+    };
+
     return (
         <JuryShell
-            eyebrow="Score each section of the proposal from 0 to 10"
+            eyebrow="Score each section of the proposal from 0 to 10 (up to 2 decimal places)"
             title="Evaluate Application"
         >
             <div className="flex min-w-0 flex-wrap items-center justify-between gap-3">
@@ -491,6 +537,19 @@ export function JuryApplicationEvaluatePage({
                     Back to application
                 </Link>
             </div>
+
+            {isMarksUpdatedBannerVisible && (
+                <div className="pointer-events-none fixed inset-x-0 top-20 z-50 flex justify-center px-4">
+                    <section
+                        className="pointer-events-auto flex items-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50 p-4 text-sm font-bold text-emerald-800 shadow-lg"
+                        role="status"
+                    >
+                        <CheckCircle2 size={18} />
+                        Marks updated. The submitted evaluation now reflects
+                        your latest changes.
+                    </section>
+                </div>
+            )}
 
             {isLoading && (
                 <section className="rounded-lg border border-slate-200 bg-white p-8 text-center text-sm font-semibold text-slate-500 shadow-sm">
@@ -711,11 +770,12 @@ export function JuryApplicationEvaluatePage({
                                     <div className="flex items-center gap-2">
                                         <input
                                             aria-label={`Score for ${section.title}`}
-                                            className="h-11 w-20 rounded-lg border border-slate-300 bg-white px-3 text-center text-base font-black text-[#0b1f3a] outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100 disabled:cursor-not-allowed disabled:bg-slate-100"
+                                            className="h-11 w-24 rounded-lg border border-slate-300 bg-white px-3 text-center text-base font-black text-[#0b1f3a] outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100 disabled:cursor-not-allowed disabled:bg-slate-100"
                                             disabled={isReadOnly}
                                             id={inputId}
-                                            inputMode="numeric"
-                                            maxLength={2}
+                                            inputMode="decimal"
+                                            maxLength={5}
+                                            onBlur={() => blurScore(section.id)}
                                             onChange={(event) =>
                                                 changeScore(
                                                     section.id,
@@ -726,10 +786,10 @@ export function JuryApplicationEvaluatePage({
                                             type="text"
                                             value={scores[section.id] ?? ""}
                                         />
-                                        <span className="text-sm font-bold text-slate-500">
-                                            / {MAX_SCORE}
-                                        </span>
                                     </div>
+                                    <p className="mt-1.5 text-center text-xs font-semibold text-[#7a5a14] lg:text-left">
+                                        Decimal numbers allowed
+                                    </p>
                                 </div>
                             </section>
                         );
@@ -767,7 +827,9 @@ export function JuryApplicationEvaluatePage({
                                   : saveState === "pending"
                                     ? "Unsaved changes..."
                                     : saveState === "saved"
-                                      ? "Changes saved. You can edit the marks any number of times before the submission date."
+                                      ? evaluation?.status === "submitted"
+                                          ? "Marks updated. The submitted evaluation now reflects your latest changes."
+                                          : "Changes saved. You can edit the marks any number of times before the submission date."
                                       : evaluation?.status === "submitted"
                                         ? "Submitted. You can still edit the marks any number of times before the submission date."
                                         : "Your marks are saved as you go. You can edit them any number of times before the submission date."}
@@ -802,7 +864,7 @@ export function JuryApplicationEvaluatePage({
                             <p className="mt-1 text-xl font-black sm:text-2xl">
                                 {enteredScores.length > 0 ? (
                                     <span className="inline-block min-w-12 border-b-2 border-current px-2">
-                                        {totalScore}
+                                        {totalScore.toFixed(2)}
                                     </span>
                                 ) : (
                                     <span className="inline-block min-w-12 border-b-2 border-current px-2 opacity-60">
@@ -935,7 +997,7 @@ export function JuryApplicationEvaluatePage({
                                         Total score
                                     </dt>
                                     <dd className="font-black text-[#0b1f3a]">
-                                        {totalScore} /{" "}
+                                        {totalScore.toFixed(2)} /{" "}
                                         {sections.length * MAX_SCORE}
                                     </dd>
                                 </div>

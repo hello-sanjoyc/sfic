@@ -9,6 +9,8 @@ import {
   ChevronUp,
   ClipboardList,
   Search,
+  SquarePen,
+  View,
 } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useState } from "react";
@@ -86,6 +88,52 @@ function recommendationClasses(recommendation: string) {
 
 const lockedMessage =
   "Another jury member is evaluating this application, so it is locked.";
+
+// "Continue" (in progress) and "Edit" (already evaluated, still open) both
+// take the jury to the evaluation form; everything else (available once
+// closed, or already evaluated and closed) is read-only, so it goes to the
+// application detail page instead.
+function applicationActionHref(
+  applicationId: number | string,
+  evaluationStatus: EvaluationStatus,
+  isClosed: boolean | undefined,
+) {
+  const goToEvaluation =
+    evaluationStatus === "on_evaluation" ||
+    (evaluationStatus === "evaluated" && !isClosed);
+
+  return goToEvaluation
+    ? `/jury/applications/${applicationId}/evaluate`
+    : `/jury/applications/${applicationId}`;
+}
+
+// "Continue" (evaluation in progress) stays text + arrow; "Edit" (already
+// evaluated, still open) and "View" (read-only) render as a single icon.
+function ApplicationActionContent({
+  evaluationStatus,
+  isClosed,
+  iconSize,
+  continueLabel = "Continue",
+}: Readonly<{
+  evaluationStatus: EvaluationStatus;
+  isClosed: boolean | undefined;
+  iconSize: number;
+  continueLabel?: string;
+}>) {
+  if (evaluationStatus === "on_evaluation") {
+    return (
+      <>
+        {continueLabel} <ArrowRight size={15} />
+      </>
+    );
+  }
+
+  if (evaluationStatus === "evaluated" && !isClosed) {
+    return <SquarePen aria-label="Edit evaluation" size={iconSize} />;
+  }
+
+  return <View aria-label="View application" size={iconSize} />;
+}
 
 function formatDeadline(value: string) {
   const date = new Date(value);
@@ -283,7 +331,7 @@ export function JuryApplicationsPage() {
                 ))}
                 <th className="px-4 py-3 uppercase text-slate-500">Score</th>
                 <th className="px-4 py-3 uppercase text-slate-500">Recommendation</th>
-                <th className="px-4 py-3 uppercase text-slate-500">Action</th>
+                <th className="px-4 py-3 text-center uppercase text-slate-500">Action</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
@@ -316,7 +364,7 @@ export function JuryApplicationsPage() {
                     </span>
                   </td>
                   <td className="px-4 py-3 font-black text-[#0b1f3a]">
-                    {application.totalScore === null ? <span className="font-normal text-slate-400">-</span> : `${application.totalScore} / 100`}
+                    {application.totalScore === null ? <span className="font-normal text-slate-400">-</span> : `${application.totalScore.toFixed(2)} / 100`}
                   </td>
                   <td className="px-4 py-3">
                     {application.recommendation ? (
@@ -327,14 +375,18 @@ export function JuryApplicationsPage() {
                       <span className="text-slate-400">-</span>
                     )}
                   </td>
-                  <td className="px-4 py-3">
+                  <td className="px-4 py-3 text-center">
                     {application.evaluationStatus === "locked" ? (
-                      <span className="inline-flex items-center gap-1 text-sm font-bold text-slate-400" title={lockedMessage}>
+                      <span className="inline-flex items-center justify-center gap-1 text-sm font-bold text-slate-400" title={lockedMessage}>
                         Locked
                       </span>
                     ) : (
-                      <Link className="inline-flex items-center gap-1 text-sm font-bold text-blue-600" href={`/jury/applications/${application.id}`}>
-                        {application.evaluationStatus === "on_evaluation" ? "Continue" : application.evaluationStatus === "evaluated" && !submission?.isClosed ? "Edit" : "View"} <ArrowRight size={15} />
+                      <Link className="inline-flex items-center justify-center gap-1 text-sm font-bold text-blue-600" href={applicationActionHref(application.id, application.evaluationStatus, submission?.isClosed)}>
+                        <ApplicationActionContent
+                          evaluationStatus={application.evaluationStatus}
+                          iconSize={18}
+                          isClosed={submission?.isClosed}
+                        />
                       </Link>
                     )}
                   </td>
@@ -372,7 +424,7 @@ export function JuryApplicationsPage() {
                 <div className="min-w-0"><dt className="text-xs font-bold text-slate-500">State</dt><dd className="break-words text-slate-700">{application.state}</dd></div>
                 <div className="min-w-0"><dt className="text-xs font-bold text-slate-500">District</dt><dd className="break-words text-slate-700">{application.district}</dd></div>
                 {application.totalScore !== null && (
-                  <div className="min-w-0"><dt className="text-xs font-bold text-slate-500">Score</dt><dd className="break-words font-black text-[#0b1f3a]">{application.totalScore} / 100</dd></div>
+                  <div className="min-w-0"><dt className="text-xs font-bold text-slate-500">Score</dt><dd className="break-words font-black text-[#0b1f3a]">{application.totalScore.toFixed(2)} / 100</dd></div>
                 )}
                 {application.recommendation && (
                   <div className="min-w-0"><dt className="text-xs font-bold text-slate-500">Recommendation</dt><dd className="break-words text-slate-700">{application.recommendation}</dd></div>
@@ -381,8 +433,13 @@ export function JuryApplicationsPage() {
               {application.evaluationStatus === "locked" ? (
                 <p className="text-sm font-semibold text-slate-500">{lockedMessage}</p>
               ) : (
-                <Link className="inline-flex min-h-10 items-center gap-1 self-start text-sm font-bold text-blue-600" href={`/jury/applications/${application.id}`}>
-                  {application.evaluationStatus === "on_evaluation" ? "Continue evaluation" : application.evaluationStatus === "evaluated" && !submission?.isClosed ? "Edit evaluation" : "View application"} <ArrowRight size={15} />
+                <Link className="inline-flex min-h-10 items-center gap-1 self-start text-sm font-bold text-blue-600" href={applicationActionHref(application.id, application.evaluationStatus, submission?.isClosed)}>
+                  <ApplicationActionContent
+                    continueLabel="Continue evaluation"
+                    evaluationStatus={application.evaluationStatus}
+                    iconSize={20}
+                    isClosed={submission?.isClosed}
+                  />
                 </Link>
               )}
             </article>

@@ -23,8 +23,9 @@ export type EditableJury = {
 
 type LookupItem = { id: number; name: { en: string } };
 type StoredAdmin = { actor?: string; admin?: { role?: string } };
+type AppSetting = { key: string; value: string };
 
-const MAX_CATEGORIES = 2;
+const DEFAULT_MAX_CATEGORIES = 2;
 
 function isSuperAdmin() {
   try {
@@ -46,6 +47,7 @@ export function AdminJuryProfileEdit({ jury, juryId, onSaved }: { jury: Editable
   const [canEditAll, setCanEditAll] = useState(false);
   const [isOpen, setIsOpen] = useState(false);
   const [lookups, setLookups] = useState<LookupItem[]>([]);
+  const [maxCategories, setMaxCategories] = useState(DEFAULT_MAX_CATEGORIES);
   const [categories, setCategories] = useState<string[]>(jury.categories ?? []);
   const [isActive, setIsActive] = useState(jury.status === "Active");
   const [fullName, setFullName] = useState(jury.full_name);
@@ -66,6 +68,13 @@ export function AdminJuryProfileEdit({ jury, juryId, onSaved }: { jury: Editable
     if (!isOpen || lookups.length) return;
     apiClient.get<{ challengeCategories: LookupItem[] }>(endpoints.common.lookups).then((result) => setLookups(result.challengeCategories)).catch(() => setError("Unable to load challenge categories."));
   }, [isOpen, lookups.length]);
+  useEffect(() => {
+    if (!isOpen) return;
+    apiClient.get<AppSetting[]>(endpoints.common.appSettings).then((settings) => {
+      const value = Number(settings.find((setting) => setting.key === "JURY_MAX_CHALLENGE_CATEGORY")?.value);
+      if (Number.isFinite(value) && value > 0) setMaxCategories(value);
+    }).catch(() => {});
+  }, [isOpen]);
 
   const reset = () => {
     setCategories(jury.categories ?? []); setIsActive(jury.status === "Active"); setFullName(jury.full_name); setEmail(jury.email); setMobile(jury.mobile);
@@ -73,7 +82,7 @@ export function AdminJuryProfileEdit({ jury, juryId, onSaved }: { jury: Editable
     setAddress(jury.address ?? ""); setCity(jury.city ?? ""); setPinCode(jury.pin_code ?? ""); setError("");
   };
   const close = () => { reset(); setIsOpen(false); };
-  const toggleCategory = (name: string) => setCategories((current) => current.includes(name) ? current.filter((item) => item !== name) : current.length < MAX_CATEGORIES ? [...current, name] : current);
+  const toggleCategory = (name: string) => setCategories((current) => current.includes(name) ? current.filter((item) => item !== name) : current.length < maxCategories ? [...current, name] : current);
 
   const experienceValid = experience === "" || (/^\d{1,3}$/.test(experience) && Number(experience) <= 100);
   const adminFieldsValid = !canEditAll || (fullName.trim() && /^\S+@\S+\.\S+$/.test(email) && mobile.replace(/\D/g, "").length === 10 && experienceValid && (pinCode === "" || /^\d{6}$/.test(pinCode)));
@@ -122,10 +131,10 @@ export function AdminJuryProfileEdit({ jury, juryId, onSaved }: { jury: Editable
       </div>}
 
       <fieldset>
-        <legend className="text-sm font-bold text-slate-700">Challenge categories <span className="font-normal text-slate-500">(select 1 or 2)</span></legend>
+        <legend className="text-sm font-bold text-slate-700">Challenge categories <span className="font-normal text-slate-500">(select 1 to {maxCategories})</span></legend>
         <div className="mt-2 grid gap-2 sm:grid-cols-2">
           {(lookups.length ? lookups.map((item) => item.name.en) : categories).map((name) => {
-            const selected = categories.includes(name); const unavailable = !selected && categories.length >= MAX_CATEGORIES;
+            const selected = categories.includes(name); const unavailable = !selected && categories.length >= maxCategories;
             return <label className={`flex cursor-pointer items-center gap-3 rounded-lg border p-3 text-sm font-semibold transition ${selected ? "border-blue-600 bg-blue-50 text-blue-800" : unavailable ? "cursor-not-allowed border-slate-100 bg-slate-50 text-slate-400" : "border-slate-200 text-slate-700 hover:border-blue-300"}`} key={name}><input checked={selected} className="size-4" disabled={unavailable} onChange={() => toggleCategory(name)} type="checkbox" />{name}</label>;
           })}
         </div>

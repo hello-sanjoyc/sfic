@@ -1130,6 +1130,15 @@ export const enContent = {
         showInfo: "Registration guidelines",
         startRegistration: "Start Registration",
         formTitle: "Registration",
+        registrationStatus: {
+            heading: "Registration Status",
+            checking: "Checking registration availability. Please wait.",
+            closed: "Participant registration is currently closed.",
+            notOpenYet: "Participant registration will open on {date}.",
+            closedOn: "Participant registration closed on {date}.",
+            settingsError:
+                "Unable to check registration availability. Please try again.",
+        },
         steps: [
             "Registration",
             "Profile Completion",

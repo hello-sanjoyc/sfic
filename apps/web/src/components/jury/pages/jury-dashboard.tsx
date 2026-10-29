@@ -40,6 +40,17 @@ const cardStyles: Record<string, { accent: string; icon: typeof FileText }> = {
   totalApplications: { accent: "bg-blue-50 text-blue-600", icon: FileText },
 };
 
+// Rotating tag colors for the assigned challenge categories, since the set
+// of categories (and how many) varies per jury member.
+const categoryTagStyles = [
+  "border-blue-200 bg-blue-50 text-blue-700",
+  "border-emerald-200 bg-emerald-50 text-emerald-700",
+  "border-orange-200 bg-orange-50 text-orange-700",
+  "border-violet-200 bg-violet-50 text-violet-700",
+  "border-rose-200 bg-rose-50 text-rose-700",
+  "border-amber-200 bg-amber-50 text-amber-700",
+];
+
 function MetricCard({
   accent,
   detail,
@@ -226,32 +237,21 @@ export function JuryDashboardPage() {
       )}
 
       {scope && (
-        <p className="text-sm font-normal text-slate-600">
-          {scope.scope === "District" && scope.district ? (
-            <>
-              Showing submitted applications from districts of{" "}
-              <span className="font-bold text-[#0b1f3a]">{scope.state}</span> other than{" "}
-              <span className="font-bold text-[#0b1f3a]">{scope.district}</span>
-            </>
-          ) : (
-            <>
-              Showing submitted applications from <span className="font-bold text-[#0b1f3a]">{location}</span>
-            </>
-          )}
-          {scope.categories.length > 0 && (
-            <>
-              {" "}
-              in{" "}
-              {scope.categories.map((category, index) => (
-                <span key={category}>
-                  {index > 0 && ", "}
-                  <span className="font-bold text-[#0b1f3a]">{category}</span>
-                </span>
-              ))}
-            </>
-          )}
-          .
-        </p>
+        <div className="flex flex-wrap items-center gap-2 text-sm font-normal text-slate-600">
+          <span>
+            Showing submitted applications from{" "}
+            <span className="font-bold text-[#0b1f3a]">{location}</span>
+            {scope.categories.length > 0 ? " in" : "."}
+          </span>
+          {scope.categories.map((category, index) => (
+            <span
+              className={`inline-flex items-center rounded-full border px-3 py-1 text-xs font-bold ${categoryTagStyles[index % categoryTagStyles.length]}`}
+              key={category}
+            >
+              {category}
+            </span>
+          ))}
+        </div>
       )}
 
       <section className="grid w-full min-w-0 grid-cols-[repeat(auto-fit,minmax(min(100%,14rem),1fr))] gap-3 sm:gap-4">

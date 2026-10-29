@@ -6,6 +6,7 @@ import { getApiContent } from "../../content/index.js";
 import { sendError, sendSuccess } from "../common/api-response.js";
 import { generateApplicationPdf } from "./admin-application-pdf.js";
 import { attachEvaluationSummaries } from "./admin.evaluations.js";
+import { auditService } from "../audit/audit.service.js";
 import type { AuthenticatedAdminRequest } from "./admin-auth.js";
 import type { AdminLanguage } from "./admin.model.js";
 import {
@@ -128,6 +129,62 @@ function getAdminAccess(request: FastifyRequest) {
 
 function isNonEmptyString(value: unknown): value is string {
     return typeof value === "string" && value.trim().length > 0;
+}
+
+function isPlainRecord(value: unknown): value is Record<string, unknown> {
+    return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+// Pulls the applicant's name/phone off an application row's nested
+// `participant` object (as returned by `getApplications`/`deleteApplication`),
+// so audit entries for application-scoped actions can be searched/filtered
+// by applicant identity even after the application itself is gone.
+function applicantIdentity(application: Record<string, unknown> | undefined) {
+    const participant = application?.participant as
+        | { fullName?: string | null; mobile?: string | null }
+        | undefined;
+
+    return {
+        applicantFullName: participant?.fullName ?? null,
+        applicantPhone: participant?.mobile ?? null,
+    };
+}
+
+// The admin application update body can nest edits under `participant`,
+// `profile` and `proposal` (matching how `getApplications` nests those same
+// groups in its response), so a top-level key like `participant.fullName`
+// needs its own before/after diff rather than comparing the whole nested
+// object as one opaque value.
+function applicationUpdateChanges(
+    before: Record<string, unknown> | undefined,
+    after: Record<string, unknown> | undefined,
+    submittedBody: Record<string, unknown>,
+) {
+    const changes: Record<string, { from: unknown; to: unknown }> = {};
+    const nestedGroups = ["participant", "profile", "proposal"];
+
+    for (const key of Object.keys(submittedBody)) {
+        if (nestedGroups.includes(key) && isPlainRecord(submittedBody[key])) {
+            const nestedBefore = before?.[key];
+            const nestedAfter = after?.[key];
+            const nestedChanges = auditService.buildFieldChanges(
+                isPlainRecord(nestedBefore) ? nestedBefore : null,
+                isPlainRecord(nestedAfter) ? nestedAfter : null,
+                Object.keys(submittedBody[key] as Record<string, unknown>),
+            );
+            for (const [field, change] of Object.entries(nestedChanges)) {
+                changes[`${key}.${field}`] = change;
+            }
+            continue;
+        }
+
+        Object.assign(
+            changes,
+            auditService.buildFieldChanges(before, after, [key]),
+        );
+    }
+
+    return changes;
 }
 
 function normalizeEmail(value: string) {
@@ -592,6 +649,15 @@ async function createUser(
             getAdminAccess(request),
         );
 
+        await auditService.recordRichAuditEntry(request, pg, {
+            actorType: "admin",
+            actorId: getAdminAccess(request).userId,
+            category: "user",
+            action: "user.created",
+            statusCode: 201,
+            details: { body: request.body },
+        });
+
         return sendSuccess(request, reply, {
             data: result,
             message: "User created successfully.",
@@ -640,6 +706,12 @@ async function updateUser(
     }
 
     try {
+        const before = await adminService.getUser(
+            pg,
+            userId,
+            getAdminAccess(request),
+        );
+
         const result = await adminService.updateUser(
             pg,
             userId,
@@ -653,6 +725,21 @@ async function updateUser(
                 statusCode: 404,
             });
         }
+
+        await auditService.recordRichAuditEntry(request, pg, {
+            actorType: "admin",
+            actorId: getAdminAccess(request).userId,
+            category: "user",
+            action: "user.updated",
+            statusCode: 200,
+            details: {
+                changes: auditService.buildFieldChanges(
+                    before as unknown as Record<string, unknown>,
+                    result.user as unknown as Record<string, unknown>,
+                    Object.keys(request.body),
+                ),
+            },
+        });
 
         return sendSuccess(request, reply, {
             data: result,
@@ -703,6 +790,15 @@ async function deleteUser(
                 statusCode: 404,
             });
         }
+
+        await auditService.recordRichAuditEntry(request, pg, {
+            actorType: "admin",
+            actorId: getAdminAccess(request).userId,
+            category: "user",
+            action: "user.deleted",
+            statusCode: 200,
+            details: { userId },
+        });
 
         return sendSuccess(request, reply, {
             data: result,
@@ -1274,7 +1370,9 @@ async function createSettingsUserRole(request: FastifyRequest<{ Body?: UpsertSet
     const body = requireSettingBody(request, reply);
     if (!pg || !body) return reply;
     try {
-        return sendSuccess(request, reply, { data: await adminService.createSettingsUserRole(pg, body), message: "User role created successfully.", statusCode: 201 });
+        const data = await adminService.createSettingsUserRole(pg, body);
+        await auditService.recordRichAuditEntry(request, pg, { actorType: "admin", actorId: getAdminAccess(request).userId, category: "settings", action: "settings.user_role.created", statusCode: 201, details: { body } });
+        return sendSuccess(request, reply, { data, message: "User role created successfully.", statusCode: 201 });
     } catch (error) {
         return handleAdminSettingsError(request, reply, error);
     }
@@ -1286,8 +1384,10 @@ async function updateSettingsUserRole(request: FastifyRequest<{ Body?: UpsertSet
     if (!pg || !body) return reply;
     if (!isNonEmptyString(request.params.role)) return sendError(request, reply, { message: "A valid role is required.", statusCode: 400 });
     try {
+        const before = await adminService.getSettingsUserRole(pg, request.params.role);
         const result = await adminService.updateSettingsUserRole(pg, request.params.role, body);
         if (!result) return sendError(request, reply, { message: "User role not found.", statusCode: 404 });
+        await auditService.recordRichAuditEntry(request, pg, { actorType: "admin", actorId: getAdminAccess(request).userId, category: "settings", action: "settings.user_role.updated", statusCode: 200, details: { role: request.params.role, changes: auditService.buildFieldChanges(before as unknown as Record<string, unknown>, result.userRole as unknown as Record<string, unknown>, Object.keys(body)) } });
         return sendSuccess(request, reply, { data: result, message: "User role updated successfully." });
     } catch (error) {
         return handleAdminSettingsError(request, reply, error);
@@ -1301,6 +1401,7 @@ async function deleteSettingsUserRole(request: FastifyRequest<{ Params: SettingR
     try {
         const result = await adminService.deleteSettingsUserRole(pg, request.params.role);
         if (!result) return sendError(request, reply, { message: "User role not found.", statusCode: 404 });
+        await auditService.recordRichAuditEntry(request, pg, { actorType: "admin", actorId: getAdminAccess(request).userId, category: "settings", action: "settings.user_role.deleted", statusCode: 200, details: { role: request.params.role } });
         return sendSuccess(request, reply, { data: result, message: "User role deactivated successfully." });
     } catch (error) {
         return handleAdminSettingsError(request, reply, error);
@@ -1339,8 +1440,10 @@ async function createRbacRule(request: FastifyRequest<{ Body?: UpsertSettingBody
     const body = requireSettingBody(request, reply);
     if (!pg || !body) return reply;
     try {
+        const data = await adminService.createRbacRule(pg, body);
+        await auditService.recordRichAuditEntry(request, pg, { actorType: "admin", actorId: getAdminAccess(request).userId, category: "settings", action: "settings.rbac_rule.created", statusCode: 201, details: { body } });
         return sendSuccess(request, reply, {
-            data: await adminService.createRbacRule(pg, body),
+            data,
             message: "RBAC rule created successfully.",
             statusCode: 201,
         });
@@ -1356,8 +1459,10 @@ async function updateRbacRule(request: FastifyRequest<{ Body?: UpsertSettingBody
     if (!pg || !body) return reply;
     if (!id) return sendError(request, reply, { message: "A valid id is required.", statusCode: 400 });
     try {
+        const before = await adminService.getRbacRule(pg, id);
         const result = await adminService.updateRbacRule(pg, id, body);
         if (!result) return sendError(request, reply, { message: "RBAC rule not found.", statusCode: 404 });
+        await auditService.recordRichAuditEntry(request, pg, { actorType: "admin", actorId: getAdminAccess(request).userId, category: "settings", action: "settings.rbac_rule.updated", statusCode: 200, details: { id, changes: auditService.buildFieldChanges(before?.rbacRule as unknown as Record<string, unknown>, result.rbacRule as unknown as Record<string, unknown>, Object.keys(body)) } });
         return sendSuccess(request, reply, { data: result, message: "RBAC rule updated successfully." });
     } catch (error) {
         return handleAdminSettingsError(request, reply, error);
@@ -1487,6 +1592,15 @@ async function updateApplication(
     }
 
     try {
+        const beforeResult = await adminService.getApplications(pg, {
+            access: getAdminAccess(request),
+            applicationId,
+            pageSize: 1,
+        });
+        const before = beforeResult.applications[0] as
+            | Record<string, unknown>
+            | undefined;
+
         const result = await adminService.updateApplication(
             pg,
             {
@@ -1502,6 +1616,21 @@ async function updateApplication(
                 statusCode: 404,
             });
         }
+
+        const after = result.application as Record<string, unknown>;
+        await auditService.recordRichAuditEntry(request, pg, {
+            actorType: "admin",
+            actorId: getAdminAccess(request).userId,
+            category: "application",
+            action: "application.updated",
+            applicationId,
+            applicationNumber: (after.applicationNumber as string) ?? null,
+            ...applicantIdentity(after),
+            statusCode: 200,
+            details: {
+                changes: applicationUpdateChanges(before, after, request.body),
+            },
+        });
 
         return sendSuccess(request, reply, {
             data: result,
@@ -1540,6 +1669,15 @@ async function deleteApplication(
     }
 
     try {
+        const beforeResult = await adminService.getApplications(pg, {
+            access: getAdminAccess(request),
+            applicationId,
+            pageSize: 1,
+        });
+        const before = beforeResult.applications[0] as
+            | Record<string, unknown>
+            | undefined;
+
         const result = await adminService.deleteApplication(
             pg,
             applicationId,
@@ -1567,6 +1705,18 @@ async function deleteApplication(
         const fileDeleteFailures = fileDeleteResults.filter(
             (fileResult) => fileResult.status === "rejected",
         ).length;
+
+        await auditService.recordRichAuditEntry(request, pg, {
+            actorType: "admin",
+            actorId: getAdminAccess(request).userId,
+            category: "application",
+            action: "application.deleted",
+            applicationId,
+            applicationNumber: result.application.applicationNumber,
+            ...applicantIdentity(before),
+            statusCode: 200,
+            details: { documentsDeleted: result.documents.length, filesDeleted },
+        });
 
         return sendSuccess(request, reply, {
             data: {
@@ -1691,6 +1841,33 @@ async function deleteApplicationDocument(
             await unlink(filePath);
             fileDeleted = true;
         }
+
+        const appRow = await pg.query<{
+            application_number: string;
+            full_name: string | null;
+            mobile: string | null;
+        }>(
+            `SELECT pa.application_number, p.full_name, p.mobile
+             FROM public.participant_applications pa
+             LEFT JOIN public.participants p ON p.id = pa.participant_id
+             WHERE pa.id = $1`,
+            [applicationId],
+        );
+        await auditService.recordRichAuditEntry(request, pg, {
+            actorType: "admin",
+            actorId: getAdminAccess(request).userId,
+            category: "application",
+            action: "application.document_deleted",
+            applicationId,
+            applicationNumber: appRow.rows[0]?.application_number ?? null,
+            applicantFullName: appRow.rows[0]?.full_name ?? null,
+            applicantPhone: appRow.rows[0]?.mobile ?? null,
+            statusCode: 200,
+            details: {
+                documentId,
+                originalFileName: result.document.originalFileName,
+            },
+        });
 
         return sendSuccess(request, reply, {
             data: {

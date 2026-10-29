@@ -2,7 +2,6 @@
 
 import {
   ArrowLeft,
-  ArrowRight,
   ChevronLeft,
   ChevronRight,
   Pencil,
@@ -10,6 +9,7 @@ import {
   Search,
   UserCog,
   Users,
+  View,
 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -287,7 +287,7 @@ export function AdminUsersPage() {
                 <th className="px-4 py-3">Role</th>
                 <th className="px-4 py-3">Status</th>
                 <th className="px-4 py-3">Created</th>
-                <th className="px-4 py-3">Action</th>
+                <th className="px-4 py-3 text-center">Action</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
@@ -313,9 +313,9 @@ export function AdminUsersPage() {
                   <td className="px-4 py-3 text-slate-600">{roleLabel(user.role)}</td>
                   <td className="px-4 py-3"><UserStatusBadge isActive={user.isActive} /></td>
                   <td className="px-4 py-3 text-slate-600">{formatDate(user.createdAt)}</td>
-                  <td className="px-4 py-3">
-                    <Link className="inline-flex items-center gap-1 text-sm font-bold text-blue-600" href={`/admin/users/${user.id}`}>
-                      Manage <ArrowRight size={15} />
+                  <td className="px-4 py-3 text-center">
+                    <Link aria-label="Manage user" className="inline-flex items-center justify-center text-blue-600 hover:text-blue-700" href={`/admin/users/${user.id}`}>
+                      <View size={18} />
                     </Link>
                   </td>
                 </tr>
@@ -351,8 +351,8 @@ export function AdminUsersPage() {
                 <div><dt className="text-xs font-bold text-slate-500">Role</dt><dd className="break-words text-slate-700">{roleLabel(user.role)}</dd></div>
                 <div className="min-[420px]:col-span-2"><dt className="text-xs font-bold text-slate-500">Created</dt><dd className="text-slate-700">{formatDate(user.createdAt)}</dd></div>
               </dl>
-              <Link className="inline-flex min-h-10 items-center gap-1 self-start text-sm font-bold text-blue-600" href={`/admin/users/${user.id}`}>
-                Manage user <ArrowRight size={15} />
+              <Link aria-label="Manage user" className="inline-flex min-h-10 items-center self-start text-blue-600 hover:text-blue-700" href={`/admin/users/${user.id}`}>
+                <View size={20} />
               </Link>
             </article>
           ))}

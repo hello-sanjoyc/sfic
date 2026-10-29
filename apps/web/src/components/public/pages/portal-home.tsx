@@ -31,6 +31,7 @@ import { getSiteContent } from "@/content";
 import { challengeDates } from "@/lib/challenge-dates";
 import {
     getAppSettings,
+    registrationAvailability,
     registrationPeriodText,
     settingsMap,
 } from "@/lib/registration-settings";
@@ -172,6 +173,7 @@ export async function PortalHome({ locale }: { locale: string }) {
         appSettings,
         registrationDateLocales[locale] ?? registrationDateLocales.en,
     );
+    const canRegister = registrationAvailability(appSettings, locale).canRegister;
     const fallbackQuickItem = (
         item: string[] | undefined,
         fallback: [string, string],
@@ -217,10 +219,16 @@ export async function PortalHome({ locale }: { locale: string }) {
             description: localizedSlide?.description ?? slide.description,
             primaryCTA: {
                 ...slide.primaryCTA,
-                label: localizedSlide?.primaryCTA ?? slide.primaryCTA.label,
-                href: slide.primaryCTA.href
-                    ? slide.primaryCTA.href.replace("/en", `/${locale}`)
-                    : "",
+                label:
+                    !canRegister && slide.primaryCTA.href.includes("/register")
+                        ? ""
+                        : localizedSlide?.primaryCTA ?? slide.primaryCTA.label,
+                href:
+                    !canRegister && slide.primaryCTA.href.includes("/register")
+                        ? ""
+                        : slide.primaryCTA.href
+                          ? slide.primaryCTA.href.replace("/en", `/${locale}`)
+                          : "",
             },
             secondaryCTA: {
                 ...slide.secondaryCTA,
@@ -883,12 +891,23 @@ export async function PortalHome({ locale }: { locale: string }) {
                         <p className="mt-5 max-w-xl text-base font-medium leading-7 text-slate-700 md:text-lg">
                             {home.cta.description}
                         </p>
-                        <Link
-                            className="mt-8 inline-flex items-center gap-3 rounded-full bg-[#ff6b1a] px-8 py-4 text-lg font-bold text-white shadow-[0_14px_30px_rgba(255,107,26,.25)] transition hover:-translate-y-0.5 hover:bg-[#f08a24]"
-                            href={link("/register")}
-                        >
-                            {content.common.applyNow} <ArrowRight size={20} />
-                        </Link>
+                        {canRegister ? (
+                            <Link
+                                className="mt-8 inline-flex items-center gap-3 rounded-full bg-[#ff6b1a] px-8 py-4 text-lg font-bold text-white shadow-[0_14px_30px_rgba(255,107,26,.25)] transition hover:-translate-y-0.5 hover:bg-[#f08a24]"
+                                href={link("/register")}
+                            >
+                                {content.common.applyNow} <ArrowRight size={20} />
+                            </Link>
+                        ) : (
+                            <p className="mt-8 inline-flex items-center gap-3 rounded-full bg-slate-100 px-8 py-4 text-lg font-bold text-slate-500">
+                                {
+                                    registrationAvailability(
+                                        appSettings,
+                                        locale,
+                                    ).message
+                                }
+                            </p>
+                        )}
                         <p className="mt-7 text-xs font-black uppercase tracking-[0.22em] text-[#5f8fce]">
                             {home.cta.footer}
                         </p>
@@ -896,14 +915,18 @@ export async function PortalHome({ locale }: { locale: string }) {
                 </div>
             </section>
 
-            <span className="sticky-apply-spacer" aria-hidden="true" />
-            <StickyApply
-                href={link("/register")}
-                label={content.common.applyNow}
-                statusText={content.common.applicationsOpen}
-                hint={registrationPeriod}
-                hideWhenVisible="apply"
-            />
+            {canRegister && (
+                <>
+                    <span className="sticky-apply-spacer" aria-hidden="true" />
+                    <StickyApply
+                        href={link("/register")}
+                        label={content.common.applyNow}
+                        statusText={content.common.applicationsOpen}
+                        hint={registrationPeriod}
+                        hideWhenVisible="apply"
+                    />
+                </>
+            )}
         </>
     );
 }
