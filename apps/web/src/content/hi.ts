@@ -944,7 +944,7 @@ export const hiContent = {
         stepOf: "चरण {current} / {total}",
         complete: "{progress}% पूरा",
         eligibility:
-            "केवल पश्चिम बंगाल, बिहार और झारखंड राज्यों के प्रतिभागी इस पोर्टल के माध्यम से आवेदन करने के पात्र हैं।",
+            "केवल {states} राज्यों के प्रतिभागी इस पोर्टल के माध्यम से आवेदन करने के पात्र हैं।",
         participantCategory: "प्रतिभागी श्रेणी",
         junior: "जूनियर",
         juniorDescription: "स्कूल, ITI और स्नातक-पूर्व।",

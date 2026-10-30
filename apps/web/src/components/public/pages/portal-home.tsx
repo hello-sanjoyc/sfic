@@ -29,6 +29,8 @@ import {
 } from "@/mocks/public";
 import { getSiteContent } from "@/content";
 import { challengeDates } from "@/lib/challenge-dates";
+import { apiClient } from "@/lib/api-client";
+import { endpoints } from "@/lib/endpoints";
 import {
     getAppSettings,
     registrationAvailability,
@@ -166,28 +168,36 @@ export async function PortalHome({ locale }: { locale: string }) {
     const content = getSiteContent(locale);
     const home = content.home;
     const link = (path: string) => `/${locale}${path}`;
-    const appSettings = await getAppSettings()
-        .then(settingsMap)
-        .catch(() => ({}));
+    type StateLookup = { id: number; isRegistrationEnabled?: boolean; name: { bn: string; en: string; hi: string } };
+    const [appSettings, allStates] = await Promise.all([
+        getAppSettings().then(settingsMap).catch(() => ({})),
+        apiClient.get<StateLookup[]>(endpoints.common.states).catch(() => [] as StateLookup[]),
+    ]);
     const registrationPeriod = registrationPeriodText(
         appSettings,
         registrationDateLocales[locale] ?? registrationDateLocales.en,
     );
     const canRegister = registrationAvailability(appSettings, locale).canRegister;
+    const openStates = allStates.filter((s) => s.isRegistrationEnabled !== false);
+    const localeKey = (locale === "bn" || locale === "hi") ? locale : "en";
+    const openStatesText = openStates.length > 0
+        ? openStates.map((s) => s.name[localeKey]).join(", ")
+        : (locale === "bn" ? "কোনো রাজ্য নেই" : locale === "hi" ? "कोई राज्य नहीं" : "No states");
     const fallbackQuickItem = (
         item: string[] | undefined,
         fallback: [string, string],
     ): [string, string] => [item?.[0] ?? fallback[0], item?.[1] ?? fallback[1]];
+    const openToLabel: Record<string, string> = { bn: "কার জন্য খোলা", en: "Open to", hi: "किसके लिए खुला" };
     const quickInfo: Array<[string, string]> = [
         [
             registrationOpenLabels[locale] ?? registrationOpenLabels.en,
             registrationPeriod,
         ],
         fallbackQuickItem(home.quick[1], ["Regional hub", "Kolkata"]),
-        fallbackQuickItem(home.quick[2], [
-            "Open to",
-            "West Bengal, Bihar and Jharkhand",
-        ]),
+        [
+            openToLabel[locale] ?? openToLabel.en,
+            openStatesText,
+        ],
         fallbackQuickItem(home.quick[3], [
             "Need assistance?",
             "Contact the helpdesk",

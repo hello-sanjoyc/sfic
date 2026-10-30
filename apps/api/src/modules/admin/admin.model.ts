@@ -111,7 +111,9 @@ export type AdminSettingsNamedItem = {
   updatedAt: string;
 };
 
-export type AdminSettingsState = AdminSettingsNamedItem;
+export type AdminSettingsState = AdminSettingsNamedItem & {
+  isRegistrationEnabled: boolean;
+};
 
 export type AdminSettingsDistrict = AdminSettingsNamedItem & {
   stateId: number;

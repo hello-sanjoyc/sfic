@@ -14,6 +14,10 @@ export type NamedRow = QueryResultRow & {
     sort_order?: string | number;
 };
 
+export type StateRow = NamedRow & {
+    is_registration_enabled: boolean;
+};
+
 export type DistrictRow = NamedRow & {
     state_id: string | number;
     state_name_bn: string;
@@ -73,6 +77,13 @@ export function listItemFromRow(row: NamedRow) {
         name: nameFromRow(row),
         sortOrder:
             row.sort_order === undefined ? undefined : toNumber(row.sort_order),
+    };
+}
+
+export function stateFromRow(row: StateRow) {
+    return {
+        ...listItemFromRow(row),
+        isRegistrationEnabled: row.is_registration_enabled,
     };
 }
 

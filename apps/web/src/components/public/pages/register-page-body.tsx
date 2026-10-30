@@ -174,9 +174,14 @@ export function RegisterPageBody({
     const content = getSiteContent(locale).register;
     const guidelinesPdfHref =
         guidelinesPdfByLocale[locale] ?? guidelinesPdfByLocale.en;
+    type StateLookup = { id: number; isRegistrationEnabled?: boolean; name: { bn: string; en: string; hi: string } };
+    const localeKey = (locale === "bn" || locale === "hi") ? locale : "en";
+    const openToLabels: Record<string, string> = { bn: "নিবন্ধন খোলা আছে", en: "Registration open for", hi: "पंजीकरण खुला है" };
+
     const [appSettings, setAppSettings] = useState<AppSettingsMap>({});
     const [isSettingsLoading, setIsSettingsLoading] = useState(true);
     const [settingsError, setSettingsError] = useState("");
+    const [openStateNames, setOpenStateNames] = useState<string[]>([]);
     const registrationStatus = useMemo(
         () => registrationAvailability(appSettings, locale),
         [appSettings, locale],
@@ -184,10 +189,18 @@ export function RegisterPageBody({
 
     useEffect(() => {
         let mounted = true;
-        getAppSettings()
-            .then(settingsMap)
-            .then((settings) => {
-                if (mounted) setAppSettings(settings);
+        Promise.all([
+            getAppSettings().then(settingsMap),
+            apiClient.get<StateLookup[]>(endpoints.common.states).catch(() => [] as StateLookup[]),
+        ])
+            .then(([settings, states]) => {
+                if (!mounted) return;
+                setAppSettings(settings);
+                setOpenStateNames(
+                    states
+                        .filter((s) => s.isRegistrationEnabled !== false)
+                        .map((s) => s.name[localeKey]),
+                );
             })
             .catch(() => {
                 if (mounted)
@@ -314,8 +327,22 @@ export function RegisterPageBody({
                         {content.formTitle}
                     </h1>
                     <p className="mt-6 text-base font-normal leading-7 text-slate-600">
-                        {content.eligibility}
+                        {openStateNames.length > 0
+                            ? content.eligibility.replace("{states}", openStateNames.join(", "))
+                            : content.eligibility.replace(" {states}", "").replace("{states}", "")}
                     </p>
+                    {!isSettingsLoading && openStateNames.length > 0 && (
+                        <div className="mt-5 inline-flex flex-wrap items-baseline gap-2 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3">
+                            <span className="text-sm font-semibold text-emerald-700">
+                                {openToLabels[locale] ?? openToLabels.en}:
+                            </span>
+                            {openStateNames.map((name, i) => (
+                                <span key={name} className="text-sm font-black text-emerald-900">
+                                    {name}{i < openStateNames.length - 1 ? "," : ""}
+                                </span>
+                            ))}
+                        </div>
+                    )}
                 </div>
 
                 {isSettingsLoading ||

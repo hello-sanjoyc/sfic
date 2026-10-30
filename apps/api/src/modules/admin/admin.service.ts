@@ -2124,6 +2124,7 @@ type AdminSettingsNamedRow = {
     created_at: Date | string;
     id: string;
     is_active: boolean;
+    is_registration_enabled?: boolean;
     name_bn: string;
     name_en: string;
     name_hi: string;
@@ -2162,6 +2163,13 @@ function toSettingsNamedItem(row: AdminSettingsNamedRow): AdminSettingsNamedItem
 
     if (row.sort_order !== undefined) item.sortOrder = Number(row.sort_order);
     return item;
+}
+
+function toSettingsStateItem(row: AdminSettingsNamedRow): AdminSettingsState {
+    return {
+        ...toSettingsNamedItem(row),
+        isRegistrationEnabled: row.is_registration_enabled ?? true,
+    };
 }
 
 function normalizeSortOrder(value: unknown) {
@@ -2408,12 +2416,12 @@ async function deleteSettingsConfiguration(
 
 async function getSettingsStates(pg: DatabasePool): Promise<AdminSettingsState[]> {
     const result = await pg.query<AdminSettingsNamedRow>(`
-        SELECT id, name_en, name_bn, name_hi, is_active, created_at, updated_at
+        SELECT id, name_en, name_bn, name_hi, is_active, is_registration_enabled, created_at, updated_at
         FROM states
         ORDER BY name_en
     `);
 
-    return result.rows.map(toSettingsNamedItem);
+    return result.rows.map(toSettingsStateItem);
 }
 
 async function getSettingsState(
@@ -2422,7 +2430,7 @@ async function getSettingsState(
 ): Promise<AdminSettingsState | null> {
     const result = await pg.query<AdminSettingsNamedRow>(
         `
-        SELECT id, name_en, name_bn, name_hi, is_active, created_at, updated_at
+        SELECT id, name_en, name_bn, name_hi, is_active, is_registration_enabled, created_at, updated_at
         FROM states
         WHERE id = $1
         LIMIT 1
@@ -2430,7 +2438,7 @@ async function getSettingsState(
         [id],
     );
 
-    return result.rows[0] ? toSettingsNamedItem(result.rows[0]) : null;
+    return result.rows[0] ? toSettingsStateItem(result.rows[0]) : null;
 }
 
 async function createSettingsState(
@@ -2439,17 +2447,20 @@ async function createSettingsState(
 ): Promise<{ state: AdminSettingsState }> {
     const names = normalizeLocalizedNameInput(input);
     const isActive = normalizeOptionalBoolean(input.isActive);
+    const isRegistrationEnabled = "isRegistrationEnabled" in input
+        ? normalizeOptionalBoolean(input.isRegistrationEnabled as boolean | undefined)
+        : true;
 
     const result = await pg.query<AdminSettingsNamedRow>(
         `
-        INSERT INTO states (name_en, name_bn, name_hi, is_active)
-        VALUES ($1, $2, $3, $4)
-        RETURNING id, name_en, name_bn, name_hi, is_active, created_at, updated_at
+        INSERT INTO states (name_en, name_bn, name_hi, is_active, is_registration_enabled)
+        VALUES ($1, $2, $3, $4, $5)
+        RETURNING id, name_en, name_bn, name_hi, is_active, is_registration_enabled, created_at, updated_at
         `,
-        [names.nameEn, names.nameBn, names.nameHi, isActive],
+        [names.nameEn, names.nameBn, names.nameHi, isActive, isRegistrationEnabled],
     );
 
-    return { state: toSettingsNamedItem(result.rows[0]) };
+    return { state: toSettingsStateItem(result.rows[0]) };
 }
 
 async function updateSettingsState(
@@ -2459,9 +2470,24 @@ async function updateSettingsState(
 ): Promise<{ state: AdminSettingsState } | null> {
     const names = normalizeLocalizedNameInput(input);
     const isActive = normalizeOptionalBoolean(input.isActive);
+    const isRegistrationEnabled = "isRegistrationEnabled" in input
+        ? normalizeOptionalBoolean(input.isRegistrationEnabled as boolean | undefined)
+        : undefined;
 
     const result = await pg.query<AdminSettingsNamedRow>(
+        isRegistrationEnabled !== undefined
+            ? `
+        UPDATE states
+        SET name_en = $1,
+            name_bn = $2,
+            name_hi = $3,
+            is_active = $4,
+            is_registration_enabled = $5,
+            updated_at = NOW()
+        WHERE id = $6
+        RETURNING id, name_en, name_bn, name_hi, is_active, is_registration_enabled, created_at, updated_at
         `
+            : `
         UPDATE states
         SET name_en = $1,
             name_bn = $2,
@@ -2469,12 +2495,14 @@ async function updateSettingsState(
             is_active = $4,
             updated_at = NOW()
         WHERE id = $5
-        RETURNING id, name_en, name_bn, name_hi, is_active, created_at, updated_at
+        RETURNING id, name_en, name_bn, name_hi, is_active, is_registration_enabled, created_at, updated_at
         `,
-        [names.nameEn, names.nameBn, names.nameHi, isActive, id],
+        isRegistrationEnabled !== undefined
+            ? [names.nameEn, names.nameBn, names.nameHi, isActive, isRegistrationEnabled, id]
+            : [names.nameEn, names.nameBn, names.nameHi, isActive, id],
     );
 
-    return result.rows[0] ? { state: toSettingsNamedItem(result.rows[0]) } : null;
+    return result.rows[0] ? { state: toSettingsStateItem(result.rows[0]) } : null;
 }
 
 async function deleteSettingsState(

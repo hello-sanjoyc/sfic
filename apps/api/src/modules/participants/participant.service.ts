@@ -139,6 +139,7 @@ type ChallengeCategoryRow = {
 
 type StateRow = {
     code: string;
+    is_registration_enabled: boolean;
     name_en: string;
 };
 
@@ -1330,7 +1331,7 @@ async function completeMissingParticipantBasics(
 async function getState(client: PoolClient, stateId: number) {
     const result = await client.query<StateRow>(
         `
-      SELECT id, name_en
+      SELECT id, name_en, is_registration_enabled
       FROM public.states
       WHERE id = $1
         AND is_active = TRUE
@@ -1341,6 +1342,7 @@ async function getState(client: PoolClient, stateId: number) {
     const state = result.rows[0];
 
     if (!state) return null;
+    if (!state.is_registration_enabled) return "registration_closed" as const;
 
     return {
         ...state,
@@ -1810,6 +1812,12 @@ async function submitApplication(
         }
 
         const state = await getState(client, input.stateId);
+        if (state === "registration_closed") {
+            throw new ParticipantRuleError(
+                "Participant registration is not open for the selected state.",
+                403,
+            );
+        }
         if (!state) {
             throw new ParticipantRuleError(
                 getApiContent(language).api.invalidState,
@@ -2151,7 +2159,7 @@ async function updateApplicationSubmission(
         }
 
         const state = await getState(client, input.stateId);
-        if (!state) {
+        if (!state || state === "registration_closed") {
             throw new ParticipantRuleError(
                 getApiContent(language).api.invalidState,
             );

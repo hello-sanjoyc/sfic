@@ -83,6 +83,7 @@ type LookupName = {
 };
 type LookupOption = {
     id: number;
+    isRegistrationEnabled?: boolean;
     name: LookupName;
     sortOrder?: number;
 };
@@ -1214,7 +1215,7 @@ export function RegistrationProcessForm({
             .get<LookupOption[]>(endpoints.common.states)
             .then((states) => {
                 if (!isMounted) return;
-                setStateOptions(states);
+                setStateOptions(states.filter((s) => s.isRegistrationEnabled !== false));
                 setStateLookupError("");
             })
             .catch(() => {

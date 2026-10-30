@@ -1148,7 +1148,7 @@ export const enContent = {
         stepOf: "Step {current} of {total}",
         complete: "{progress}% complete",
         eligibility:
-            "Only participants from the states of West Bengal, Bihar, and Jharkhand are eligible to apply through this portal.",
+            "Only participants from the states of {states} are eligible to apply through this portal.",
         participantCategory: "Participant Category",
         junior: "Junior",
         juniorDescription: "School, ITI and undergraduate.",

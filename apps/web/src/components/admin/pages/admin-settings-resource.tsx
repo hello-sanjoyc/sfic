@@ -28,6 +28,7 @@ type NamedSetting = {
   createdAt?: string;
   id: number;
   isActive: boolean;
+  isRegistrationEnabled?: boolean;
   name: {
     bn: string;
     en: string;
@@ -72,6 +73,7 @@ type SettingFormValues = {
   code: string;
   description: string;
   isActive: boolean;
+  isRegistrationEnabled: boolean;
   key: string;
   nameBn: string;
   nameEn: string;
@@ -98,6 +100,7 @@ type ResourceConfig = {
   usesCode?: boolean;
   usesConfiguration?: boolean;
   usesNames?: boolean;
+  usesRegistrationEnabled?: boolean;
   usesSortOrder?: boolean;
   usesState?: boolean;
   usesRole?: boolean;
@@ -107,6 +110,7 @@ const emptyForm: SettingFormValues = {
   code: "",
   description: "",
   isActive: true,
+  isRegistrationEnabled: true,
   key: "",
   nameBn: "",
   nameEn: "",
@@ -195,6 +199,7 @@ const resourceConfigs: Record<ResourceKey, ResourceConfig> = {
     path: "/admin/settings/states",
     title: "States",
     usesNames: true,
+    usesRegistrationEnabled: true,
   },
   "user-roles": {
     collectionKey: "userRoles",
@@ -275,6 +280,7 @@ function toFormValues(item: SettingItem): SettingFormValues {
     ...emptyForm,
     code: "code" in item ? item.code : "",
     isActive: item.isActive,
+    isRegistrationEnabled: item.isRegistrationEnabled ?? true,
     nameBn: item.name.bn,
     nameEn: item.name.en,
     nameHi: item.name.hi,
@@ -305,6 +311,7 @@ function toPayload(config: ResourceConfig, values: SettingFormValues) {
   return {
     ...(config.usesCode ? { code: values.code } : {}),
     isActive: values.isActive,
+    ...(config.usesRegistrationEnabled ? { isRegistrationEnabled: values.isRegistrationEnabled } : {}),
     nameBn: values.nameBn,
     nameEn: values.nameEn,
     nameHi: values.nameHi,
@@ -363,6 +370,7 @@ export function AdminSettingsResourceListPage({
     (config.usesConfiguration ? 3 : 0) +
     (config.usesState ? 1 : 0) +
     (config.usesSortOrder ? 1 : 0) +
+    (config.usesRegistrationEnabled ? 1 : 0) +
     1 +
     (config.usesConfiguration ? 0 : 1) +
     1;
@@ -446,6 +454,7 @@ export function AdminSettingsResourceListPage({
                 )}
                 {config.usesState && <th className="px-4 py-3">State</th>}
                 {config.usesSortOrder && <th className="px-4 py-3">Sort</th>}
+                {config.usesRegistrationEnabled && <th className="px-4 py-3">Registration</th>}
                 <th className="px-4 py-3">Status</th>
                 {!config.usesConfiguration && (
                   <th className="px-4 py-3">Updated</th>
@@ -510,6 +519,15 @@ export function AdminSettingsResourceListPage({
                   {config.usesSortOrder && (
                     <td className="px-4 py-3 text-slate-600">
                       {isNamedSetting(item) ? item.sortOrder ?? 0 : "-"}
+                    </td>
+                  )}
+                  {config.usesRegistrationEnabled && (
+                    <td className="px-4 py-3">
+                      {isNamedSetting(item) ? (
+                        <span className={`rounded-full px-3 py-1 text-xs font-bold ${statusClasses(item.isRegistrationEnabled ?? true)}`}>
+                          {item.isRegistrationEnabled !== false ? "Open" : "Closed"}
+                        </span>
+                      ) : "-"}
                     </td>
                   )}
                   <td className="px-4 py-3">
@@ -580,6 +598,7 @@ export function AdminSettingsResourceListPage({
                 )}
                 {config.usesState && "stateId" in item && <div className="min-w-0"><dt className="text-xs font-bold text-slate-500">State</dt><dd className="break-words text-slate-700">{stateName(states, item.stateId)}</dd></div>}
                 {config.usesSortOrder && isNamedSetting(item) && <div><dt className="text-xs font-bold text-slate-500">Sort</dt><dd className="text-slate-700">{item.sortOrder ?? 0}</dd></div>}
+                {config.usesRegistrationEnabled && isNamedSetting(item) && <div><dt className="text-xs font-bold text-slate-500">Registration</dt><dd className={`text-xs font-bold ${item.isRegistrationEnabled !== false ? "text-emerald-700" : "text-rose-700"}`}>{item.isRegistrationEnabled !== false ? "Open" : "Closed"}</dd></div>}
                 {!config.usesConfiguration && isNamedSetting(item) && <div className="min-w-0 min-[420px]:col-span-2"><dt className="text-xs font-bold text-slate-500">Updated</dt><dd className="text-slate-700">{formatDate(item.updatedAt)}</dd></div>}
               </dl>
               <div>
@@ -885,6 +904,18 @@ export function AdminSettingsResourceFormPage({
               />
               Active
             </label>
+
+            {config.usesRegistrationEnabled && (
+              <label className="inline-flex items-center gap-3 text-sm font-bold text-[#0b1f3a]">
+                <input
+                  checked={form.isRegistrationEnabled}
+                  className="h-4 w-4 rounded border-slate-300 text-blue-600"
+                  onChange={(event) => updateField("isRegistrationEnabled", event.target.checked)}
+                  type="checkbox"
+                />
+                Registration open
+              </label>
+            )}
 
             <div className="flex flex-col justify-end gap-3 border-t border-slate-200 pt-5 sm:flex-row sm:flex-wrap">
               <Link

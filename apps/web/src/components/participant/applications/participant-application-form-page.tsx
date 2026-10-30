@@ -73,6 +73,7 @@ type ChallengeCategoryOption = {
 
 type LookupOption = {
     id: number;
+    isRegistrationEnabled?: boolean;
     name: LocalizedText;
     participantCategoryCodes?: string[];
     stateId?: number;
@@ -1134,7 +1135,10 @@ export function ParticipantApplicationFormPage({
             .get<CommonLookupsResponse>(endpoints.common.lookups)
             .then((result) => {
                 if (!isMounted) return;
-                setCommonLookups(result);
+                setCommonLookups({
+                    ...result,
+                    states: result.states.filter((s) => s.isRegistrationEnabled !== false),
+                });
                 setLookupsError("");
             })
             .catch(() => {
