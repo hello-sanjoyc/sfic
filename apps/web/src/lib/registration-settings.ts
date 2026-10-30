@@ -26,7 +26,7 @@ type RegistrationDateSettingKey =
     | typeof registrationSettingKeys.endDate;
 
 const defaultRegistrationStartDate = "2026-09-19";
-const defaultRegistrationEndDate = "2026-10-30";
+const defaultRegistrationEndDate = "2026-11-20";
 
 export function settingsMap(settings: AppSetting[]) {
     return Object.fromEntries(
