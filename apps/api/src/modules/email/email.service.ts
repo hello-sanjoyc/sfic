@@ -456,21 +456,22 @@ async function sendAdminNotificationEmail(input: {
     senderName: string;
     subject: string;
 }) {
-    const escapedBody = escapeHtml(input.body).replace(/\r?\n/g, "<br>");
     const html = renderEmailTemplate({
-        bodyHtml: `<p style="margin:0;">${escapedBody}</p>`,
+        bodyHtml: input.body,
         footerText:
             "This email was sent by Seva First Innovation Challenge.",
         preheader: input.subject,
         title: input.subject,
     });
 
+    const text = input.body.replace(/<br\s*\/?>/gi, "\n").replace(/<[^>]*>/g, "").trim();
+
     return sendEmail({
         fromName: input.senderName,
         html,
         replyTo: input.replyToEmail,
         subject: input.subject,
-        text: input.body,
+        text,
         to: input.recipientEmail,
     });
 }

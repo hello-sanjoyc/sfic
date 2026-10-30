@@ -27,6 +27,15 @@ import {
     JuryShell,
 } from "@/components/jury/common/jury-shell";
 
+const categoryTagStyles = [
+    "border-blue-200 bg-blue-50 text-blue-700",
+    "border-emerald-200 bg-emerald-50 text-emerald-700",
+    "border-orange-200 bg-orange-50 text-orange-700",
+    "border-violet-200 bg-violet-50 text-violet-700",
+    "border-rose-200 bg-rose-50 text-rose-700",
+    "border-amber-200 bg-amber-50 text-amber-700",
+];
+
 const inputClass =
     "mt-1.5 w-full rounded-lg border border-slate-300 bg-white px-3 py-3 text-sm font-normal outline-none transition focus:border-[#000080] focus:ring-2 focus:ring-[#000080]/20";
 
@@ -1145,16 +1154,29 @@ function JuryProfileView({
                     }
                 />
             </ProfileCard>
-            <ProfileCard icon={Tags} title="Assigned categories">
-                <ProfileDetail
-                    label="Challenge categories"
-                    value={
-                        profile.categories && profile.categories.length > 0
-                            ? profile.categories.join(", ")
-                            : "Not available"
-                    }
-                />
-            </ProfileCard>
+            <section className="w-full min-w-0 rounded-lg border border-slate-200 bg-white shadow-sm">
+                <div className="flex items-center gap-3 border-b border-slate-200 p-4 sm:p-5">
+                    <Tags className="text-blue-600" size={21} />
+                    <h2 className="text-lg font-black">Assigned categories</h2>
+                </div>
+                <div className="p-4 sm:p-5">
+                    <p className="text-xs font-bold uppercase text-slate-500">Challenge categories</p>
+                    <div className="mt-3 flex flex-wrap gap-2">
+                        {profile.categories && profile.categories.length > 0 ? (
+                            profile.categories.map((category, index) => (
+                                <span
+                                    className={`inline-flex items-center rounded-full border px-3 py-1 text-xs font-bold ${categoryTagStyles[index % categoryTagStyles.length]}`}
+                                    key={category}
+                                >
+                                    {category}
+                                </span>
+                            ))
+                        ) : (
+                            <span className="text-sm font-bold text-[#0b1f3a]">Not available</span>
+                        )}
+                    </div>
+                </div>
+            </section>
             <ProfileCard icon={FileText} title="Documents">
                 <ProfileDetail
                     label="Curriculum vitae (PDF)"

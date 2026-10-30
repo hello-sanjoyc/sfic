@@ -1,8 +1,12 @@
 "use client";
 
 import {
+  AlignCenter,
+  AlignLeft,
+  AlignRight,
   ArrowLeft,
   BarChart3,
+  Bold,
   CheckCircle2,
   ChevronDown,
   ChevronLeft,
@@ -10,20 +14,27 @@ import {
   ChevronsUpDown,
   Clock3,
   Cog,
+  Italic,
+  Link2,
+  List,
+  ListOrdered,
   Mail,
   Plus,
   RefreshCcw,
+  RemoveFormatting,
   Save,
   Send,
   ShieldCheck,
   SkipForward,
+  Strikethrough,
   Trash2,
+  Underline,
   View,
   XCircle,
 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { AdminShell } from "@/components/admin/common/admin-shell";
 import { apiClient } from "@/lib/api-client";
 import { endpoints } from "@/lib/endpoints";
@@ -552,6 +563,26 @@ export function AdminEmailNotificationAnalyticsPage({
         ))}
       </section>
 
+      <section className="w-full min-w-0 rounded-lg border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
+        <div className="flex min-w-0 items-center gap-3 border-b border-slate-200 pb-4">
+          <Mail className="text-blue-600" size={21} />
+          <h2 className="text-lg font-black">Email Content</h2>
+        </div>
+        <div className="mt-4 grid gap-4">
+          <div>
+            <p className="text-xs font-black uppercase text-slate-500">Subject</p>
+            <p className="mt-1 break-words text-sm font-semibold text-[#0b1f3a]">{notification.subject}</p>
+          </div>
+          <div>
+            <p className="text-xs font-black uppercase text-slate-500">Rendered Body</p>
+            <div
+              className="wysiwyg mt-2 min-h-40 rounded-md border border-slate-200 bg-slate-50 p-4 text-sm leading-7 text-slate-700"
+              dangerouslySetInnerHTML={{ __html: notification.body }}
+            />
+          </div>
+        </div>
+      </section>
+
       <section className="w-full min-w-0 rounded-lg border border-slate-200 bg-white shadow-sm">
         <div className="flex min-w-0 items-center gap-3 border-b border-slate-200 p-3 sm:p-5">
           <BarChart3 className="text-blue-600" size={22} />
@@ -721,6 +752,198 @@ function inputClasses() {
   return "w-full rounded-md border border-slate-300 bg-white px-3 py-3 text-sm font-normal outline-none transition focus:border-blue-600 focus:ring-2 focus:ring-blue-600/20";
 }
 
+const FONT_SIZES = ["10", "12", "14", "16", "18", "20", "24", "28", "32", "36", "48"];
+
+type ToolbarButtonProps = Readonly<{
+  active?: boolean;
+  icon: typeof Bold;
+  label: string;
+  onClick: () => void;
+}>;
+
+function ToolbarButton({ active, icon: Icon, label, onClick }: ToolbarButtonProps) {
+  return (
+    <button
+      aria-label={label}
+      className={`grid h-8 w-8 place-items-center rounded transition ${active ? "bg-blue-100 text-blue-700" : "text-slate-600 hover:bg-slate-100"}`}
+      onMouseDown={(e) => { e.preventDefault(); onClick(); }}
+      title={label}
+      type="button"
+    >
+      <Icon size={15} />
+    </button>
+  );
+}
+
+// Save and restore selection across toolbar interactions that move focus away.
+function saveSelection(): Range | null {
+  const sel = window.getSelection();
+  return sel && sel.rangeCount > 0 ? sel.getRangeAt(0).cloneRange() : null;
+}
+function restoreSelection(range: Range | null) {
+  if (!range) return;
+  const sel = window.getSelection();
+  if (!sel) return;
+  sel.removeAllRanges();
+  sel.addRange(range);
+}
+
+function RichTextEditor({
+  onChange,
+  value,
+}: Readonly<{ onChange: (html: string) => void; value: string }>) {
+  const editorRef = useRef<HTMLDivElement>(null);
+  const isInternalUpdate = useRef(false);
+  const savedRange = useRef<Range | null>(null);
+  const [activeFormats, setActiveFormats] = useState({ bold: false, italic: false, underline: false, strikeThrough: false });
+  const [fontSize, setFontSize] = useState("14");
+  const [fontColor, setFontColor] = useState("#000000");
+
+  // Sync external value changes (e.g. load draft, clear) into the editor
+  useEffect(() => {
+    const el = editorRef.current;
+    if (!el) return;
+    if (el.innerHTML !== value) {
+      isInternalUpdate.current = true;
+      el.innerHTML = value;
+      isInternalUpdate.current = false;
+    }
+  }, [value]);
+
+  const exec = (command: string, arg?: string) => {
+    editorRef.current?.focus();
+    document.execCommand(command, false, arg);
+    if (editorRef.current) onChange(editorRef.current.innerHTML);
+  };
+
+  const applyFontSize = (px: string) => {
+    setFontSize(px);
+    editorRef.current?.focus();
+    restoreSelection(savedRange.current);
+    const sel = window.getSelection();
+    if (!sel || sel.rangeCount === 0 || sel.isCollapsed) return;
+    // Use execCommand fontSize with a sentinel value (7), then replace the
+    // generated <font size="7"> elements with <span style="font-size: Xpx">.
+    document.execCommand("fontSize", false, "7");
+    const el = editorRef.current;
+    if (!el) return;
+    el.querySelectorAll('font[size="7"]').forEach((font) => {
+      const span = document.createElement("span");
+      span.style.fontSize = `${px}px`;
+      span.innerHTML = font.innerHTML;
+      font.replaceWith(span);
+    });
+    onChange(el.innerHTML);
+  };
+
+  const applyFontColor = (color: string) => {
+    setFontColor(color);
+    editorRef.current?.focus();
+    restoreSelection(savedRange.current);
+    exec("foreColor", color);
+  };
+
+  const insertLink = () => {
+    const url = window.prompt("Enter URL", "https://");
+    if (url) exec("createLink", url);
+  };
+
+  const updateFormats = () => {
+    savedRange.current = saveSelection();
+    setActiveFormats({
+      bold: document.queryCommandState("bold"),
+      italic: document.queryCommandState("italic"),
+      strikeThrough: document.queryCommandState("strikeThrough"),
+      underline: document.queryCommandState("underline"),
+    });
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    const ctrl = e.ctrlKey || e.metaKey;
+    if (!ctrl) return;
+    const shortcuts: Record<string, () => void> = {
+      b: () => exec("bold"),
+      i: () => exec("italic"),
+      u: () => exec("underline"),
+      k: () => insertLink(),
+      "\\": () => exec("removeFormat"),
+    };
+    const handler = shortcuts[e.key.toLowerCase()];
+    if (handler) { e.preventDefault(); handler(); }
+  };
+
+  return (
+    <div className="overflow-hidden rounded-md border border-slate-300 transition focus-within:border-blue-600 focus-within:ring-2 focus-within:ring-blue-600/20">
+      <div className="flex flex-wrap items-center gap-0.5 border-b border-slate-200 bg-slate-50 p-1.5">
+        {/* Inline formatting */}
+        <ToolbarButton active={activeFormats.bold} icon={Bold} label="Bold (Ctrl+B)" onClick={() => exec("bold")} />
+        <ToolbarButton active={activeFormats.italic} icon={Italic} label="Italic (Ctrl+I)" onClick={() => exec("italic")} />
+        <ToolbarButton active={activeFormats.underline} icon={Underline} label="Underline (Ctrl+U)" onClick={() => exec("underline")} />
+        <ToolbarButton active={activeFormats.strikeThrough} icon={Strikethrough} label="Strikethrough" onClick={() => exec("strikeThrough")} />
+
+        <span className="mx-1 w-px self-stretch bg-slate-200" />
+
+        {/* Font size */}
+        <select
+          className="h-8 rounded border border-slate-200 bg-white px-1.5 text-xs font-semibold text-slate-700 outline-none hover:border-slate-300"
+          onMouseDown={() => { savedRange.current = saveSelection(); }}
+          onChange={(e) => applyFontSize(e.target.value)}
+          title="Font size"
+          value={fontSize}
+        >
+          {FONT_SIZES.map((s) => <option key={s} value={s}>{s}px</option>)}
+        </select>
+
+        {/* Font color picker */}
+        <label className="relative flex h-8 w-8 cursor-pointer items-center justify-center rounded hover:bg-slate-100" title="Font colour">
+          <span className="pointer-events-none text-[13px] font-black" style={{ color: fontColor }}>A</span>
+          <span className="pointer-events-none absolute bottom-1 left-1.5 right-1.5 h-[3px] rounded-full" style={{ backgroundColor: fontColor }} />
+          <input
+            className="absolute inset-0 cursor-pointer opacity-0"
+            onMouseDown={() => { savedRange.current = saveSelection(); }}
+            onChange={(e) => applyFontColor(e.target.value)}
+            type="color"
+            value={fontColor}
+          />
+        </label>
+
+        <span className="mx-1 w-px self-stretch bg-slate-200" />
+
+        {/* Alignment */}
+        <ToolbarButton icon={AlignLeft} label="Align left" onClick={() => exec("justifyLeft")} />
+        <ToolbarButton icon={AlignCenter} label="Align centre" onClick={() => exec("justifyCenter")} />
+        <ToolbarButton icon={AlignRight} label="Align right" onClick={() => exec("justifyRight")} />
+
+        <span className="mx-1 w-px self-stretch bg-slate-200" />
+
+        {/* Lists */}
+        <ToolbarButton icon={List} label="Bullet list" onClick={() => exec("insertUnorderedList")} />
+        <ToolbarButton icon={ListOrdered} label="Numbered list" onClick={() => exec("insertOrderedList")} />
+
+        <span className="mx-1 w-px self-stretch bg-slate-200" />
+
+        {/* Link & clear */}
+        <ToolbarButton icon={Link2} label="Insert link (Ctrl+K)" onClick={insertLink} />
+        <ToolbarButton icon={RemoveFormatting} label="Remove formatting (Ctrl+\)" onClick={() => exec("removeFormat")} />
+      </div>
+      <div
+        ref={editorRef}
+        className="wysiwyg min-h-52 max-h-[28rem] overflow-y-auto bg-white px-3 py-3 text-sm font-normal leading-7 text-slate-800 outline-none"
+        contentEditable
+        onInput={() => { if (editorRef.current) onChange(editorRef.current.innerHTML); }}
+        onKeyDown={handleKeyDown}
+        onKeyUp={updateFormats}
+        onMouseUp={updateFormats}
+        onSelect={updateFormats}
+        suppressContentEditableWarning
+      />
+      <div className="border-t border-slate-100 bg-slate-50 px-3 py-1.5 text-[10px] text-slate-400">
+        Ctrl+B Bold · Ctrl+I Italic · Ctrl+U Underline · Ctrl+K Link · Ctrl+\ Clear formatting
+      </div>
+    </div>
+  );
+}
+
 function PreviewPanel({
   draft,
   mode,
@@ -748,9 +971,16 @@ function PreviewPanel({
         </div>
         <div>
           <p className="text-xs font-black uppercase text-slate-500">Rendered Body</p>
-          <div className="mt-2 min-h-40 break-words whitespace-pre-wrap rounded-md border border-slate-200 bg-slate-50 p-4 font-normal leading-7 text-slate-700">
-            {draft.body || "Message body preview will appear here."}
-          </div>
+          {draft.body ? (
+            <div
+              className="wysiwyg mt-2 min-h-40 rounded-md border border-slate-200 bg-slate-50 p-4 text-sm leading-7 text-slate-700"
+              dangerouslySetInnerHTML={{ __html: draft.body }}
+            />
+          ) : (
+            <div className="mt-2 min-h-40 rounded-md border border-slate-200 bg-slate-50 p-4 text-sm text-slate-400">
+              Message body preview will appear here.
+            </div>
+          )}
         </div>
       </div>
     </section>
@@ -782,18 +1012,23 @@ export function AdminEmailNotificationNewPage({
     mode === "individual"
       ? draft.recipientEmail.trim().length > 0
       : draft.emails.split(",").some((email) => email.trim().length > 0);
+  const bodyText = draft.body.replace(/<[^>]*>/g, "").trim();
   const canSubmit =
     hasRecipients &&
     draft.senderName.trim().length > 0 &&
     draft.replyToEmail.trim().length > 0 &&
     draft.name.trim().length > 0 &&
     draft.subject.trim().length > 0 &&
-    draft.body.trim().length > 0;
+    bodyText.length > 0;
   const isDuplicateNotificationMessage = actionMessage === duplicateNotificationMessage;
   const updateDraft = (field: keyof Draft) => (
     event: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>,
   ) => {
     setDraft((current) => ({ ...current, [field]: event.target.value }));
+    setActionMessage("");
+  };
+  const updateBody = (html: string) => {
+    setDraft((current) => ({ ...current, body: html }));
     setActionMessage("");
   };
   const clearDraft = () => {
@@ -1030,9 +1265,10 @@ export function AdminEmailNotificationNewPage({
             <Field label="Subject">
               <input className={inputClasses()} onChange={updateDraft("subject")} value={draft.subject} />
             </Field>
-            <Field label="Message Body">
-              <textarea className={`${inputClasses()} min-h-52 resize-y`} onChange={updateDraft("body")} value={draft.body} />
-            </Field>
+            <div className="grid gap-1.5 text-sm font-bold text-slate-700">
+              Message Body
+              <RichTextEditor onChange={updateBody} value={draft.body} />
+            </div>
           </div>
         </section>
 
