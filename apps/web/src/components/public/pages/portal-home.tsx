@@ -1,3 +1,6 @@
+"use client";
+
+import { useEffect, useState } from "react";
 import {
     ArrowDown,
     ArrowRight,
@@ -32,6 +35,7 @@ import { challengeDates } from "@/lib/challenge-dates";
 import { apiClient } from "@/lib/api-client";
 import { endpoints } from "@/lib/endpoints";
 import {
+    type AppSettingsMap,
     getAppSettings,
     registrationAvailability,
     registrationPeriodText,
@@ -164,15 +168,26 @@ const registrationDateLocales: Record<string, string> = {
     hi: "hi-IN",
 };
 
-export async function PortalHome({ locale }: { locale: string }) {
+type StateLookup = { id: number; isRegistrationEnabled?: boolean; name: { bn: string; en: string; hi: string } };
+
+export function PortalHome({ locale }: { locale: string }) {
     const content = getSiteContent(locale);
     const home = content.home;
     const link = (path: string) => `/${locale}${path}`;
-    type StateLookup = { id: number; isRegistrationEnabled?: boolean; name: { bn: string; en: string; hi: string } };
-    const [appSettings, allStates] = await Promise.all([
-        getAppSettings().then(settingsMap).catch(() => ({})),
-        apiClient.get<StateLookup[]>(endpoints.common.states).catch(() => [] as StateLookup[]),
-    ]);
+
+    const [appSettings, setAppSettings] = useState<AppSettingsMap>({});
+    const [allStates, setAllStates] = useState<StateLookup[]>([]);
+
+    useEffect(() => {
+        Promise.all([
+            getAppSettings().then(settingsMap).catch(() => ({} as AppSettingsMap)),
+            apiClient.get<StateLookup[]>(endpoints.common.states).catch(() => [] as StateLookup[]),
+        ]).then(([settings, states]) => {
+            setAppSettings(settings);
+            setAllStates(states);
+        });
+    }, []);
+
     const registrationPeriod = registrationPeriodText(
         appSettings,
         registrationDateLocales[locale] ?? registrationDateLocales.en,
