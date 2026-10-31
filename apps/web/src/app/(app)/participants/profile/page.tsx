@@ -39,6 +39,7 @@ type ParticipantProfile = {
   dateOfBirth?: string | null;
   district?: { name?: LocalizedText | null } | null;
   email?: string | null;
+  emailVerified?: boolean | null;
   fullName?: string | null;
   gender?: string | null;
   highestEducationalQualification?: string | null;
@@ -223,14 +224,22 @@ export default function Page() {
     profile?.role === "team_member"
       ? "Only the applicant can create a new application."
       : "";
+  const emailVerificationBlockMessage =
+    profile && profile.emailVerified === false
+      ? "Verify your email address to create a new application."
+      : "";
   const canCreateApplication =
     profile?.role === "applicant" &&
+    profile.emailVerified === true &&
     availability.canCreate &&
     !isSettingsLoading &&
     !settingsError;
   const newApplicationMessage = isSettingsLoading
     ? "Checking application settings..."
-    : settingsError || roleBlockMessage || availability.message;
+    : settingsError ||
+      roleBlockMessage ||
+      emailVerificationBlockMessage ||
+      availability.message;
 
   useEffect(() => {
     const token = localStorage.getItem(PARTICIPANT_TOKEN_KEY) ?? "";

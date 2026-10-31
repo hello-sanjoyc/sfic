@@ -20,6 +20,11 @@ import {
     timeline,
 } from "@/mocks/public";
 import { getSiteContent } from "@/content";
+import {
+    getAppSettings,
+    registrationAvailability,
+    settingsMap,
+} from "@/lib/registration-settings";
 import { FAQAccordion } from "../common/faq-accordion";
 import { PageHero } from "../common/page-hero";
 import { SectionHeading } from "../common/section-heading";
@@ -347,20 +352,22 @@ function StandardPage({
                                   {text}
                               </p>
                           </div>
-                          {page === pages.login &&
-                              (index === 0 || index === 2) && (
+                          {page === pages.login && (
                                   <Link
                                       className="inline-flex shrink-0 items-center justify-center self-start rounded-md bg-[#0b1f3a] px-5 py-3 text-sm font-bold text-white transition hover:bg-[#000080] sm:self-center"
                                       href={
                                           index === 0
                                               ? `/${locale}/participants/login`
-                                              : `/${locale}/admin/login`
+                                              : index === 1
+                                                ? `/${locale}/jury/login`
+                                                : `/${locale}/admin/login`
                                       }
                                   >
                                       {index === 0
-                                          ? content.pages.login
-                                                .participantButton
-                                          : content.pages.login.adminButton}
+                                          ? content.pages.login.participantButton
+                                          : index === 1
+                                            ? content.pages.login.juryButton
+                                            : content.pages.login.adminButton}
                                       <ArrowRight className="ml-2" size={16} />
                                   </Link>
                               )}
@@ -743,7 +750,7 @@ function ScreenReaderAccessPage({ locale }: { locale: string }) {
         </>
     );
 }
-function DetailPage({
+async function DetailPage({
     locale,
     type,
     item,
@@ -759,6 +766,15 @@ function DetailPage({
             : (problemStatements.find(
                   (problem) => problem.code.toLowerCase() === item,
               )?.title ?? "Problem statement details");
+    const appSettings = await getAppSettings()
+        .then(settingsMap)
+        .catch(() => ({}));
+    const registration = registrationAvailability(appSettings, locale);
+    const registrationClosedLabels: Record<string, string> = {
+        bn: "নিবন্ধন বন্ধ",
+        en: "Registration closed",
+        hi: "पंजीकरण बंद",
+    };
     return (
         <>
             <PageHero
@@ -798,19 +814,30 @@ function DetailPage({
                     <p className="text-xs font-bold uppercase tracking-wider text-slate-500">
                         Challenge status
                     </p>
-                    <p className="mt-2 font-bold text-[#138808]">
-                        Registration open
+                    <p
+                        className={`mt-2 font-bold ${
+                            registration.canRegister
+                                ? "text-[#138808]"
+                                : "text-slate-500"
+                        }`}
+                    >
+                        {registration.canRegister
+                            ? "Registration open"
+                            : registrationClosedLabels[locale] ??
+                              registrationClosedLabels.en}
                     </p>
                     <p className="mt-5 text-sm font-bold text-slate-500">
                         Deadline
                     </p>
                     <p>30 September 2026</p>
-                    <Link
-                        className="mt-6 block rounded bg-[#ff9933] px-4 py-3 text-center font-bold text-[#071426]"
-                        href={`/${locale}/register`}
-                    >
-                        Register now
-                    </Link>
+                    {registration.canRegister && (
+                        <Link
+                            className="mt-6 block rounded bg-[#ff9933] px-4 py-3 text-center font-bold text-[#071426]"
+                            href={`/${locale}/register`}
+                        >
+                            Register now
+                        </Link>
+                    )}
                     <Link
                         className="mt-3 block text-center text-sm font-bold text-[#000080]"
                         href={`/${locale}/guidelines`}

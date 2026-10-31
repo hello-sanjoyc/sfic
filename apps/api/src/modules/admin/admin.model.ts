@@ -18,6 +18,7 @@ export type AdminUser = {
 export type AdminAccessModule =
   | "analytics"
   | "applications"
+  | "emailNotifications"
   | "settings"
   | "users";
 
@@ -110,7 +111,9 @@ export type AdminSettingsNamedItem = {
   updatedAt: string;
 };
 
-export type AdminSettingsState = AdminSettingsNamedItem;
+export type AdminSettingsState = AdminSettingsNamedItem & {
+  isRegistrationEnabled: boolean;
+};
 
 export type AdminSettingsDistrict = AdminSettingsNamedItem & {
   stateId: number;
@@ -188,6 +191,142 @@ export type AdminDashboardCountsResult = {
   cards: AdminDashboardCountCard[];
 };
 
+export type AdminServerHealthResult = {
+  success: true;
+  timestamp: string;
+  server: {
+    hostname: string;
+    osName: string;
+    osVersion: string;
+    platform: NodeJS.Platform;
+    architecture: string;
+    release: string;
+    uptimeSeconds: number;
+  };
+  cpu: {
+    cores: number;
+    usagePercent: number;
+    loadAverage: number[];
+  };
+  memory: {
+    totalGB: number;
+    usedGB: number;
+    freeGB: number;
+    usagePercent: number;
+  };
+  disk: {
+    path: string;
+    totalGB: number;
+    usedGB: number;
+    freeGB: number;
+    availableGB: number;
+    usagePercent: number;
+  };
+  uploads: {
+    path: string;
+    sizeBytes: number;
+    sizeGB: number;
+    fileCount: number;
+  };
+};
+
+export type AdminEmailNotificationStatus =
+  | "draft"
+  | "queued"
+  | "processing"
+  | "sent"
+  | "failed";
+
+export type AdminEmailRecipientDeliveryStatus =
+  | "Queued"
+  | "Processing"
+  | "Sent"
+  | "Delivered"
+  | "Failed"
+  | "Skipped";
+
+export type AdminEmailNotification = {
+  body: string;
+  createdAt: string;
+  createdByUserId: number;
+  delivered: number | null;
+  deliveryMode: "immediate" | "scheduled";
+  failed: number;
+  id: number;
+  mode: "individual" | "bulk";
+  name: string;
+  processing: number;
+  queued: number;
+  replyToEmail: string;
+  scheduledFor: string | null;
+  senderName: string;
+  sent: number;
+  skipped: number;
+  status: AdminEmailNotificationStatus;
+  subject: string;
+  totalRecipients: number;
+  updatedAt: string;
+};
+
+export type AdminEmailNotificationsResult = {
+  notifications: AdminEmailNotification[];
+  pagination: {
+    page: number;
+    pageSize: number;
+    total: number;
+    totalPages: number;
+  };
+};
+
+export type AdminEmailNotificationAnalyticsResult = {
+  notification: AdminEmailNotification;
+};
+
+export type AdminEmailNotificationDetailsResult = {
+  notification: AdminEmailNotification;
+  recipients: AdminEmailNotificationRecipient[];
+};
+
+export type AdminEmailNotificationRecipient = {
+  attemptCount: number;
+  deliveryStatus: AdminEmailRecipientDeliveryStatus;
+  email: string;
+  failureReason: string | null;
+  id: number;
+  lastAttempt: string | null;
+  recipientName: string | null;
+};
+
+export type AdminEmailNotificationRecipientsResult = {
+  pagination: {
+    page: number;
+    pageSize: number;
+    total: number;
+    totalPages: number;
+  };
+  recipients: AdminEmailNotificationRecipient[];
+};
+
+export type CreateAdminEmailNotificationInput = {
+  action: "draft" | "send";
+  body: string;
+  deliveryMode: "immediate" | "scheduled";
+  mode: "individual" | "bulk";
+  name: string;
+  recipientEmail?: string;
+  recipientEmails?: string[];
+  replyToEmail: string;
+  safeguards?: {
+    excludeDuplicates?: boolean;
+    retryTemporaryErrors?: boolean;
+    skipInvalidSuppressed?: boolean;
+  };
+  scheduledDate?: string;
+  scheduledTime?: string;
+  senderName: string;
+  subject: string;
+};
+
 export type AdminDashboardOrganisationTypeCountCard = {
   count: number;
   detail: "Organisation Type";
@@ -198,6 +337,7 @@ export type AdminDashboardOrganisationTypeCountCard = {
     | "juniorUndergraduate"
     | "openCommunityGroup"
     | "openGraduate"
+    | "openGovernmentFunded"
     | "openProfessional"
     | "openStartup";
   label: string;

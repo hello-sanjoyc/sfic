@@ -1,14 +1,18 @@
 export type RegistrationLanguage = "bn" | "en" | "hi";
 
 export type CreateRegistrationInput = {
+  dateOfBirth: string;
   email: string;
   fullName: string;
+  gender: "Male" | "Female" | "Others";
   language: RegistrationLanguage;
   mobile: string;
   participantCategory: string;
+  password: string;
 };
 
 export type RegistrationApplication = {
+  applicationHash: string;
   applicationNumber: string;
   emailVerified: boolean;
   id: number;
@@ -21,6 +25,18 @@ export type CreateRegistrationResult = {
   emailDelivery: {
     delivered: boolean;
     reason?: string;
+  };
+  participant?: {
+    email: string;
+    memberId: number;
+    memberName: string;
+    phone: string;
+    role: "applicant";
+    status: string;
+  };
+  redirectTo?: string;
+  session?: {
+    token: string;
   };
 };
 

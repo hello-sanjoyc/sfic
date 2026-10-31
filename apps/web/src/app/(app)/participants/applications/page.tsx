@@ -7,7 +7,7 @@ import {
   ChevronRight,
   ChevronsUpDown,
   FilePlus2,
-  Settings,
+  LinkIcon,
 } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
@@ -62,6 +62,12 @@ type AppSetting = {
 
 type AppSettingsMap = Record<string, string>;
 type ParticipantRole = "applicant" | "team_member";
+type ParticipantProfileResponse = {
+  profile: {
+    emailVerified?: boolean | null;
+    role?: ParticipantRole;
+  };
+};
 
 type StatusFilter = {
   badgeStyle: string;
@@ -272,6 +278,8 @@ export default function Page() {
   const [participantRole, setParticipantRole] = useState<ParticipantRole | null>(
     null,
   );
+  const [isProfileLoading, setIsProfileLoading] = useState(true);
+  const [emailVerified, setEmailVerified] = useState<boolean | null>(null);
   const [pagination, setPagination] = useState({
     page: 1,
     pageSize,
@@ -290,8 +298,14 @@ export default function Page() {
     participantRole === "team_member"
       ? "Only the applicant can create a new application."
       : "";
+  const emailVerificationBlockMessage =
+    emailVerified === false
+      ? "Verify your email address to create a new application."
+      : "";
   const canCreateApplication =
-    participantRole === "applicant" && availability.canCreate;
+    participantRole === "applicant" &&
+    emailVerified === true &&
+    availability.canCreate;
 
   useEffect(() => {
     const token = getStoredToken();
@@ -342,6 +356,41 @@ export default function Page() {
       isMounted = false;
     };
   }, [currentPage, sortDirection, sortKey, statusFilter]);
+
+  useEffect(() => {
+    const token = getStoredToken();
+    if (!token) {
+      setIsProfileLoading(false);
+      setEmailVerified(false);
+      return undefined;
+    }
+
+    let isMounted = true;
+    setIsProfileLoading(true);
+
+    void apiClient
+      .get<ParticipantProfileResponse>(endpoints.participants.profile, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      })
+      .then((result) => {
+        if (!isMounted) return;
+        setEmailVerified(result.profile.emailVerified ?? false);
+        if (result.profile.role) setParticipantRole(result.profile.role);
+      })
+      .catch(() => {
+        if (!isMounted) return;
+        setEmailVerified(false);
+      })
+      .finally(() => {
+        if (isMounted) setIsProfileLoading(false);
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   useEffect(() => {
     let isMounted = true;
@@ -434,7 +483,7 @@ export default function Page() {
         </div>
 
         <div className="flex items-start rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
-          {canCreateApplication && !isSettingsLoading && !settingsError ? (
+          {canCreateApplication && !isSettingsLoading && !isProfileLoading && !settingsError ? (
             <Link
               className="flex min-h-16 w-full items-center gap-4 rounded-lg bg-blue-600 px-6 py-4 text-white shadow-sm transition hover:bg-blue-700"
               href="/participants/applications/new"
@@ -460,7 +509,12 @@ export default function Page() {
                 <span className="mt-1 block text-sm font-semibold">
                   {isSettingsLoading
                     ? "Checking application settings..."
-                    : settingsError || roleBlockMessage || availability.message}
+                    : isProfileLoading
+                      ? "Checking participant profile..."
+                      : settingsError ||
+                        roleBlockMessage ||
+                        emailVerificationBlockMessage ||
+                        availability.message}
                 </span>
               </span>
             </div>
@@ -581,7 +635,12 @@ export default function Page() {
                   key={application.applicationNumber}
                 >
                   <td className="px-5 py-4 font-black text-[#0b1f3a]">
-                    {application.applicationNumber}
+                    <Link
+                      className="text-blue-700 underline-offset-4 hover:text-blue-900 hover:underline"
+                      href={`/participants/applications/${application.applicationHash}`}
+                    >
+                      {application.applicationNumber}
+                    </Link>
                   </td>
                   <td className="px-5 py-4 font-semibold">
                     {localizedName(application.challengeCategory)}
@@ -602,12 +661,12 @@ export default function Page() {
                   <td className="px-5 py-4">
                     <div className="flex justify-center gap-2">
                       <Link
-                        aria-label={`Manage ${application.applicationNumber}`}
+                        aria-label={`View ${application.applicationNumber}`}
                         className="grid h-9 w-9 place-items-center rounded-lg text-slate-600 hover:bg-blue-50 hover:text-blue-700"
                         href={`/participants/applications/${application.applicationHash}`}
-                        title="Manage application"
+                        title="View application"
                       >
-                        <Settings size={18} />
+                        <LinkIcon size={18} />
                       </Link>
                     </div>
                   </td>

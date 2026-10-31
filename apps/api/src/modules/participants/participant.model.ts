@@ -36,9 +36,37 @@ export type VerifyParticipantLoginResult = {
   participant: ParticipantLoginApplication & {
     email: string;
   };
+  redirectTo: string;
   session: {
     token: string;
   };
+};
+
+export type ParticipantPasswordLoginInput = {
+  identifier: string;
+  language: ParticipantLanguage;
+  password: string;
+};
+
+export type RequestParticipantPasswordResetInput = {
+  email: string;
+  language: ParticipantLanguage;
+};
+
+export type RequestParticipantPasswordResetResult = {
+  emailDelivery: {
+    delivered: boolean;
+    reason?: string;
+  } | null;
+  passwordResetRequest: {
+    email: string;
+  };
+};
+
+export type ResetParticipantPasswordInput = {
+  language: ParticipantLanguage;
+  password: string;
+  token: string;
 };
 
 export type ParticipantApplicationSummary = {
@@ -61,6 +89,8 @@ export type ParticipantApplicationSummary = {
 };
 
 export type ParticipantApplicationDetails = ParticipantApplicationSummary & {
+  evaluationStarted?: boolean;
+  isLocked?: boolean;
   challenge: {
     code: string | null;
     title: {
@@ -179,6 +209,7 @@ export type ParticipantProfileResult = {
       };
     } | null;
     email: string | null;
+    emailVerified: boolean | null;
     fullName: string | null;
     gender: string | null;
     highestEducationalQualification: string | null;

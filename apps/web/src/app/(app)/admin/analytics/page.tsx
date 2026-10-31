@@ -15,7 +15,7 @@ import {
   Tooltip,
   type ChartConfiguration,
 } from "chart.js";
-import { Activity, BarChart3, Clock3, MousePointerClick } from "lucide-react";
+import { Activity, BarChart3, Clock3, MousePointerClick, RotateCcw, ZoomIn } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
 Chart.register(
@@ -72,6 +72,13 @@ function formatChartDate(value: string) {
   }).format(date);
 }
 
+const RANGE_PRESETS = [7, 14, 30] as const;
+type RangePreset = (typeof RANGE_PRESETS)[number];
+
+function toIsoDate(d: Date) {
+  return d.toISOString().slice(0, 10);
+}
+
 function PageViewLineChart({
   isLoading,
   trend,
@@ -82,42 +89,89 @@ function PageViewLineChart({
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const chartRef = useRef<Chart<"line"> | null>(null);
 
+  // Zoom state: null means "show all (default 30d)"
+  const [zoomStart, setZoomStart] = useState<string | null>(null);
+  const [zoomEnd, setZoomEnd] = useState<string | null>(null);
+  const [activePreset, setActivePreset] = useState<RangePreset | null>(30);
+
+  // Derived: full date bounds from trend data
+  const fullStart = trend.length ? trend[0].date : null;
+  const fullEnd = trend.length ? trend[trend.length - 1].date : null;
+
+  // Visible slice
+  const visibleTrend = (() => {
+    if (!zoomStart && !zoomEnd) return trend;
+    return trend.filter((p) => {
+      const d = p.date;
+      if (zoomStart && d < zoomStart) return false;
+      if (zoomEnd && d > zoomEnd) return false;
+      return true;
+    });
+  })();
+
+  const isZoomed = zoomStart !== null || zoomEnd !== null;
+
+  function applyPreset(days: RangePreset) {
+    if (!trend.length) return;
+    const end = trend[trend.length - 1].date;
+    const startDate = new Date(`${end}T00:00:00`);
+    startDate.setDate(startDate.getDate() - (days - 1));
+    setZoomStart(toIsoDate(startDate));
+    setZoomEnd(end);
+    setActivePreset(days);
+  }
+
+  function resetZoom() {
+    setZoomStart(null);
+    setZoomEnd(null);
+    setActivePreset(30);
+  }
+
+  // Apply 30d preset once trend loads
   useEffect(() => {
-    if (!canvasRef.current || isLoading || !trend.length) return;
+    if (trend.length) applyPreset(30);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [trend.length]);
+
+  useEffect(() => {
+    if (!canvasRef.current || isLoading || !visibleTrend.length) return;
 
     chartRef.current?.destroy();
 
     const config: ChartConfiguration<"line"> = {
       data: {
-        labels: trend.map((point) => formatChartDate(point.date)),
+        labels: visibleTrend.map((point) => formatChartDate(point.date)),
         datasets: [
           {
             backgroundColor: "rgba(37, 99, 235, 0.12)",
             borderColor: "#2563eb",
             borderWidth: 2,
-            data: trend.map((point) => point.pageViews),
+            data: visibleTrend.map((point) => point.pageViews),
             fill: true,
             label: "Page Views",
             pointBackgroundColor: "#2563eb",
             pointBorderWidth: 0,
-            pointRadius: 3,
+            pointHoverRadius: 5,
+            pointRadius: visibleTrend.length <= 14 ? 4 : 3,
             tension: 0.35,
           },
           {
             backgroundColor: "rgba(16, 185, 129, 0.08)",
             borderColor: "#10b981",
             borderWidth: 2,
-            data: trend.map((point) => point.uniqueVisits),
+            data: visibleTrend.map((point) => point.uniqueVisits),
             fill: true,
             label: "Unique Visits",
             pointBackgroundColor: "#10b981",
             pointBorderWidth: 0,
-            pointRadius: 3,
+            pointHoverRadius: 5,
+            pointRadius: visibleTrend.length <= 14 ? 4 : 3,
             tension: 0.35,
           },
         ],
       },
       options: {
+        animation: { duration: 300 },
         maintainAspectRatio: false,
         plugins: {
           legend: {
@@ -126,43 +180,45 @@ function PageViewLineChart({
               boxHeight: 8,
               boxWidth: 8,
               color: "#475569",
-              font: {
-                size: 12,
-                weight: "bold",
-              },
+              font: { size: 12, weight: "bold" },
               usePointStyle: true,
             },
             position: "top",
           },
           tooltip: {
             backgroundColor: "#0f172a",
-            padding: 12,
-            titleFont: {
-              size: 12,
-              weight: "bold",
+            callbacks: {
+              title: (items) => {
+                const idx = items[0]?.dataIndex ?? 0;
+                const raw = visibleTrend[idx]?.date ?? "";
+                const d = new Date(`${raw}T00:00:00`);
+                return Number.isNaN(d.getTime())
+                  ? raw
+                  : new Intl.DateTimeFormat("en-IN", {
+                      day: "2-digit",
+                      month: "short",
+                      year: "numeric",
+                    }).format(d);
+              },
             },
+            padding: 12,
+            titleFont: { size: 12, weight: "bold" },
           },
         },
         responsive: true,
         scales: {
           x: {
-            grid: {
-              color: "rgba(148, 163, 184, 0.18)",
-            },
+            grid: { color: "rgba(148, 163, 184, 0.18)" },
             ticks: {
               color: "#64748b",
               maxRotation: 0,
+              maxTicksLimit: visibleTrend.length <= 7 ? 7 : 10,
             },
           },
           y: {
             beginAtZero: true,
-            grid: {
-              color: "rgba(148, 163, 184, 0.22)",
-            },
-            ticks: {
-              color: "#64748b",
-              precision: 0,
-            },
+            grid: { color: "rgba(148, 163, 184, 0.22)" },
+            ticks: { color: "#64748b", precision: 0 },
           },
         },
       },
@@ -175,18 +231,24 @@ function PageViewLineChart({
       chartRef.current?.destroy();
       chartRef.current = null;
     };
-  }, [isLoading, trend]);
+  }, [isLoading, visibleTrend]);
+
+  const rangeLabel = (() => {
+    if (!isZoomed || !zoomStart || !zoomEnd) return "Last 30 days";
+    const fmt = (d: string) =>
+      new Intl.DateTimeFormat("en-IN", { day: "2-digit", month: "short", year: "numeric" }).format(
+        new Date(`${d}T00:00:00`),
+      );
+    return `${fmt(zoomStart)} – ${fmt(zoomEnd)}`;
+  })();
 
   return (
     <div className="border-t border-slate-200 p-5">
-      <div className="flex flex-wrap items-center justify-between gap-3">
+      {/* Header row */}
+      <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h3 className="text-base font-black text-[#0b1f3a]">
-            Page Views and Unique Visits
-          </h3>
-          <p className="mt-1 text-sm text-slate-500">
-            Daily trend for the last 30 days
-          </p>
+          <h3 className="text-base font-black text-[#0b1f3a]">Page Views and Unique Visits</h3>
+          <p className="mt-1 text-sm text-slate-500">{rangeLabel}</p>
         </div>
         <div className="flex flex-wrap items-center gap-4 text-xs font-bold text-slate-600">
           <span className="inline-flex items-center gap-2">
@@ -200,19 +262,90 @@ function PageViewLineChart({
         </div>
       </div>
 
-      <div className="mt-5 rounded-lg border border-slate-200 bg-slate-50 p-4">
+      {/* Zoom controls */}
+      {!isLoading && trend.length > 0 && (
+        <div className="mt-4 flex flex-wrap items-center gap-2">
+          <span className="flex items-center gap-1.5 text-xs font-bold text-slate-500">
+            <ZoomIn size={13} />
+            Zoom
+          </span>
+          <div className="flex items-center gap-1">
+            {RANGE_PRESETS.map((days) => (
+              <button
+                className={`rounded px-3 py-1 text-xs font-bold transition-colors ${
+                  activePreset === days
+                    ? "bg-blue-600 text-white"
+                    : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                }`}
+                key={days}
+                onClick={() => applyPreset(days)}
+                type="button"
+              >
+                {days}d
+              </button>
+            ))}
+          </div>
+
+          {/* Custom date range */}
+          <div className="flex items-center gap-1.5 text-xs">
+            <input
+              className="rounded border border-slate-200 bg-white px-2 py-1 text-xs text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              max={zoomEnd ?? fullEnd ?? undefined}
+              min={fullStart ?? undefined}
+              onChange={(e) => {
+                setZoomStart(e.target.value || null);
+                setActivePreset(null);
+              }}
+              type="date"
+              value={zoomStart ?? ""}
+            />
+            <span className="text-slate-400">–</span>
+            <input
+              className="rounded border border-slate-200 bg-white px-2 py-1 text-xs text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              max={fullEnd ?? undefined}
+              min={zoomStart ?? fullStart ?? undefined}
+              onChange={(e) => {
+                setZoomEnd(e.target.value || null);
+                setActivePreset(null);
+              }}
+              type="date"
+              value={zoomEnd ?? ""}
+            />
+          </div>
+
+          {/* Reset */}
+          <button
+            className="ml-auto flex items-center gap-1.5 rounded border border-slate-200 bg-white px-3 py-1 text-xs font-bold text-slate-600 transition-colors hover:border-blue-300 hover:bg-blue-50 hover:text-blue-700 disabled:opacity-40"
+            disabled={activePreset === 30 && !isZoomed}
+            onClick={resetZoom}
+            title="Reset to last 30 days"
+            type="button"
+          >
+            <RotateCcw size={12} />
+            Reset to 30 days
+          </button>
+        </div>
+      )}
+
+      <div className="mt-4 rounded-lg border border-slate-200 bg-slate-50 p-4">
         {isLoading ? (
           <div className="grid h-72 place-items-center text-sm font-bold text-slate-500">
             Loading chart...
           </div>
         ) : trend.length ? (
-          <div className="h-72 w-full">
-            <canvas
-              aria-label="Line chart showing page views and unique visits"
-              ref={canvasRef}
-              role="img"
-            />
-          </div>
+          visibleTrend.length ? (
+            <div className="h-72 w-full">
+              <canvas
+                aria-label="Line chart showing page views and unique visits"
+                ref={canvasRef}
+                role="img"
+              />
+            </div>
+          ) : (
+            <div className="grid h-72 place-items-center text-sm font-bold text-slate-500">
+              No data in this date range.
+            </div>
+          )
         ) : (
           <div className="grid h-72 place-items-center text-sm font-bold text-slate-500">
             No page view trend data available.

@@ -7,6 +7,7 @@ import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 import { getApiContent } from "../../content/index.js";
 import { sendError, sendSuccess } from "../common/api-response.js";
 import { generateApplicationPdf } from "../admin/admin-application-pdf.js";
+import { auditService } from "../audit/audit.service.js";
 import type { AuthenticatedParticipantRequest } from "./participant-auth.js";
 import {
     participantService,
@@ -27,7 +28,10 @@ type StoredSupportingDocument = {
 
 type LoginBody = {
     email?: string;
+    identifier?: string;
     language?: string;
+    password?: string;
+    token?: string;
 };
 
 type VerifyLoginBody = LoginBody & {
@@ -104,7 +108,7 @@ const maxSupportingDocuments = Number(
     process.env.SUPPORTING_DOCUMENT_MAX_FILES ?? 3,
 );
 const maxSupportingDocumentSizeMb = Number(
-    process.env.SUPPORTING_DOCUMENT_MAX_SIZE_MB ?? 2,
+    process.env.SUPPORTING_DOCUMENT_MAX_SIZE_MB ?? 5,
 );
 const maxSupportingDocumentSizeBytes =
     maxSupportingDocumentSizeMb * 1024 * 1024;
@@ -245,7 +249,8 @@ function validateSubmitApplicationBody(
     body: SubmitApplicationBody = {},
     options: { requireSupportingDocuments?: boolean } = {},
 ) {
-    const requireSupportingDocuments = options.requireSupportingDocuments ?? true;
+    const requireSupportingDocuments =
+        options.requireSupportingDocuments ?? true;
     const errors: string[] = [];
     const language = participantService.normalizeLanguage(
         body.language ?? "en",
@@ -376,9 +381,7 @@ function validateSubmitApplicationBody(
             errors,
             validationMessages.fieldRequired,
         ),
-        gender: gender
-            ? (gender as "Male" | "Female" | "Others")
-            : undefined,
+        gender: gender ? (gender as "Male" | "Female" | "Others") : undefined,
         highestEducationalQualification: requiredText(
             body,
             "highestEducationalQualification",
@@ -559,8 +562,10 @@ async function relocateStoredDocuments(input: {
 
     await mkdir(applicationDirectory, { recursive: true });
 
-    const mappings: Array<{ nextStorageKey: string; previousStorageKey: string }> =
-        [];
+    const mappings: Array<{
+        nextStorageKey: string;
+        previousStorageKey: string;
+    }> = [];
 
     for (const document of input.documents) {
         const previousStorageKey = document.storageKey;
@@ -695,6 +700,65 @@ function validateEmailBody(body: LoginBody = {}) {
     };
 }
 
+function validatePasswordLoginBody(body: LoginBody = {}) {
+    const errors: string[] = [];
+    const language = participantService.normalizeLanguage(
+        body.language ?? "en",
+    );
+    const validationMessages = getApiContent(language).apiValidation;
+    const identifier = isNonEmptyString(body.identifier)
+        ? body.identifier.trim()
+        : isNonEmptyString(body.email)
+          ? normalizeEmail(body.email)
+          : "";
+    const password = isNonEmptyString(body.password)
+        ? body.password.trim()
+        : "";
+
+    if (!identifier) {
+        errors.push("Email address or mobile number is required.");
+    }
+    if (!password) {
+        errors.push(validationMessages.fieldRequired("password"));
+    }
+
+    return {
+        errors,
+        value: {
+            identifier,
+            language,
+            password,
+        },
+    };
+}
+
+function validateResetPasswordBody(body: LoginBody = {}) {
+    const errors: string[] = [];
+    const language = participantService.normalizeLanguage(
+        body.language ?? "en",
+    );
+    const token = isNonEmptyString(body.token) ? body.token.trim() : "";
+    const password = isNonEmptyString(body.password)
+        ? body.password.trim()
+        : "";
+
+    if (!token) {
+        errors.push(getApiContent(language).api.verificationTokenRequired);
+    }
+    if (password.length < 8) {
+        errors.push("Password must be at least 8 characters.");
+    }
+
+    return {
+        errors,
+        value: {
+            language,
+            password,
+            token,
+        },
+    };
+}
+
 async function requestLoginCode(
     request: FastifyRequest<{ Body?: LoginBody }>,
     reply: FastifyReply,
@@ -732,6 +796,126 @@ async function requestLoginCode(
                     : getApiContent(validated.value.language).api
                           .participantLoginUnable,
             statusCode: getErrorStatusCode(error) ?? 500,
+        });
+    }
+}
+
+async function loginWithPassword(
+    request: FastifyRequest<{ Body?: LoginBody }>,
+    reply: FastifyReply,
+) {
+    const pg = requireDatabase(request, reply);
+    if (!pg) return reply;
+
+    const validated = validatePasswordLoginBody(request.body);
+    if (validated.errors.length) {
+        return sendError(request, reply, {
+            data: { errors: validated.errors },
+            messageKey: "validationError",
+            statusCode: 400,
+        });
+    }
+
+    try {
+        const result = await participantService.loginWithPassword(
+            pg,
+            validated.value,
+        );
+
+        return sendSuccess(request, reply, {
+            data: result,
+            messageKey: "participantLoginVerified",
+        });
+    } catch (error) {
+        request.server.log.error(error);
+
+        return sendError(request, reply, {
+            message:
+                error instanceof Error
+                    ? error.message
+                    : getApiContent(validated.value.language).api
+                          .participantLoginUnable,
+            statusCode: getErrorStatusCode(error) ?? 400,
+        });
+    }
+}
+
+async function requestPasswordReset(
+    request: FastifyRequest<{ Body?: LoginBody }>,
+    reply: FastifyReply,
+) {
+    const pg = requireDatabase(request, reply);
+    if (!pg) return reply;
+
+    const validated = validateEmailBody(request.body);
+    if (validated.errors.length) {
+        return sendError(request, reply, {
+            data: { errors: validated.errors },
+            messageKey: "validationError",
+            statusCode: 400,
+        });
+    }
+
+    try {
+        const result = await participantService.requestPasswordReset(
+            pg,
+            validated.value,
+        );
+
+        return sendSuccess(request, reply, {
+            data: result,
+            message:
+                "If the email address is registered, a password reset link has been sent.",
+            statusCode: 201,
+        });
+    } catch (error) {
+        request.server.log.error(error);
+
+        return sendError(request, reply, {
+            message:
+                error instanceof Error
+                    ? error.message
+                    : "Unable to send password reset link.",
+            statusCode: getErrorStatusCode(error) ?? 500,
+        });
+    }
+}
+
+async function resetPassword(
+    request: FastifyRequest<{ Body?: LoginBody }>,
+    reply: FastifyReply,
+) {
+    const pg = requireDatabase(request, reply);
+    if (!pg) return reply;
+
+    const validated = validateResetPasswordBody(request.body);
+    if (validated.errors.length) {
+        return sendError(request, reply, {
+            data: { errors: validated.errors },
+            messageKey: "validationError",
+            statusCode: 400,
+        });
+    }
+
+    try {
+        const result = await participantService.resetPassword(
+            pg,
+            validated.value,
+        );
+
+        return sendSuccess(request, reply, {
+            data: result,
+            message: "Password has been reset successfully.",
+        });
+    } catch (error) {
+        request.server.log.error(error);
+
+        return sendError(request, reply, {
+            message:
+                error instanceof Error
+                    ? error.message
+                    : "Unable to reset password.",
+            statusCode: getErrorStatusCode(error) ?? 400,
         });
     }
 }
@@ -933,11 +1117,14 @@ async function updateApplicationSubmission(
     }
 
     try {
-        const result = await participantService.updateApplicationSubmission(pg, {
-            ...validated.value,
-            applicationHash,
-            email: participant.email,
-        });
+        const result = await participantService.updateApplicationSubmission(
+            pg,
+            {
+                ...validated.value,
+                applicationHash,
+                email: participant.email,
+            },
+        );
         const documentStorageMappings = await relocateStoredDocuments({
             applicationId: result.application.id,
             documents: storedDocuments,
@@ -946,6 +1133,21 @@ async function updateApplicationSubmission(
         await participantService.updateApplicationDocumentStorageKeys(pg, {
             applicationId: result.application.id,
             mappings: documentStorageMappings,
+        });
+
+        await auditService.recordRichAuditEntry(request, pg, {
+            actorType: "participant",
+            actorId: Number(participant.sub),
+            actorName: participant.name,
+            actorEmail: participant.email,
+            category: "application",
+            action: "application.updated",
+            applicationId: result.application.id,
+            applicationNumber: result.application.applicationNumber,
+            applicantFullName: participant.name,
+            applicantPhone: participant.phone,
+            statusCode: 200,
+            details: { fields: Object.keys(validated.value) },
         });
 
         return sendSuccess(request, reply, {
@@ -1006,7 +1208,8 @@ async function getApplications(
 async function getProfile(request: FastifyRequest, reply: FastifyReply) {
     const pg = requireDatabase(request, reply);
     if (!pg) return reply;
-    const participant = (request as AuthenticatedParticipantRequest).participant;
+    const participant = (request as AuthenticatedParticipantRequest)
+        .participant;
 
     try {
         const result = await participantService.getProfile(pg, {
@@ -1033,6 +1236,44 @@ async function getProfile(request: FastifyRequest, reply: FastifyReply) {
                     ? error.message
                     : getApiContent("en").api.internalServerError,
             statusCode: getErrorStatusCode(error) ?? 500,
+        });
+    }
+}
+
+async function requestProfileVerificationLink(
+    request: FastifyRequest<{ Body?: { language?: string } }>,
+    reply: FastifyReply,
+) {
+    const pg = requireDatabase(request, reply);
+    if (!pg) return reply;
+    const participant = (request as AuthenticatedParticipantRequest)
+        .participant;
+    const language = participantService.normalizeLanguage(
+        request.body?.language ?? "en",
+    );
+
+    try {
+        const result = await participantService.requestProfileVerificationLink(
+            pg,
+            {
+                email: participant.email,
+                language,
+            },
+        );
+
+        return sendSuccess(request, reply, {
+            data: result,
+            message: "Verification link sent successfully.",
+        });
+    } catch (error) {
+        request.server.log.error(error);
+
+        return sendError(request, reply, {
+            message:
+                error instanceof Error
+                    ? error.message
+                    : getApiContent(language).api.unableVerifyEmail,
+            statusCode: getErrorStatusCode(error) ?? 400,
         });
     }
 }
@@ -1189,7 +1430,9 @@ async function deleteApplicationDocument(
             });
         }
 
-        const filePath = await resolveStoredFilePath(result.document.storageKey);
+        const filePath = await resolveStoredFilePath(
+            result.document.storageKey,
+        );
         let fileDeleted = false;
 
         if (filePath) {
@@ -1207,9 +1450,14 @@ async function deleteApplicationDocument(
     } catch (error) {
         request.server.log.error(error);
 
+        const statusCode = getErrorStatusCode(error) ?? 500;
+
         return sendError(request, reply, {
-            message: "Document could not be deleted.",
-            statusCode: getErrorStatusCode(error) ?? 500,
+            message:
+                error instanceof Error && statusCode < 500
+                    ? error.message
+                    : "Document could not be deleted.",
+            statusCode,
         });
     }
 }
@@ -1285,7 +1533,11 @@ export const participantController = {
     getApplication,
     getApplications,
     getProfile,
+    loginWithPassword,
+    requestPasswordReset,
+    requestProfileVerificationLink,
     requestLoginCode,
+    resetPassword,
     resendLoginCode,
     submitApplication,
     updateApplicationSubmission,

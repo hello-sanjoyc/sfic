@@ -1,11 +1,15 @@
 import type { FastifyPluginAsync } from "fastify";
 import { authenticateAdmin } from "./admin-auth.js";
 import { adminController } from "./admin.controller.js";
+import { adminRankingsController } from "./admin.rankings.js";
+import { auditController } from "../audit/audit.controller.js";
+import type { AuditLogQuery } from "../audit/audit.model.js";
 
 export const adminRoutes: FastifyPluginAsync = async (app) => {
     app.addHook("preHandler", authenticateAdmin);
 
     app.get("/applications", adminController.getApplications);
+    app.get<{ Querystring: { page?: string; pageSize?: string; search?: string; sortBy?: string; sortDirection?: string } }>("/applications/rankings", adminRankingsController.getRankings);
     app.patch("/applications/:applicationId", adminController.updateApplication);
     app.put("/applications/:applicationId", adminController.updateApplication);
     app.delete(
@@ -38,7 +42,31 @@ export const adminRoutes: FastifyPluginAsync = async (app) => {
         "/dashboard-challenge-category-counts",
         adminController.getDashboardChallengeCategoryCounts,
     );
+    app.get("/server-health", adminController.getServerHealth);
     app.get("/page-view-analytics", adminController.getPageViewAnalytics);
+    app.get("/email-notifications", adminController.getEmailNotifications);
+    app.post("/email-notifications", adminController.createEmailNotification);
+    app.get("/email-notifications/:notificationId", adminController.getEmailNotification);
+    app.patch(
+        "/email-notifications/:notificationId",
+        adminController.updateEmailNotification,
+    );
+    app.put(
+        "/email-notifications/:notificationId",
+        adminController.updateEmailNotification,
+    );
+    app.delete(
+        "/email-notifications/:notificationId",
+        adminController.deleteEmailNotification,
+    );
+    app.get(
+        "/email-notifications/:notificationId/analytics",
+        adminController.getEmailNotificationAnalytics,
+    );
+    app.get(
+        "/email-notifications/:notificationId/recipients",
+        adminController.getEmailNotificationRecipients,
+    );
     app.get("/users", adminController.getUsers);
     app.post("/users", adminController.createUser);
     app.get("/users/:userId", adminController.getUser);
@@ -95,4 +123,8 @@ export const adminRoutes: FastifyPluginAsync = async (app) => {
     app.post("/login", adminController.requestLoginCode);
     app.post("/resend-login-code", adminController.resendLoginCode);
     app.post("/verify-login", adminController.verifyLoginCode);
+    app.get<{ Querystring: AuditLogQuery }>(
+        "/audit-log",
+        auditController.getAuditLog,
+    );
 };

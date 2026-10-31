@@ -1,4 +1,9 @@
+import { execFile } from "node:child_process";
 import { createHash, randomUUID } from "node:crypto";
+import { readdir, readFile, stat } from "node:fs/promises";
+import os from "node:os";
+import { isAbsolute, relative, resolve } from "node:path";
+import { setTimeout as delay } from "node:timers/promises";
 import type { PoolClient, QueryResultRow } from "pg";
 import { getApiContent } from "../../content/index.js";
 import { emailService } from "../email/email.service.js";
@@ -11,11 +16,18 @@ import type {
     AdminDashboardCountsResult,
     AdminDashboardDistrictCountsResult,
     AdminDashboardOrganisationTypeCountsResult,
+    AdminEmailNotification,
+    AdminEmailNotificationAnalyticsResult,
+    AdminEmailNotificationDetailsResult,
+    AdminEmailNotificationRecipient,
+    AdminEmailNotificationRecipientsResult,
+    AdminEmailNotificationsResult,
     AdminLanguage,
     AdminManagedUser,
     AdminManagedUsersResult,
     AdminPageViewAnalyticsResult,
     AdminRbacRule,
+    AdminServerHealthResult,
     AdminSettingsChallengeCategory,
     AdminSettingsConfiguration,
     AdminSettingsConfigurationType,
@@ -28,6 +40,7 @@ import type {
     AdminUser,
     DeleteAdminApplicationDocumentResult,
     DeleteAdminApplicationResult,
+    CreateAdminEmailNotificationInput,
     RequestAdminLoginCodeInput,
     RequestAdminLoginCodeResult,
     UpsertAdminSettingsItemInput,
@@ -59,6 +72,8 @@ export class AdminRuleError extends Error {
     }
 }
 
+const apiPackageRoot = resolve(__dirname, "../../..");
+
 type AdminUserRow = {
     analytics_access?: string | null;
     applications_access?: string | null;
@@ -87,6 +102,41 @@ type AdminManagedUserRow = {
     state_id: string | null;
     total_count?: string;
     updated_at: Date | string;
+};
+
+type AdminEmailNotificationRow = {
+    body: string;
+    created_at: Date | string;
+    created_by_user_id: string;
+    delivered_count: string | null;
+    delivery_mode: "immediate" | "scheduled";
+    failed_count: string;
+    id: string;
+    mode: "individual" | "bulk";
+    name: string | null;
+    processing_count: string;
+    queued_count: string;
+    reply_to_email: string;
+    scheduled_for: Date | string | null;
+    sender_name: string;
+    sent_count: string;
+    skipped_count: string;
+    status: AdminEmailNotification["status"];
+    subject: string;
+    total_count?: string;
+    total_recipients: string;
+    updated_at: Date | string;
+};
+
+type AdminEmailNotificationRecipientRow = {
+    attempt_count: string;
+    delivery_status: AdminEmailNotificationRecipient["deliveryStatus"];
+    email: string;
+    failure_reason: string | null;
+    id: string;
+    last_attempt_at: Date | string | null;
+    recipient_name: string | null;
+    total_count?: string;
 };
 
 type AdminRbacRuleRow = QueryResultRow & {
@@ -148,6 +198,7 @@ type OrganisationTypeCountRow = {
         | "juniorUndergraduate"
         | "openCommunityGroup"
         | "openGraduate"
+        | "openGovernmentFunded"
         | "openProfessional"
         | "openStartup";
     label: string;
@@ -209,6 +260,7 @@ type AdminApplicationSortKey =
 type AdminApplicationQueryOptions = {
     access?: AdminAccessContext;
     applicationId?: number;
+    includeIncomplete?: boolean;
     page?: number;
     pageSize?: number;
     search?: string;
@@ -247,7 +299,14 @@ const applicationStatuses = new Set([
     "submitted",
     "withdrawn",
 ]);
-const rbacAccessValues = new Set(["Full Access", "View Only", "No Access"]);
+const incompleteListingStatuses = [
+    "draft",
+    "email_verification",
+    "profile_completion",
+    "proposal_submission",
+    "submitted",
+];
+const rbacAccessValues =new Set(["Full Access", "View Only", "No Access"]);
 const rbacScopeValues = new Set(["Application", "Region", "State", "District"]);
 const hiddenAdminUserEmail = "sany.chowdhury@gmail.com";
 const hiddenAdminUserMobile = "9830799651";
@@ -281,6 +340,306 @@ function hasRegionalAccess(access?: AdminAccessContext) {
     );
 }
 
+function isSuperAdmin(access?: AdminAccessContext) {
+    return access?.role?.trim().toUpperCase().replace(/[\s-]+/g, "_") === "SUPERADMIN";
+}
+
+function assertSuperAdmin(access?: AdminAccessContext) {
+    if (isSuperAdmin(access)) return;
+    throw new AdminRuleError("Only SUPERADMIN can edit or delete applications.", 403);
+}
+
+type CpuSnapshot = {
+    idle: number;
+    total: number;
+};
+
+function roundTo(value: number, decimals = 2) {
+    const factor = 10 ** decimals;
+    return Math.round(value * factor) / factor;
+}
+
+function bytesToGB(value: number) {
+    return roundTo(value / 1024 / 1024 / 1024);
+}
+
+function kibToGB(value: number) {
+    return roundTo(value / 1024 / 1024);
+}
+
+function getCpuSnapshot(): CpuSnapshot {
+    return os.cpus().reduce<CpuSnapshot>(
+        (snapshot, cpu) => {
+            const total = Object.values(cpu.times).reduce(
+                (sum, time) => sum + time,
+                0,
+            );
+
+            return {
+                idle: snapshot.idle + cpu.times.idle,
+                total: snapshot.total + total,
+            };
+        },
+        { idle: 0, total: 0 },
+    );
+}
+
+async function getCpuUsagePercent() {
+    const start = getCpuSnapshot();
+    await delay(100);
+    const end = getCpuSnapshot();
+    const idle = end.idle - start.idle;
+    const total = end.total - start.total;
+
+    if (total <= 0) return 0;
+
+    return roundTo(((total - idle) / total) * 100);
+}
+
+function execFileAsync(command: string, args: string[]) {
+    return new Promise<{ stdout: string; stderr: string }>((resolve, reject) => {
+        execFile(command, args, (error, stdout, stderr) => {
+            if (error) {
+                reject(error);
+                return;
+            }
+
+            resolve({ stdout, stderr });
+        });
+    });
+}
+
+function fallbackOsInfo() {
+    return {
+        osName: os.type(),
+        osVersion: os.release(),
+    };
+}
+
+async function getMacOsInfo() {
+    const [nameResult, versionResult] = await Promise.all([
+        execFileAsync("sw_vers", ["-productName"]),
+        execFileAsync("sw_vers", ["-productVersion"]),
+    ]);
+
+    return {
+        osName: nameResult.stdout.trim() || "macOS",
+        osVersion: versionResult.stdout.trim() || os.release(),
+    };
+}
+
+async function getLinuxOsInfo() {
+    const content = await readFile("/etc/os-release", "utf8");
+    const values = new Map(
+        content
+            .split(/\r?\n/)
+            .map((line) => line.match(/^([A-Z_]+)=(.*)$/))
+            .filter((match): match is RegExpMatchArray => Boolean(match))
+            .map((match) => [
+                match[1],
+                match[2].replace(/^"|"$/g, "").replace(/\\"/g, '"'),
+            ]),
+    );
+
+    return {
+        osName: values.get("NAME") || "Linux",
+        osVersion: values.get("VERSION_ID") || values.get("VERSION") || os.release(),
+    };
+}
+
+async function getOsInfo() {
+    try {
+        if (os.platform() === "darwin") return await getMacOsInfo();
+        if (os.platform() === "linux") return await getLinuxOsInfo();
+    } catch {
+        return fallbackOsInfo();
+    }
+
+    return fallbackOsInfo();
+}
+
+async function getDiskHealth(): Promise<AdminServerHealthResult["disk"]> {
+    const { stdout } = await execFileAsync("df", ["-kP", "/"]);
+    const values = stdout.trim().split(/\r?\n/).at(-1)?.trim().split(/\s+/) ?? [];
+    const totalKib = Number(values[1]);
+    const availableKib = Number(values[3]);
+
+    if (
+        !Number.isFinite(totalKib) ||
+        !Number.isFinite(availableKib) ||
+        totalKib <= 0
+    ) {
+        throw new AdminRuleError("Server disk health could not be read.", 500);
+    }
+
+    const usedKib = totalKib - availableKib;
+    const totalGB = kibToGB(totalKib);
+    const usedGB = kibToGB(usedKib);
+    const availableGB = kibToGB(availableKib);
+
+    return {
+        path: "/",
+        totalGB,
+        usedGB,
+        freeGB: roundTo(totalGB - usedGB),
+        availableGB,
+        usagePercent: roundTo((usedKib / totalKib) * 100),
+    };
+}
+
+function getUploadRoot() {
+    return process.env.UPLOAD_DIR ?? process.env.LOCAL_STORAGE_DIR ?? "uploads";
+}
+
+function getUploadRootPath() {
+    const configuredRoot = getUploadRoot();
+    return isAbsolute(configuredRoot)
+        ? configuredRoot
+        : resolve(apiPackageRoot, configuredRoot);
+}
+
+function displayPathFromApiRoot(path: string) {
+    const relativePath = relative(apiPackageRoot, path);
+
+    if (!relativePath || relativePath.startsWith("..")) return path;
+
+    return `./${relativePath}`;
+}
+
+async function getDirectoryStats(path: string): Promise<{
+    fileCount: number;
+    sizeBytes: number;
+}> {
+    let fileCount = 0;
+    let sizeBytes = 0;
+    const entries = await readdir(path, { withFileTypes: true });
+
+    await Promise.all(
+        entries.map(async (entry) => {
+            const entryPath = resolve(path, entry.name);
+
+            if (entry.isDirectory()) {
+                const nested = await getDirectoryStats(entryPath);
+                fileCount += nested.fileCount;
+                sizeBytes += nested.sizeBytes;
+                return;
+            }
+
+            if (!entry.isFile()) return;
+
+            const entryStat = await stat(entryPath);
+            fileCount += 1;
+            sizeBytes += entryStat.size;
+        }),
+    );
+
+    return { fileCount, sizeBytes };
+}
+
+async function getUploadsHealth(): Promise<AdminServerHealthResult["uploads"]> {
+    const uploadRoot = getUploadRootPath();
+    const displayPath = displayPathFromApiRoot(uploadRoot);
+
+    try {
+        const uploadStats = await getDirectoryStats(uploadRoot);
+
+        return {
+            path: displayPath,
+            sizeBytes: uploadStats.sizeBytes,
+            sizeGB: bytesToGB(uploadStats.sizeBytes),
+            fileCount: uploadStats.fileCount,
+        };
+    } catch {
+        return {
+            path: displayPath,
+            sizeBytes: 0,
+            sizeGB: 0,
+            fileCount: 0,
+        };
+    }
+}
+
+async function getServerHealth(
+    access?: AdminAccessContext,
+): Promise<AdminServerHealthResult> {
+    assertSuperAdmin(access);
+
+    const totalMemory = os.totalmem();
+    const freeMemory = os.freemem();
+    const usedMemory = totalMemory - freeMemory;
+    const [cpuUsagePercent, disk, osInfo, uploads] = await Promise.all([
+        getCpuUsagePercent(),
+        getDiskHealth(),
+        getOsInfo(),
+        getUploadsHealth(),
+    ]);
+
+    return {
+        success: true,
+        timestamp: new Date().toISOString(),
+        server: {
+            hostname: os.hostname(),
+            osName: osInfo.osName,
+            osVersion: osInfo.osVersion,
+            platform: os.platform(),
+            architecture: os.arch(),
+            release: os.release(),
+            uptimeSeconds: Math.floor(os.uptime()),
+        },
+        cpu: {
+            cores: os.cpus().length,
+            usagePercent: cpuUsagePercent,
+            loadAverage: os.loadavg().map((value) => roundTo(value)),
+        },
+        memory: {
+            totalGB: bytesToGB(totalMemory),
+            usedGB: bytesToGB(usedMemory),
+            freeGB: bytesToGB(freeMemory),
+            usagePercent: roundTo((usedMemory / totalMemory) * 100),
+        },
+        disk,
+        uploads,
+    };
+}
+
+function maskEmail(value: unknown) {
+    if (typeof value !== "string" || !value.trim()) return value;
+    const [local = "", domain = ""] = value.trim().split("@");
+    if (!domain) return "xxx@xxx.com";
+    const extensionStart = domain.lastIndexOf(".");
+    const extension = extensionStart >= 0 ? domain.slice(extensionStart) : ".com";
+    const prefix = local.slice(0, 3) || "xxx";
+    return `${prefix}xxx@xxx${extension}`;
+}
+
+function maskPhone(value: unknown) {
+    if (typeof value !== "string" || !value.trim()) return value;
+    const digits = value.replace(/\D/g, "");
+    if (digits.length >= 7) return `${digits.slice(0, 2)}xxx${digits.slice(5, 7)}xxx`;
+    return `${digits.slice(0, 2)}xxx`;
+}
+
+function maskSensitiveApplicationData(value: unknown): unknown {
+    if (Array.isArray(value)) {
+        return value.map((item) => maskSensitiveApplicationData(item));
+    }
+
+    if (!value || typeof value !== "object") return value;
+
+    const masked: Record<string, unknown> = {};
+    for (const [key, fieldValue] of Object.entries(value)) {
+        if (key === "email") {
+            masked[key] = maskEmail(fieldValue);
+        } else if (key === "mobile" || key === "phone") {
+            masked[key] = maskPhone(fieldValue);
+        } else {
+            masked[key] = maskSensitiveApplicationData(fieldValue);
+        }
+    }
+
+    return masked;
+}
+
 function appendUserScopeCondition(
     conditions: string[],
     params: unknown[],
@@ -311,7 +670,7 @@ function appendUserScopeCondition(
     }
 }
 
-function appendApplicationScopeCondition(
+export function appendApplicationScopeCondition(
     conditions: string[],
     params: unknown[],
     access?: AdminAccessContext,
@@ -1765,6 +2124,7 @@ type AdminSettingsNamedRow = {
     created_at: Date | string;
     id: string;
     is_active: boolean;
+    is_registration_enabled?: boolean;
     name_bn: string;
     name_en: string;
     name_hi: string;
@@ -1803,6 +2163,13 @@ function toSettingsNamedItem(row: AdminSettingsNamedRow): AdminSettingsNamedItem
 
     if (row.sort_order !== undefined) item.sortOrder = Number(row.sort_order);
     return item;
+}
+
+function toSettingsStateItem(row: AdminSettingsNamedRow): AdminSettingsState {
+    return {
+        ...toSettingsNamedItem(row),
+        isRegistrationEnabled: row.is_registration_enabled ?? true,
+    };
 }
 
 function normalizeSortOrder(value: unknown) {
@@ -2049,12 +2416,12 @@ async function deleteSettingsConfiguration(
 
 async function getSettingsStates(pg: DatabasePool): Promise<AdminSettingsState[]> {
     const result = await pg.query<AdminSettingsNamedRow>(`
-        SELECT id, name_en, name_bn, name_hi, is_active, created_at, updated_at
+        SELECT id, name_en, name_bn, name_hi, is_active, is_registration_enabled, created_at, updated_at
         FROM states
         ORDER BY name_en
     `);
 
-    return result.rows.map(toSettingsNamedItem);
+    return result.rows.map(toSettingsStateItem);
 }
 
 async function getSettingsState(
@@ -2063,7 +2430,7 @@ async function getSettingsState(
 ): Promise<AdminSettingsState | null> {
     const result = await pg.query<AdminSettingsNamedRow>(
         `
-        SELECT id, name_en, name_bn, name_hi, is_active, created_at, updated_at
+        SELECT id, name_en, name_bn, name_hi, is_active, is_registration_enabled, created_at, updated_at
         FROM states
         WHERE id = $1
         LIMIT 1
@@ -2071,7 +2438,7 @@ async function getSettingsState(
         [id],
     );
 
-    return result.rows[0] ? toSettingsNamedItem(result.rows[0]) : null;
+    return result.rows[0] ? toSettingsStateItem(result.rows[0]) : null;
 }
 
 async function createSettingsState(
@@ -2080,17 +2447,20 @@ async function createSettingsState(
 ): Promise<{ state: AdminSettingsState }> {
     const names = normalizeLocalizedNameInput(input);
     const isActive = normalizeOptionalBoolean(input.isActive);
+    const isRegistrationEnabled = "isRegistrationEnabled" in input
+        ? normalizeOptionalBoolean(input.isRegistrationEnabled as boolean | undefined)
+        : true;
 
     const result = await pg.query<AdminSettingsNamedRow>(
         `
-        INSERT INTO states (name_en, name_bn, name_hi, is_active)
-        VALUES ($1, $2, $3, $4)
-        RETURNING id, name_en, name_bn, name_hi, is_active, created_at, updated_at
+        INSERT INTO states (name_en, name_bn, name_hi, is_active, is_registration_enabled)
+        VALUES ($1, $2, $3, $4, $5)
+        RETURNING id, name_en, name_bn, name_hi, is_active, is_registration_enabled, created_at, updated_at
         `,
-        [names.nameEn, names.nameBn, names.nameHi, isActive],
+        [names.nameEn, names.nameBn, names.nameHi, isActive, isRegistrationEnabled],
     );
 
-    return { state: toSettingsNamedItem(result.rows[0]) };
+    return { state: toSettingsStateItem(result.rows[0]) };
 }
 
 async function updateSettingsState(
@@ -2100,9 +2470,24 @@ async function updateSettingsState(
 ): Promise<{ state: AdminSettingsState } | null> {
     const names = normalizeLocalizedNameInput(input);
     const isActive = normalizeOptionalBoolean(input.isActive);
+    const isRegistrationEnabled = "isRegistrationEnabled" in input
+        ? normalizeOptionalBoolean(input.isRegistrationEnabled as boolean | undefined)
+        : undefined;
 
     const result = await pg.query<AdminSettingsNamedRow>(
+        isRegistrationEnabled !== undefined
+            ? `
+        UPDATE states
+        SET name_en = $1,
+            name_bn = $2,
+            name_hi = $3,
+            is_active = $4,
+            is_registration_enabled = $5,
+            updated_at = NOW()
+        WHERE id = $6
+        RETURNING id, name_en, name_bn, name_hi, is_active, is_registration_enabled, created_at, updated_at
         `
+            : `
         UPDATE states
         SET name_en = $1,
             name_bn = $2,
@@ -2110,12 +2495,14 @@ async function updateSettingsState(
             is_active = $4,
             updated_at = NOW()
         WHERE id = $5
-        RETURNING id, name_en, name_bn, name_hi, is_active, created_at, updated_at
+        RETURNING id, name_en, name_bn, name_hi, is_active, is_registration_enabled, created_at, updated_at
         `,
-        [names.nameEn, names.nameBn, names.nameHi, isActive, id],
+        isRegistrationEnabled !== undefined
+            ? [names.nameEn, names.nameBn, names.nameHi, isActive, isRegistrationEnabled, id]
+            : [names.nameEn, names.nameBn, names.nameHi, isActive, id],
     );
 
-    return result.rows[0] ? { state: toSettingsNamedItem(result.rows[0]) } : null;
+    return result.rows[0] ? { state: toSettingsStateItem(result.rows[0]) } : null;
 }
 
 async function deleteSettingsState(
@@ -3209,12 +3596,18 @@ async function getApplications(
             ? options.status
             : undefined;
     const search = options.search?.trim();
+    const canViewSensitiveContact = isSuperAdmin(options.access);
     const values: unknown[] = [];
     const where: string[] = [];
 
     if (options.applicationId) {
         values.push(options.applicationId);
         where.push(`pa.id = $${values.length}`);
+    } else if (options.includeIncomplete && isSuperAdmin(options.access)) {
+        // SUPERADMIN only: list submitted and in-progress applications
+        // together. Withdrawn applications stay excluded.
+        values.push(incompleteListingStatuses);
+        where.push(`pa.status = ANY($${values.length}::text[])`);
     } else if (status) {
         values.push(status);
         where.push(`pa.status = $${values.length}`);
@@ -3224,63 +3617,47 @@ async function getApplications(
 
     if (search) {
         values.push(`%${search.toLowerCase()}%`);
+        // Keep the searchable set to what admins actually look applications up
+        // by. Every extra column (or subquery) is scanned with a leading-wildcard
+        // LIKE for each application, which cannot use an index.
+        const applicantSensitiveSearchFields = canViewSensitiveContact
+            ? `
+                    p.email,
+                    p.mobile,
+            `
+            : "";
+        const teamSensitiveSearchFields = canViewSensitiveContact
+            ? `
+                        , search_atm.email
+                        , search_atm.mobile
+                        , search_member_participant.email
+                        , search_member_participant.mobile
+            `
+            : "";
         where.push(`
             (
                 LOWER(CONCAT_WS(
                     ' ',
-                    pa.id,
                     pa.application_number,
-                    pa.status,
-                    pa.form_language,
-                    pa.participation_mode,
                     pa.city,
-                    pa.pin_code,
-                    pa.address,
                     pa.institute_name,
-                    pa.other_institute_type,
-                    pa.problem_location,
-                    pa.proposed_solution,
-                    pa.technology_method,
-                    pa.implementation_route,
-                    pa.cost_funding,
-                    pa.beneficiaries,
-                    pa.project_timeline,
-                    pa.expected_impact,
-                    pa.scalability,
-                    pa.prototype_pilot,
-                    pa.highest_educational_qualification,
-                    pa.last_attended_educational_institute,
-                    pa.year_of_passing,
-                    pa.mentor_acknowledge_to,
-                    pa.intellectual_property_publication,
-                    pa.video_url,
                     p.full_name,
-                    p.email,
-                    p.mobile,
-                    p.gender,
+                    ${applicantSensitiveSearchFields}
                     s.name_en,
                     s.name_bn,
                     s.name_hi,
                     d.name_en,
                     d.name_bn,
                     d.name_hi,
-                    pc.code,
                     pc.name_en,
                     pc.name_bn,
                     pc.name_hi,
-                    it.name_en,
-                    it.name_bn,
-                    it.name_hi,
                     cc.name_en,
                     cc.name_bn,
                     cc.name_hi,
-                    c.code,
                     c.title_en,
                     c.title_bn,
-                    c.title_hi,
-                    c.description_en,
-                    c.description_bn,
-                    c.description_hi
+                    c.title_hi
                 )) LIKE $${values.length}
                 OR EXISTS (
                     SELECT 1
@@ -3290,81 +3667,9 @@ async function getApplications(
                     WHERE search_atm.application_id = pa.id
                       AND LOWER(CONCAT_WS(
                         ' ',
-                        search_atm.id,
                         search_atm.full_name,
-                        search_atm.email,
-                        search_atm.mobile,
-                        search_member_participant.full_name,
-                        search_member_participant.email,
-                        search_member_participant.mobile
-                      )) LIKE $${values.length}
-                )
-                OR EXISTS (
-                    SELECT 1
-                    FROM public.application_documents search_ad
-                    WHERE search_ad.application_id = pa.id
-                      AND LOWER(CONCAT_WS(
-                        ' ',
-                        search_ad.id,
-                        search_ad.document_type,
-                        search_ad.language_code,
-                        search_ad.original_file_name,
-                        search_ad.storage_key,
-                        search_ad.public_url,
-                        search_ad.mime_type,
-                        search_ad.file_size_bytes,
-                        search_ad.checksum_sha256
-                      )) LIKE $${values.length}
-                )
-                OR EXISTS (
-                    SELECT 1
-                    FROM public.application_form_saves search_afs
-                    WHERE search_afs.application_id = pa.id
-                      AND LOWER(CONCAT_WS(
-                        ' ',
-                        search_afs.id,
-                        search_afs.language_code,
-                        search_afs.form_data::text,
-                        search_afs.is_current
-                      )) LIKE $${values.length}
-                )
-                OR EXISTS (
-                    SELECT 1
-                    FROM public.participant_email_verification_attempts search_pea
-                    WHERE (
-                        LOWER(search_pea.email::text) = LOWER(p.email::text)
-                        OR search_pea.mobile = p.mobile
-                    )
-                      AND LOWER(CONCAT_WS(
-                        ' ',
-                        search_pea.email,
-                        search_pea.mobile,
-                        search_pea.send_count,
-                        search_pea.locked_until
-                      )) LIKE $${values.length}
-                )
-                OR EXISTS (
-                    SELECT 1
-                    FROM public.participant_login_verification_attempts search_pla
-                    WHERE LOWER(search_pla.email::text) = LOWER(p.email::text)
-                      AND LOWER(CONCAT_WS(
-                        ' ',
-                        search_pla.email,
-                        search_pla.send_count,
-                        search_pla.locked_until
-                      )) LIKE $${values.length}
-                )
-                OR EXISTS (
-                    SELECT 1
-                    FROM public.participant_login_verification_tokens search_plt
-                    WHERE search_plt.application_id = pa.id
-                      AND LOWER(CONCAT_WS(
-                        ' ',
-                        search_plt.id,
-                        search_plt.member_id,
-                        search_plt.email,
-                        search_plt.expires_at,
-                        search_plt.consumed_at
+                        search_member_participant.full_name
+                        ${teamSensitiveSearchFields}
                       )) LIKE $${values.length}
                 )
             )
@@ -3679,7 +3984,13 @@ async function getApplications(
     const total = Number(result.rows[0]?.total_count ?? 0);
 
     return {
-        applications: result.rows.map((row) => row.application),
+        applications: result.rows.map((row) =>
+            canViewSensitiveContact
+                ? row.application
+                : (maskSensitiveApplicationData(
+                      row.application,
+                  ) as AdminApplicationDetails),
+        ),
         pagination: {
             page,
             pageSize,
@@ -3816,6 +4127,8 @@ async function updateApplication(
     input: UpdateAdminApplicationInput,
     access?: AdminAccessContext,
 ): Promise<UpdateAdminApplicationResult | null> {
+    assertSuperAdmin(access);
+
     const { applicationUpdates, participantUpdates } =
         collectApplicationUpdateValues(input.values);
 
@@ -3911,6 +4224,8 @@ async function deleteApplication(
     applicationId: number,
     access?: AdminAccessContext,
 ): Promise<DeleteAdminApplicationResult | null> {
+    assertSuperAdmin(access);
+
     const client = await pg.connect();
 
     try {
@@ -4025,6 +4340,8 @@ async function deleteApplicationDocument(
     },
     access?: AdminAccessContext,
 ): Promise<DeleteAdminApplicationDocumentResult | null> {
+    assertSuperAdmin(access);
+
     const values: unknown[] = [input.documentId, input.applicationId];
     const where = ["ad.id = $1", "ad.application_id = $2"];
     appendApplicationScopeCondition(where, values, access, "pa");
@@ -4102,6 +4419,13 @@ async function getDashboardOrganisationTypeCounts(
                     'Community Group',
                     'Community Group',
                     8
+                ),
+                (
+                    'openGovernmentFunded',
+                    'OPEN',
+                    'Government / Government Funded',
+                    'Government / Government Funded',
+                    9
                 )
         )
 
@@ -4320,6 +4644,799 @@ async function getDashboardChallengeCategoryCounts(
     };
 }
 
+async function ensureAdminEmailNotificationTables(pg: DatabaseClient) {
+    await pg.query(`
+        CREATE TABLE IF NOT EXISTS admin_email_notifications (
+            id BIGSERIAL PRIMARY KEY,
+            mode VARCHAR(20) NOT NULL,
+            name VARCHAR(255),
+            sender_name VARCHAR(255) NOT NULL,
+            reply_to_email VARCHAR(255) NOT NULL,
+            subject VARCHAR(500) NOT NULL,
+            body TEXT NOT NULL,
+            delivery_mode VARCHAR(20) NOT NULL,
+            scheduled_for TIMESTAMPTZ,
+            status VARCHAR(30) NOT NULL DEFAULT 'draft',
+            total_recipients INTEGER NOT NULL DEFAULT 0,
+            queued_count INTEGER NOT NULL DEFAULT 0,
+            processing_count INTEGER NOT NULL DEFAULT 0,
+            sent_count INTEGER NOT NULL DEFAULT 0,
+            delivered_count INTEGER,
+            failed_count INTEGER NOT NULL DEFAULT 0,
+            skipped_count INTEGER NOT NULL DEFAULT 0,
+            created_by_user_id BIGINT NOT NULL,
+            created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+            updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+            sent_at TIMESTAMPTZ,
+            CONSTRAINT fk_admin_email_notifications_created_by
+                FOREIGN KEY (created_by_user_id) REFERENCES users(id)
+                ON UPDATE CASCADE ON DELETE RESTRICT
+        )
+    `);
+    await pg.query(`
+        CREATE TABLE IF NOT EXISTS admin_email_notification_recipients (
+            id BIGSERIAL PRIMARY KEY,
+            notification_id BIGINT NOT NULL,
+            recipient_name VARCHAR(255),
+            email VARCHAR(255) NOT NULL,
+            delivery_status VARCHAR(30) NOT NULL DEFAULT 'Queued',
+            attempt_count INTEGER NOT NULL DEFAULT 0,
+            last_attempt_at TIMESTAMPTZ,
+            failure_reason TEXT,
+            created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+            updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+            CONSTRAINT fk_admin_email_notification_recipients_notification
+                FOREIGN KEY (notification_id) REFERENCES admin_email_notifications(id)
+                ON UPDATE CASCADE ON DELETE CASCADE
+        )
+    `);
+    await pg.query(`
+        CREATE INDEX IF NOT EXISTS idx_admin_email_notifications_created_at
+            ON admin_email_notifications(created_at DESC)
+    `);
+    await pg.query(`
+        CREATE INDEX IF NOT EXISTS idx_admin_email_recipients_notification
+            ON admin_email_notification_recipients(notification_id)
+    `);
+}
+
+function dateToIso(value: Date | string | null) {
+    if (!value) return null;
+    const date = value instanceof Date ? value : new Date(value);
+    return Number.isNaN(date.getTime()) ? null : date.toISOString();
+}
+
+function toAdminEmailNotification(
+    row: AdminEmailNotificationRow,
+): AdminEmailNotification {
+    return {
+        body: row.body,
+        createdAt: dateToIso(row.created_at) ?? "",
+        createdByUserId: Number(row.created_by_user_id),
+        delivered: row.delivered_count === null ? null : Number(row.delivered_count),
+        deliveryMode: row.delivery_mode,
+        failed: Number(row.failed_count),
+        id: Number(row.id),
+        mode: row.mode,
+        name: row.name ?? row.subject,
+        processing: Number(row.processing_count),
+        queued: Number(row.queued_count),
+        replyToEmail: row.reply_to_email,
+        scheduledFor: dateToIso(row.scheduled_for),
+        senderName: row.sender_name,
+        sent: Number(row.sent_count),
+        skipped: Number(row.skipped_count),
+        status: row.status,
+        subject: row.subject,
+        totalRecipients: Number(row.total_recipients),
+        updatedAt: dateToIso(row.updated_at) ?? "",
+    };
+}
+
+function toAdminEmailNotificationRecipient(
+    row: AdminEmailNotificationRecipientRow,
+): AdminEmailNotificationRecipient {
+    return {
+        attemptCount: Number(row.attempt_count),
+        deliveryStatus: row.delivery_status,
+        email: row.email,
+        failureReason: row.failure_reason,
+        id: Number(row.id),
+        lastAttempt: dateToIso(row.last_attempt_at),
+        recipientName: row.recipient_name,
+    };
+}
+
+function normalizeEmailList(input: CreateAdminEmailNotificationInput) {
+    const rawEmails =
+        input.mode === "individual"
+            ? [input.recipientEmail ?? ""]
+            : input.recipientEmails ?? [];
+    const skipInvalid = input.safeguards?.skipInvalidSuppressed !== false;
+    const excludeDuplicates = input.safeguards?.excludeDuplicates !== false;
+    const seen = new Set<string>();
+    const recipients: Array<{
+        email: string;
+        failureReason: string | null;
+        status: AdminEmailNotificationRecipient["deliveryStatus"];
+    }> = [];
+
+    rawEmails.forEach((emailValue) => {
+        const email = String(emailValue).trim().toLowerCase();
+        if (!email) return;
+
+        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+            if (skipInvalid) {
+                recipients.push({
+                    email,
+                    failureReason: "Invalid email address",
+                    status: "Skipped",
+                });
+            }
+            return;
+        }
+
+        if (seen.has(email)) {
+            if (excludeDuplicates) {
+                recipients.push({
+                    email,
+                    failureReason: "Duplicate recipient",
+                    status: "Skipped",
+                });
+                return;
+            }
+        }
+
+        seen.add(email);
+        recipients.push({
+            email,
+            failureReason: null,
+            status: "Queued",
+        });
+    });
+
+    return recipients;
+}
+
+function scheduledFor(input: CreateAdminEmailNotificationInput) {
+    if (input.deliveryMode !== "scheduled") return null;
+    if (!input.scheduledDate || !input.scheduledTime) {
+        throw new AdminRuleError("Scheduled date and time are required.");
+    }
+
+    const date = new Date(`${input.scheduledDate}T${input.scheduledTime}:00+05:30`);
+    if (Number.isNaN(date.getTime())) {
+        throw new AdminRuleError("Scheduled date and time are invalid.");
+    }
+
+    return date;
+}
+
+function emailNotificationRecipientSignature(
+    recipients: ReturnType<typeof normalizeEmailList>,
+) {
+    return recipients
+        .map((recipient) =>
+            [
+                recipient.email,
+                recipient.status,
+                recipient.failureReason ?? "",
+            ].join("|"),
+        )
+        .sort()
+        .join("\n");
+}
+
+async function assertUniqueEmailNotification(input: {
+    body: string;
+    client: DatabaseClient;
+    deliveryMode: "immediate" | "scheduled";
+    excludeNotificationId?: number;
+    mode: "individual" | "bulk";
+    name: string;
+    recipients: ReturnType<typeof normalizeEmailList>;
+    replyToEmail: string;
+    scheduledFor: Date | null;
+    senderName: string;
+    subject: string;
+}) {
+    const recipientSignature = emailNotificationRecipientSignature(
+        input.recipients,
+    );
+    const result = await input.client.query<{ id: string }>(
+        `
+        SELECT n.id::text
+        FROM admin_email_notifications n
+        JOIN LATERAL (
+            SELECT string_agg(
+                r.email || '|' || r.delivery_status || '|' || COALESCE(r.failure_reason, ''),
+                E'\n'
+                ORDER BY r.email, r.delivery_status, COALESCE(r.failure_reason, '')
+            ) AS recipient_signature
+            FROM admin_email_notification_recipients r
+            WHERE r.notification_id = n.id
+        ) recipients ON TRUE
+        WHERE n.mode = $1
+          AND n.name = $2
+          AND n.sender_name = $3
+          AND n.reply_to_email = $4
+          AND n.subject = $5
+          AND n.body = $6
+          AND n.delivery_mode = $7
+          AND (
+            (n.scheduled_for IS NULL AND $8::timestamptz IS NULL)
+            OR n.scheduled_for = $8::timestamptz
+          )
+          AND recipients.recipient_signature = $9
+          AND ($10::bigint IS NULL OR n.id <> $10::bigint)
+        LIMIT 1
+    `,
+        [
+            input.mode,
+            input.name.trim(),
+            input.senderName.trim(),
+            input.replyToEmail.trim().toLowerCase(),
+            input.subject.trim(),
+            input.body,
+            input.deliveryMode,
+            input.scheduledFor,
+            recipientSignature,
+            input.excludeNotificationId ?? null,
+        ],
+    );
+
+    if (result.rows[0]) {
+        throw new AdminRuleError(
+            "This email notification already exists. Change at least one field before saving.",
+            409,
+        );
+    }
+}
+
+async function recalculateNotificationCounts(
+    pg: DatabaseClient,
+    notificationId: number,
+) {
+    await pg.query(
+        `
+        UPDATE admin_email_notifications n
+        SET total_recipients = counts.total_count,
+            queued_count = counts.queued_count,
+            processing_count = counts.processing_count,
+            sent_count = counts.sent_count,
+            failed_count = counts.failed_count,
+            skipped_count = counts.skipped_count,
+            delivered_count = counts.delivered_count,
+            updated_at = NOW()
+        FROM (
+            SELECT
+                COUNT(*)::integer AS total_count,
+                COUNT(*) FILTER (WHERE delivery_status = 'Queued')::integer AS queued_count,
+                COUNT(*) FILTER (WHERE delivery_status = 'Processing')::integer AS processing_count,
+                COUNT(*) FILTER (WHERE delivery_status = 'Sent')::integer AS sent_count,
+                COUNT(*) FILTER (WHERE delivery_status = 'Failed')::integer AS failed_count,
+                COUNT(*) FILTER (WHERE delivery_status = 'Skipped')::integer AS skipped_count,
+                COUNT(*) FILTER (WHERE delivery_status = 'Delivered')::integer AS delivered_count
+            FROM admin_email_notification_recipients
+            WHERE notification_id = $1
+        ) counts
+        WHERE n.id = $1
+    `,
+        [notificationId],
+    );
+}
+
+async function getEmailNotifications(
+    pg: DatabasePool,
+    input: {
+        page: number;
+        pageSize: number;
+        sortBy: string;
+        sortDirection: "asc" | "desc";
+    },
+): Promise<AdminEmailNotificationsResult> {
+    const sortColumns: Record<string, string> = {
+        createdAt: "created_at",
+        failed: "failed_count",
+        name: "name",
+        scheduledFor: "scheduled_for",
+        sent: "sent_count",
+        subject: "subject",
+        totalRecipients: "total_recipients",
+    };
+    const sortColumn = sortColumns[input.sortBy] ?? "created_at";
+    const offset = (input.page - 1) * input.pageSize;
+    const result = await pg.query<AdminEmailNotificationRow>(
+        `
+        SELECT *, COUNT(*) OVER()::text AS total_count
+        FROM admin_email_notifications
+        ORDER BY ${sortColumn} ${input.sortDirection === "asc" ? "ASC" : "DESC"} NULLS LAST
+        LIMIT $1 OFFSET $2
+    `,
+        [input.pageSize, offset],
+    );
+    const total = Number(result.rows[0]?.total_count ?? 0);
+
+    return {
+        notifications: result.rows.map(toAdminEmailNotification),
+        pagination: {
+            page: input.page,
+            pageSize: input.pageSize,
+            total,
+            totalPages: Math.max(1, Math.ceil(total / input.pageSize)),
+        },
+    };
+}
+
+async function getEmailNotificationAnalytics(
+    pg: DatabasePool,
+    notificationId: number,
+): Promise<AdminEmailNotificationAnalyticsResult | null> {
+    const result = await pg.query<AdminEmailNotificationRow>(
+        `SELECT * FROM admin_email_notifications WHERE id = $1`,
+        [notificationId],
+    );
+    const row = result.rows[0];
+    if (!row) return null;
+
+    return { notification: toAdminEmailNotification(row) };
+}
+
+async function getEmailNotification(
+    pg: DatabasePool,
+    notificationId: number,
+): Promise<AdminEmailNotificationDetailsResult | null> {
+    const notificationResult = await pg.query<AdminEmailNotificationRow>(
+        `SELECT * FROM admin_email_notifications WHERE id = $1`,
+        [notificationId],
+    );
+    const notificationRow = notificationResult.rows[0];
+    if (!notificationRow) return null;
+
+    const recipientResult = await pg.query<AdminEmailNotificationRecipientRow>(
+        `
+        SELECT *
+        FROM admin_email_notification_recipients
+        WHERE notification_id = $1
+        ORDER BY id ASC
+    `,
+        [notificationId],
+    );
+
+    return {
+        notification: toAdminEmailNotification(notificationRow),
+        recipients: recipientResult.rows.map(toAdminEmailNotificationRecipient),
+    };
+}
+
+async function getEmailNotificationRecipients(
+    pg: DatabasePool,
+    input: {
+        notificationId: number;
+        page: number;
+        pageSize: number;
+        sortBy: string;
+        sortDirection: "asc" | "desc";
+    },
+): Promise<AdminEmailNotificationRecipientsResult> {
+    const sortColumns: Record<string, string> = {
+        attemptCount: "attempt_count",
+        deliveryStatus: "delivery_status",
+        email: "email",
+        lastAttempt: "last_attempt_at",
+        recipientName: "recipient_name",
+    };
+    const sortColumn = sortColumns[input.sortBy] ?? "recipient_name";
+    const offset = (input.page - 1) * input.pageSize;
+    const result = await pg.query<AdminEmailNotificationRecipientRow>(
+        `
+        SELECT *, COUNT(*) OVER()::text AS total_count
+        FROM admin_email_notification_recipients
+        WHERE notification_id = $1
+        ORDER BY ${sortColumn} ${input.sortDirection === "asc" ? "ASC" : "DESC"} NULLS LAST
+        LIMIT $2 OFFSET $3
+    `,
+        [input.notificationId, input.pageSize, offset],
+    );
+    const total = Number(result.rows[0]?.total_count ?? 0);
+
+    return {
+        pagination: {
+            page: input.page,
+            pageSize: input.pageSize,
+            total,
+            totalPages: Math.max(1, Math.ceil(total / input.pageSize)),
+        },
+        recipients: result.rows.map(toAdminEmailNotificationRecipient),
+    };
+}
+
+async function sendNotificationRecipients(
+    pg: DatabasePool,
+    notificationId: number,
+) {
+    const notificationResult = await pg.query<AdminEmailNotificationRow>(
+        `SELECT * FROM admin_email_notifications WHERE id = $1`,
+        [notificationId],
+    );
+    const notification = notificationResult.rows[0];
+    if (!notification) return;
+
+    const recipientResult = await pg.query<AdminEmailNotificationRecipientRow>(
+        `
+        SELECT *
+        FROM admin_email_notification_recipients
+        WHERE notification_id = $1
+          AND delivery_status = 'Queued'
+    `,
+        [notificationId],
+    );
+
+    await pg.query(
+        `UPDATE admin_email_notifications SET status = 'processing', updated_at = NOW() WHERE id = $1`,
+        [notificationId],
+    );
+
+    for (const recipient of recipientResult.rows) {
+        await pg.query(
+            `
+            UPDATE admin_email_notification_recipients
+            SET delivery_status = 'Processing',
+                attempt_count = attempt_count + 1,
+                last_attempt_at = NOW(),
+                updated_at = NOW()
+            WHERE id = $1
+        `,
+            [recipient.id],
+        );
+
+        try {
+            const delivery = await emailService.sendAdminNotificationEmail({
+                body: notification.body,
+                recipientEmail: recipient.email,
+                replyToEmail: notification.reply_to_email,
+                senderName: notification.sender_name,
+                subject: notification.subject,
+            });
+
+            await pg.query(
+                `
+                UPDATE admin_email_notification_recipients
+                SET delivery_status = $2,
+                    failure_reason = $3,
+                    updated_at = NOW()
+                WHERE id = $1
+            `,
+                [
+                    recipient.id,
+                    delivery.delivered ? "Sent" : "Failed",
+                    delivery.delivered ? null : delivery.reason ?? "Email was not delivered.",
+                ],
+            );
+        } catch (error) {
+            await pg.query(
+                `
+                UPDATE admin_email_notification_recipients
+                SET delivery_status = 'Failed',
+                    failure_reason = $2,
+                    updated_at = NOW()
+                WHERE id = $1
+            `,
+                [
+                    recipient.id,
+                    error instanceof Error ? error.message : "Email sending failed.",
+                ],
+            );
+        }
+    }
+
+    await recalculateNotificationCounts(pg, notificationId);
+    await pg.query(
+        `
+        UPDATE admin_email_notifications
+        SET status = CASE WHEN failed_count > 0 THEN 'failed' ELSE 'sent' END,
+            sent_at = NOW(),
+            updated_at = NOW()
+        WHERE id = $1
+    `,
+        [notificationId],
+    );
+}
+
+async function createEmailNotification(
+    pg: DatabasePool,
+    input: CreateAdminEmailNotificationInput & { createdByUserId: number },
+): Promise<AdminEmailNotificationAnalyticsResult> {
+    const recipients = normalizeEmailList(input);
+    const queuedCount = recipients.filter((recipient) => recipient.status === "Queued").length;
+    const skippedCount = recipients.filter((recipient) => recipient.status === "Skipped").length;
+    const sendNow = input.action === "send" && input.deliveryMode === "immediate";
+    const scheduleDate = scheduledFor(input);
+    const client = await pg.connect();
+    let notificationId = 0;
+
+    if (!input.subject.trim()) throw new AdminRuleError("Subject is required.");
+    if (!input.name.trim()) {
+        throw new AdminRuleError("Notification/Campaign Name is required.");
+    }
+    if (!input.body.trim()) throw new AdminRuleError("Message body is required.");
+    if (!input.senderName.trim()) throw new AdminRuleError("Sender name is required.");
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(input.replyToEmail.trim())) {
+        throw new AdminRuleError("A valid reply-to email is required.");
+    }
+    if (recipients.length === 0) {
+        throw new AdminRuleError("At least one recipient email is required.");
+    }
+
+    try {
+        await client.query("BEGIN");
+        await assertUniqueEmailNotification({
+            body: input.body,
+            client,
+            deliveryMode: input.deliveryMode,
+            mode: input.mode,
+            name: input.name,
+            recipients,
+            replyToEmail: input.replyToEmail,
+            scheduledFor: scheduleDate,
+            senderName: input.senderName,
+            subject: input.subject,
+        });
+        const created = await client.query<{ id: string }>(
+            `
+            INSERT INTO admin_email_notifications (
+                mode,
+                name,
+                sender_name,
+                reply_to_email,
+                subject,
+                body,
+                delivery_mode,
+                scheduled_for,
+                status,
+                total_recipients,
+                queued_count,
+                skipped_count,
+                created_by_user_id
+            )
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+            RETURNING id::text
+        `,
+            [
+                input.mode,
+                input.name.trim(),
+                input.senderName.trim(),
+                input.replyToEmail.trim().toLowerCase(),
+                input.subject.trim(),
+                input.body,
+                input.deliveryMode,
+                scheduleDate,
+                input.action === "draft" ? "draft" : "queued",
+                recipients.length,
+                queuedCount,
+                skippedCount,
+                input.createdByUserId,
+            ],
+        );
+        notificationId = Number(created.rows[0].id);
+
+        for (const recipient of recipients) {
+            await client.query(
+                `
+                INSERT INTO admin_email_notification_recipients (
+                    notification_id,
+                    email,
+                    delivery_status,
+                    failure_reason
+                )
+                VALUES ($1, $2, $3, $4)
+            `,
+                [
+                    notificationId,
+                    recipient.email,
+                    recipient.status,
+                    recipient.failureReason,
+                ],
+            );
+        }
+
+        await client.query("COMMIT");
+    } catch (error) {
+        await client.query("ROLLBACK");
+        throw error;
+    } finally {
+        client.release();
+    }
+
+    if (sendNow) {
+        await sendNotificationRecipients(pg, notificationId);
+    }
+
+    const result = await getEmailNotificationAnalytics(pg, notificationId);
+    if (!result) throw new AdminRuleError("Notification could not be created.", 500);
+    return result;
+}
+
+async function updateEmailNotification(
+    pg: DatabasePool,
+    input: Partial<CreateAdminEmailNotificationInput> & {
+        createdByUserId: number;
+        notificationId: number;
+    },
+): Promise<AdminEmailNotificationAnalyticsResult> {
+    const existing = await getEmailNotification(pg, input.notificationId);
+    if (!existing) {
+        throw new AdminRuleError("Email notification was not found.", 404);
+    }
+    if (existing.notification.status !== "draft") {
+        throw new AdminRuleError("Only draft notifications can be modified.", 409);
+    }
+
+    const merged: CreateAdminEmailNotificationInput = {
+        action: input.action === "send" ? "send" : "draft",
+        body: input.body ?? existing.notification.body,
+        deliveryMode: input.deliveryMode ?? existing.notification.deliveryMode,
+        mode: input.mode ?? existing.notification.mode,
+        name: input.name ?? existing.notification.name,
+        recipientEmail:
+            input.recipientEmail ??
+            existing.recipients.find((recipient) => recipient.deliveryStatus !== "Skipped")?.email,
+        recipientEmails:
+            input.recipientEmails ??
+            existing.recipients.map((recipient) => recipient.email),
+        replyToEmail: input.replyToEmail ?? existing.notification.replyToEmail,
+        safeguards: input.safeguards ?? {
+            excludeDuplicates: true,
+            retryTemporaryErrors: true,
+            skipInvalidSuppressed: true,
+        },
+        scheduledDate: input.scheduledDate,
+        scheduledTime: input.scheduledTime,
+        senderName: input.senderName ?? existing.notification.senderName,
+        subject: input.subject ?? existing.notification.subject,
+    };
+    const scheduleDate =
+        merged.deliveryMode === "scheduled"
+            ? input.scheduledDate || input.scheduledTime
+                ? scheduledFor(merged)
+                : existing.notification.scheduledFor
+                  ? new Date(existing.notification.scheduledFor)
+                  : null
+            : null;
+    const recipients = normalizeEmailList(merged);
+    const queuedCount = recipients.filter((recipient) => recipient.status === "Queued").length;
+    const skippedCount = recipients.filter((recipient) => recipient.status === "Skipped").length;
+    const sendNow = merged.action === "send" && merged.deliveryMode === "immediate";
+    const client = await pg.connect();
+
+    if (!merged.subject.trim()) throw new AdminRuleError("Subject is required.");
+    if (!merged.name.trim()) {
+        throw new AdminRuleError("Notification/Campaign Name is required.");
+    }
+    if (!merged.body.trim()) throw new AdminRuleError("Message body is required.");
+    if (!merged.senderName.trim()) throw new AdminRuleError("Sender name is required.");
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(merged.replyToEmail.trim())) {
+        throw new AdminRuleError("A valid reply-to email is required.");
+    }
+    if (recipients.length === 0) {
+        throw new AdminRuleError("At least one recipient email is required.");
+    }
+
+    try {
+        await client.query("BEGIN");
+        await assertUniqueEmailNotification({
+            body: merged.body,
+            client,
+            deliveryMode: merged.deliveryMode,
+            excludeNotificationId: input.notificationId,
+            mode: merged.mode,
+            name: merged.name,
+            recipients,
+            replyToEmail: merged.replyToEmail,
+            scheduledFor: scheduleDate,
+            senderName: merged.senderName,
+            subject: merged.subject,
+        });
+        await client.query(
+            `
+            UPDATE admin_email_notifications
+            SET mode = $2,
+                name = $3,
+                sender_name = $4,
+                reply_to_email = $5,
+                subject = $6,
+                body = $7,
+                delivery_mode = $8,
+                scheduled_for = $9,
+                status = $10,
+                total_recipients = $11,
+                queued_count = $12,
+                processing_count = 0,
+                sent_count = 0,
+                delivered_count = NULL,
+                failed_count = 0,
+                skipped_count = $13,
+                updated_at = NOW()
+            WHERE id = $1
+        `,
+            [
+                input.notificationId,
+                merged.mode,
+                merged.name.trim(),
+                merged.senderName.trim(),
+                merged.replyToEmail.trim().toLowerCase(),
+                merged.subject.trim(),
+                merged.body,
+                merged.deliveryMode,
+                scheduleDate,
+                merged.action === "draft" ? "draft" : "queued",
+                recipients.length,
+                queuedCount,
+                skippedCount,
+            ],
+        );
+        await client.query(
+            `DELETE FROM admin_email_notification_recipients WHERE notification_id = $1`,
+            [input.notificationId],
+        );
+
+        for (const recipient of recipients) {
+            await client.query(
+                `
+                INSERT INTO admin_email_notification_recipients (
+                    notification_id,
+                    email,
+                    delivery_status,
+                    failure_reason
+                )
+                VALUES ($1, $2, $3, $4)
+            `,
+                [
+                    input.notificationId,
+                    recipient.email,
+                    recipient.status,
+                    recipient.failureReason,
+                ],
+            );
+        }
+
+        await client.query("COMMIT");
+    } catch (error) {
+        await client.query("ROLLBACK");
+        throw error;
+    } finally {
+        client.release();
+    }
+
+    if (sendNow) {
+        await sendNotificationRecipients(pg, input.notificationId);
+    }
+
+    const result = await getEmailNotificationAnalytics(pg, input.notificationId);
+    if (!result) throw new AdminRuleError("Notification could not be updated.", 500);
+    return result;
+}
+
+async function deleteEmailNotification(
+    pg: DatabasePool,
+    notificationId: number,
+): Promise<AdminEmailNotificationAnalyticsResult> {
+    const existing = await getEmailNotificationAnalytics(pg, notificationId);
+    if (!existing) {
+        throw new AdminRuleError("Email notification was not found.", 404);
+    }
+    if (existing.notification.status !== "draft") {
+        throw new AdminRuleError("Only draft notifications can be deleted.", 409);
+    }
+
+    await pg.query(
+        `DELETE FROM admin_email_notifications WHERE id = $1`,
+        [notificationId],
+    );
+
+    return existing;
+}
+
 export const adminService = {
     createSettingsChallengeCategory,
     createSettingsConfiguration,
@@ -4329,9 +5446,11 @@ export const adminService = {
     createSettingsParticipantCategory,
     createSettingsState,
     createSettingsUserRole,
+    createEmailNotification,
     createUser,
     deleteApplication,
     deleteApplicationDocument,
+    deleteEmailNotification,
     deleteSettingsChallengeCategory,
     deleteSettingsConfiguration,
     deleteSettingsDistrict,
@@ -4341,12 +5460,17 @@ export const adminService = {
     deleteSettingsUserRole,
     deleteUser,
     ensureAdminLoginTables,
+    ensureAdminEmailNotificationTables,
     getApplicationDocumentDownload,
     getApplications,
     getDashboardChallengeCategoryCounts,
     getDashboardCounts,
     getDashboardDistrictCounts,
     getDashboardOrganisationTypeCounts,
+    getEmailNotification,
+    getEmailNotificationAnalytics,
+    getEmailNotificationRecipients,
+    getEmailNotifications,
     getPageViewAnalytics,
     getRbacRule,
     getRbacRules,
@@ -4364,6 +5488,7 @@ export const adminService = {
     getSettingsStates,
     getSettingsUserRole,
     getSettingsUserRoles,
+    getServerHealth,
     getUser,
     getUsers,
     normalizeLanguage,
@@ -4377,6 +5502,7 @@ export const adminService = {
     updateSettingsParticipantCategory,
     updateSettingsState,
     updateSettingsUserRole,
+    updateEmailNotification,
     updateApplication,
     updateUser,
     verifyLoginCode,

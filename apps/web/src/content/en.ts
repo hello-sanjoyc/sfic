@@ -102,19 +102,19 @@ export const enContent = {
                 },
                 {
                     heading: "Application process",
-                    body: "The application will be completed through the portal in four steps:",
+                    body: "The application will be completed through the participant workspace in four steps:",
                     steps: [
                         {
-                            title: "Registration",
-                            body: "Select Junior or Open category, enter your full name, mobile number and email address, verify the 6 digit email code, then provide date of birth and gender.",
+                            title: "Create participant account",
+                            body: "Select Junior or Open category, enter your full name, mobile number, email address, date of birth, gender and password. After registration, you will be taken to the participant workspace.",
                         },
                         {
-                            title: "Profile Completion",
-                            body: "Provide your state, district, city, PIN code, address, highest educational qualification, last attended educational institute, year of passing, institute or organisation name and institute type. Choose Individual or Team; for team applications, add member name, email and mobile details. The applicant is treated as the Team Lead by default.",
+                            title: "Verify profile and complete applicant details",
+                            body: "Use the verification link from the participant workspace to verify your email address. Complete applicant details if they are missing, including state, district, city, PIN code, address, education details, organisation name and organisation type.",
                         },
                         {
-                            title: "Proposal Submission",
-                            body: "Select the challenge category, complete the proposal fields, add optional mentor acknowledgement, intellectual property or publication details, upload supporting PDF documents and add an optional video URL:",
+                            title: "Submit first application",
+                            body: "You can submit your first application from the workspace even before email verification. Choose Individual or Team, add team member details if applicable, select the challenge category, complete the proposal fields, upload supporting PDF documents and add an optional video URL:",
                             bullets: [
                                 "Problem and location",
                                 "Proposed solution",
@@ -129,8 +129,8 @@ export const enContent = {
                             ],
                         },
                         {
-                            title: "Application Number Generation",
-                            body: "After submission, your Application Number will be shown on screen. Please keep it for future reference, status tracking and further communication.",
+                            title: "Application number and additional applications",
+                            body: "After submission, your Application Number will be shown on screen and sent by email with the submitted details. To create or submit multiple applications, your email address must be verified first.",
                         },
                     ],
                 },
@@ -154,6 +154,7 @@ export const enContent = {
                 },
             ],
             participantButton: "Open Participant Login",
+            juryButton: "Open Jury Login",
             adminButton: "Open Admin Login",
         },
         screenReader: {
@@ -1014,12 +1015,17 @@ export const enContent = {
     participantLogin: {
         title: "Participant login",
         description:
-            "Access your participant dashboard using your registered email address and a 6 digit verification code.",
+            "Sign in with the email address or mobile number used during registration.",
         features: [
-            "Email based login",
-            "Verification code required",
-            "Dashboard access after verification",
+            "Email or mobile login",
+            "Password protected access",
+            "Draft applications reopen automatically",
         ],
+        identifier: "Email Address or Mobile Number",
+        password: "Password",
+        forgotPassword: "Forgot Password?",
+        signingIn: "Signing in...",
+        continue: "Continue",
         email: "Email Address",
         verificationCode: "Verification Code",
         emailHelp:
@@ -1038,13 +1044,29 @@ export const enContent = {
             verificationCode: "Enter 6 digit code",
         },
         errors: {
+            identifierPasswordRequired:
+                "Email/mobile number and password are required.",
             email: "Enter a valid email address.",
             verificationCode: "Enter the 6 digit verification code.",
+            loginFailed: "Login could not be completed.",
             requestFailed:
                 "Unable to send verification code. Please try again.",
             verifyFailed: "Unable to verify login code. Please try again.",
             resendFailed:
                 "Unable to resend verification code. Please try again.",
+        },
+        forgotPasswordScreen: {
+            title: "Forgot Password",
+            description:
+                "Enter the email address used during participant registration to receive a password reset link.",
+            backToLogin: "Back to login",
+            email: "Registered Email Address",
+            invalidEmail: "Enter a valid registered email address.",
+            sending: "Sending link...",
+            sendLink: "Send Reset Link",
+            success:
+                "If this email address is registered, a password reset link has been sent.",
+            failed: "Password reset link could not be sent.",
         },
         dashboard: {
             label: "Participant Workspace",
@@ -1107,6 +1129,16 @@ export const enContent = {
     register: {
         showInfo: "Registration guidelines",
         startRegistration: "Start Registration",
+        formTitle: "Registration",
+        registrationStatus: {
+            heading: "Registration Status",
+            checking: "Checking registration availability. Please wait.",
+            closed: "Participant registration is currently closed.",
+            notOpenYet: "Participant registration will open on {date}.",
+            closedOn: "Participant registration closed on {date}.",
+            settingsError:
+                "Unable to check registration availability. Please try again.",
+        },
         steps: [
             "Registration",
             "Profile Completion",
@@ -1116,7 +1148,7 @@ export const enContent = {
         stepOf: "Step {current} of {total}",
         complete: "{progress}% complete",
         eligibility:
-            "Only participants from the states of West Bengal, Bihar, and Jharkhand are eligible to apply through this portal.",
+            "Only participants from the states of {states} are eligible to apply through this portal.",
         participantCategory: "Participant Category",
         junior: "Junior",
         juniorDescription: "School, ITI and undergraduate.",
@@ -1126,6 +1158,7 @@ export const enContent = {
         fullName: "Full Name",
         dateOfBirth: "Date of Birth",
         ageYears: "Years",
+        lastDateOfSubmission: "October 30, 2026",
         ageCalculationInfo:
             "Age is calculated considering Last Date of Submission ({lastDateOfSubmission}).",
         email: "Email Address",
@@ -1136,6 +1169,11 @@ export const enContent = {
             others: "Others",
         },
         mobile: "Mobile Number",
+        password: "Password",
+        confirmPassword: "Confirm Password",
+        captcha: "Captcha",
+        regenerateCaptcha: "Re-generate captcha",
+        saving: "Saving...",
         verifyTitle: "Verify your registered email address",
         verifyBody:
             "A 6 digit verification code has been sent to {email}. Enter it within {minutes} minutes to continue.",
@@ -1277,12 +1315,17 @@ export const enContent = {
         uploadHint: "Upload up to {count} PDF files, max {size} MB each.",
         errors: {
             alphabetsOnly: "Enter letters and spaces only.",
+            fullName: "Enter your fullname.",
             dateOfBirth: "Enter date of birth in dd-mm-yyyy format.",
             gender: "Select your gender.",
             participantCategory: "Select a participant category.",
             participationMode: "Select Individual or Team.",
-            email: "Enter a valid email address.",
-            mobile: "Enter a valid 10 digit mobile number.",
+            email: "Enter email address.",
+            mobile: "Enter 10 digits mobile number.",
+            password: "Create password of 8 characters at least.",
+            confirmPassword: "Password and confirm password must match.",
+            captchaAnswer: "Please enter the correct captcha answer.",
+            submitFailed: "Registration could not be completed.",
             verificationCode: "Enter the 6 digit verification code.",
             address: "Enter your address.",
             city: "Enter your city.",
@@ -1304,7 +1347,7 @@ export const enContent = {
             proposalCharacters: "Enter 50 to 1000 characters.",
             videoUrl: "Enter a valid URL beginning with http:// or https://.",
             supportingDocumentRequired:
-                "Upload at least one supporting document.",
+                "Upload at least one supporting document. Keep the file name as 'prototype.pdf' or 'innovators_cv.pdf' etc.",
             pdfOnly: "Upload PDF files only.",
             supportingDocumentSize:
                 "Each supporting document must be {size} MB or smaller.",
@@ -1316,7 +1359,7 @@ export const enContent = {
                 "Team member phone cannot match the Team Lead phone.",
             teamPhoneUnique: "Team member phone numbers must be unique.",
             duplicateRegistration:
-                "This email ID or mobile number has already been used for an application. Please continue with the verification email already sent, or contact support if you need help.",
+                "This email address or mobile number has already been used for an application.",
         },
         submitProposal: "Submit Proposal",
         applicationSubmitted: "Application submitted",

@@ -1,0 +1,31 @@
+import type { FastifyPluginAsync } from "fastify";
+import { authenticateAdmin } from "../admin/admin-auth.js";
+import { authenticateJury } from "./jury-auth.js";
+import { juryController } from "./jury.controller.js";
+import { juryApplicationsController } from "./jury.applications.js";
+import { juryDashboardController } from "./jury.dashboard.js";
+import { juryEvaluationController } from "./jury.evaluation.js";
+
+export const juryRoutes: FastifyPluginAsync = async (app) => {
+    app.get<{ Querystring: { districtId?: string; page?: string; pageSize?: string; search?: string; sortBy?: string; sortDirection?: string; stateId?: string } }>("/admin/profiles", { preHandler: authenticateAdmin }, juryController.listProfiles);
+    app.get<{ Params: { id?: string } }>("/admin/profiles/:id", { preHandler: authenticateAdmin }, juryController.getAdminProfile);
+    app.patch<{ Params: { id?: string }; Body: Record<string, unknown> }>("/admin/profiles/:id", { preHandler: authenticateAdmin }, juryController.updateAdminProfile);
+    app.post<{ Params: { id?: string }; Body: { language?: string } }>("/admin/profiles/:id/resend-invitation", { preHandler: authenticateAdmin }, juryController.resendInvitation);
+    app.delete<{ Params: { applicationId?: string }; Querystring: { level?: string } }>("/admin/applications/:applicationId/evaluation", { preHandler: authenticateAdmin }, juryController.resetEvaluation);
+    app.post<{ Body: { categoryIds?: unknown[]; districtId?: unknown; email?: unknown; fullName?: unknown; language?: unknown; mobile?: unknown; scope?: unknown; stateId?: unknown } }>("/admin/profiles", { preHandler: authenticateAdmin }, juryController.createProfile);
+    app.post<{ Body: { token?: string } }>("/verify-email", juryController.verifyInvitation);
+    app.post<{ Body: { email?: string; language?: string } }>("/login", juryController.requestLogin);
+    app.post<{ Body: { code?: string; email?: string } }>("/verify-login", juryController.verifyLogin);
+    app.get<{ Querystring: { page?: string; pageSize?: string; search?: string; sortBy?: string; sortDirection?: string } }>("/applications", { preHandler: authenticateJury }, juryApplicationsController.getJuryApplications);
+    app.get<{ Params: { applicationId?: string } }>("/applications/:applicationId", { preHandler: authenticateJury }, juryApplicationsController.getJuryApplication);
+    app.get<{ Params: { applicationId?: string } }>("/applications/:applicationId/download", { preHandler: authenticateJury }, juryApplicationsController.downloadJuryApplicationPdf);
+    app.get<{ Params: { applicationId?: string; documentId?: string } }>("/applications/:applicationId/documents/:documentId/download", { preHandler: authenticateJury }, juryApplicationsController.downloadJuryApplicationDocument);
+    app.post<{ Params: { applicationId?: string } }>("/applications/:applicationId/evaluation", { preHandler: authenticateJury }, juryEvaluationController.startEvaluation);
+    app.put<{ Body: { comments?: unknown; recommendation?: unknown; scores?: Record<string, unknown> }; Params: { applicationId?: string } }>("/applications/:applicationId/evaluation", { preHandler: authenticateJury }, juryEvaluationController.updateEvaluation);
+    app.post<{ Body: { comments?: unknown; recommendation?: unknown; scores?: Record<string, unknown> }; Params: { applicationId?: string } }>("/applications/:applicationId/evaluation/submit", { preHandler: authenticateJury }, juryEvaluationController.submitEvaluation);
+    app.get("/dashboard", { preHandler: authenticateJury }, juryDashboardController.getJuryDashboard);
+    app.get("/profile", { preHandler: authenticateJury }, juryController.getProfile);
+    app.put<{ Body: Record<string, unknown> }>("/profile", { preHandler: authenticateJury }, juryController.updateProfile);
+    app.get<{ Params: { kind?: string } }>("/profile/documents/:kind", { preHandler: authenticateJury }, juryController.downloadDocument);
+    app.post("/profile/documents", { preHandler: authenticateJury }, juryController.uploadDocument);
+};

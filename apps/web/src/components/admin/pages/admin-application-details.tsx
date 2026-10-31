@@ -9,6 +9,7 @@ import {
   Lightbulb,
   MapPin,
   Pencil,
+  RotateCcw,
   Trash2,
   User,
   Users,
@@ -40,6 +41,12 @@ type ApplicationDetails = {
   createdAt?: string | null;
   district?: {
     name?: LocalizedText | null;
+  } | null;
+  evaluation?: {
+    level?: string;
+    recommendation?: string | null;
+    status?: "evaluated" | "on_evaluation";
+    totalScore?: number | null;
   } | null;
   documents?: Array<{
     documentType?: string | null;
@@ -179,6 +186,25 @@ function getAdminAuthorizationHeader() {
   }
 }
 
+function getCurrentAdminRole() {
+  if (typeof window === "undefined") return "";
+
+  try {
+    const session = JSON.parse(localStorage.getItem(AUTH_STORAGE_KEY) ?? "{}") as {
+      actor?: string;
+      admin?: { role?: string };
+    };
+
+    return session.actor === "admin" ? (session.admin?.role ?? "") : "";
+  } catch {
+    return "";
+  }
+}
+
+function isSuperAdminRole(role: string) {
+  return role.trim().toUpperCase().replace(/[\s-]+/g, "_") === "SUPERADMIN";
+}
+
 async function getDownloadErrorMessage(response: Response, fallback: string) {
   try {
     const body = (await response.json()) as {
@@ -231,12 +257,12 @@ function Section({
   title: string;
 }>) {
   return (
-    <section className="rounded-lg border border-slate-200 bg-white shadow-sm">
-      <div className="flex items-center gap-3 border-b border-slate-200 p-5">
+    <section className="w-full min-w-0 rounded-lg border border-slate-200 bg-white shadow-sm">
+      <div className="flex min-w-0 items-center gap-3 border-b border-slate-200 p-3 sm:p-5">
         <Icon className="text-blue-600" size={21} />
-        <h2 className="text-lg font-black">{title}</h2>
+        <h2 className="min-w-0 break-words text-lg font-black">{title}</h2>
       </div>
-      <div className="p-5">{children}</div>
+      <div className="min-w-0 p-4 sm:p-5">{children}</div>
     </section>
   );
 }
@@ -253,12 +279,18 @@ export function AdminApplicationDetailsPage({
   >(null);
   const [downloadError, setDownloadError] = useState("");
   const [errorMessage, setErrorMessage] = useState("");
+  const [isSuperAdmin, setIsSuperAdmin] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [isDownloading, setIsDownloading] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [isResetDialogOpen, setIsResetDialogOpen] = useState(false);
+  const [isResetting, setIsResetting] = useState(false);
+  const [resetError, setResetError] = useState("");
 
   useEffect(() => {
+    setIsSuperAdmin(isSuperAdminRole(getCurrentAdminRole()));
+
     let isMounted = true;
 
     setIsLoading(true);
@@ -417,9 +449,40 @@ export function AdminApplicationDetailsPage({
       });
   };
 
+  const resetEvaluation = () => {
+    if (!application?.evaluation?.level || isResetting) return;
+
+    setIsResetting(true);
+    setResetError("");
+
+    void apiClient
+      .delete(
+        endpoints.jury.adminResetEvaluation(
+          applicationId,
+          application.evaluation.level,
+        ),
+      )
+      .then(() => {
+        setIsResetDialogOpen(false);
+        setApplication((current) =>
+          current ? { ...current, evaluation: null } : current,
+        );
+      })
+      .catch((error) => {
+        setResetError(
+          error instanceof Error
+            ? error.message
+            : "The jury evaluation could not be reset.",
+        );
+      })
+      .finally(() => {
+        setIsResetting(false);
+      });
+  };
+
   return (
     <AdminShell eyebrow="Review complete application submission data" title={title}>
-      <div className="flex flex-wrap items-center justify-between gap-3">
+      <div className="flex min-w-0 flex-wrap items-center justify-between gap-3">
         <Link
           className="inline-flex items-center gap-2 text-sm font-bold text-blue-600"
           href="/admin/applications"
@@ -427,10 +490,10 @@ export function AdminApplicationDetailsPage({
           <ArrowLeft size={17} />
           Back to applications
         </Link>
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto">
           {application ? (
             <button
-              className="inline-flex h-11 items-center gap-2 rounded-lg bg-blue-600 px-4 text-sm font-bold text-white disabled:cursor-not-allowed disabled:opacity-60"
+              className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 text-sm font-bold text-white disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
               disabled={isDownloading}
               onClick={downloadApplication}
               type="button"
@@ -440,7 +503,7 @@ export function AdminApplicationDetailsPage({
             </button>
           ) : (
             <button
-              className="inline-flex h-11 items-center gap-2 rounded-lg bg-blue-600 px-4 text-sm font-bold text-white opacity-50"
+              className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 text-sm font-bold text-white opacity-50 sm:w-auto"
               disabled
               type="button"
             >
@@ -471,12 +534,38 @@ export function AdminApplicationDetailsPage({
 
       {!isLoading && application && (
         <>
-          <section className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
+          <section className="w-full min-w-0 rounded-lg border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
             <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
               <Field label="Application Number" value={application.applicationNumber} />
-              <Field label="Status" value={formatStatus(application.status)} />
+              <Field
+                label="Status"
+                value={
+                  application.evaluation?.status === "evaluated"
+                    ? "Evaluated"
+                    : application.evaluation?.status === "on_evaluation"
+                      ? "On Evaluation"
+                      : formatStatus(application.status)
+                }
+              />
               <Field label="Submitted At" value={formatDate(application.submittedAt)} />
               <Field label="Created At" value={formatDate(application.createdAt)} />
+              {application.evaluation?.status === "evaluated" && (
+                <>
+                  <Field
+                    label="Jury Total Score"
+                    value={
+                      application.evaluation.totalScore === null ||
+                      application.evaluation.totalScore === undefined
+                        ? null
+                        : `${application.evaluation.totalScore.toFixed(2)} / 100`
+                    }
+                  />
+                  <Field
+                    label="Jury Recommendation"
+                    value={application.evaluation.recommendation}
+                  />
+                </>
+              )}
             </div>
           </section>
 
@@ -598,7 +687,7 @@ export function AdminApplicationDetailsPage({
           </Section>
 
           <Section icon={Users} title="Team Members">
-            <div className="overflow-x-auto">
+            <div className="w-full min-w-0 overflow-x-auto overscroll-x-contain">
               <table className="w-full min-w-[42rem] text-left text-sm">
                 <thead className="bg-slate-50 text-xs font-bold uppercase text-slate-500">
                   <tr>
@@ -686,24 +775,43 @@ export function AdminApplicationDetailsPage({
             </div>
           </Section>
 
-          <section className="flex flex-wrap items-center justify-end gap-2 rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
-            <Link
-              className="inline-flex h-11 items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 text-sm font-bold text-[#0b1f3a] disabled:cursor-not-allowed disabled:opacity-50"
-              href={`/admin/applications/${applicationId}/edit`}
-            >
-              <Pencil size={17} />
-              Edit
-            </Link>
-            <button
-              className="inline-flex h-11 items-center gap-2 rounded-lg border border-rose-200 bg-white px-4 text-sm font-bold text-rose-700 disabled:cursor-not-allowed disabled:opacity-50"
-              disabled={isDeleting}
-              onClick={() => setIsDeleteDialogOpen(true)}
-              type="button"
-            >
-              <Trash2 size={17} />
-              {isDeleting ? "Deleting..." : "Delete"}
-            </button>
-          </section>
+          {isSuperAdmin && (
+            <section className="flex w-full min-w-0 flex-wrap items-center justify-end gap-2 rounded-lg border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
+              <Link
+                className="inline-flex h-11 items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 text-sm font-bold text-[#0b1f3a] disabled:cursor-not-allowed disabled:opacity-50"
+                href={`/admin/applications/${applicationId}/edit`}
+              >
+                <Pencil size={17} />
+                Edit
+              </Link>
+              <button
+                className="inline-flex h-11 items-center gap-2 rounded-lg border border-rose-200 bg-white px-4 text-sm font-bold text-rose-700 disabled:cursor-not-allowed disabled:opacity-50"
+                disabled={isDeleting}
+                onClick={() => setIsDeleteDialogOpen(true)}
+                type="button"
+              >
+                <Trash2 size={17} />
+                {isDeleting ? "Deleting..." : "Delete"}
+              </button>
+              {application?.evaluation && (
+                <button
+                  className="inline-flex h-11 items-center gap-2 rounded-lg border border-amber-200 bg-white px-4 text-sm font-bold text-amber-700 disabled:cursor-not-allowed disabled:opacity-50"
+                  disabled={isResetting}
+                  onClick={() => setIsResetDialogOpen(true)}
+                  type="button"
+                >
+                  <RotateCcw size={17} />
+                  {isResetting ? "Resetting..." : "Reset Evaluation"}
+                </button>
+              )}
+            </section>
+          )}
+
+          {resetError && (
+            <section className="rounded-lg border border-rose-200 bg-white p-4 text-sm font-semibold text-rose-600 shadow-sm">
+              {resetError}
+            </section>
+          )}
 
         </>
       )}
@@ -711,7 +819,7 @@ export function AdminApplicationDetailsPage({
       {isDeleteDialogOpen && application && (
         <div className="fixed inset-0 z-50 grid place-items-center bg-slate-950/45 p-4">
           <div className="w-full max-w-md rounded-lg bg-white shadow-xl">
-            <div className="border-b border-slate-200 p-5">
+            <div className="border-b border-slate-200 p-4 sm:p-5">
               <h2 className="text-lg font-black text-[#0b1f3a]">
                 Delete Application
               </h2>
@@ -731,9 +839,9 @@ export function AdminApplicationDetailsPage({
                 This action cannot be undone.
               </p>
             </div>
-            <div className="flex flex-wrap justify-end gap-2 p-5">
+            <div className="flex flex-col justify-end gap-2 p-4 sm:flex-row sm:flex-wrap sm:p-5">
               <button
-                className="inline-flex h-10 items-center rounded-lg border border-slate-200 bg-white px-4 text-sm font-bold text-[#0b1f3a]"
+                className="inline-flex h-10 w-full items-center justify-center rounded-lg border border-slate-200 bg-white px-4 text-sm font-bold text-[#0b1f3a] sm:w-auto"
                 disabled={isDeleting}
                 onClick={() => setIsDeleteDialogOpen(false)}
                 type="button"
@@ -741,13 +849,63 @@ export function AdminApplicationDetailsPage({
                 Cancel
               </button>
               <button
-                className="inline-flex h-10 items-center gap-2 rounded-lg bg-rose-600 px-4 text-sm font-bold text-white disabled:cursor-not-allowed disabled:opacity-50"
+                className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-lg bg-rose-600 px-4 text-sm font-bold text-white disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto"
                 disabled={isDeleting}
                 onClick={deleteApplication}
                 type="button"
               >
                 <Trash2 size={16} />
                 {isDeleting ? "Deleting..." : "Delete"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {isResetDialogOpen && application && (
+        <div className="fixed inset-0 z-50 grid place-items-center bg-slate-950/45 p-4">
+          <div className="w-full max-w-md rounded-lg bg-white shadow-xl">
+            <div className="border-b border-slate-200 p-4 sm:p-5">
+              <h2 className="text-lg font-black text-[#0b1f3a]">
+                Reset Jury Evaluation
+              </h2>
+              <p className="mt-2 text-sm font-medium text-slate-600">
+                Are you sure you want to reset the{" "}
+                <strong className="font-black text-[#0b1f3a]">
+                  {application.evaluation?.level}
+                </strong>{" "}
+                level jury evaluation for application{" "}
+                <strong className="font-black text-[#0b1f3a]">
+                  {application.applicationNumber ?? `application ${applicationId}`}
+                </strong>
+                ?
+              </p>
+              <p className="mt-3 text-sm font-medium text-slate-600">
+                This action will permanently delete the jury&apos;s
+                recommendation, score and comments for this evaluation level,
+                making the application available for evaluation again.
+              </p>
+              <p className="mt-3 text-sm font-black text-[#0b1f3a]">
+                This action cannot be undone.
+              </p>
+            </div>
+            <div className="flex flex-col justify-end gap-2 p-4 sm:flex-row sm:flex-wrap sm:p-5">
+              <button
+                className="inline-flex h-10 w-full items-center justify-center rounded-lg border border-slate-200 bg-white px-4 text-sm font-bold text-[#0b1f3a] sm:w-auto"
+                disabled={isResetting}
+                onClick={() => setIsResetDialogOpen(false)}
+                type="button"
+              >
+                Cancel
+              </button>
+              <button
+                className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-lg bg-amber-600 px-4 text-sm font-bold text-white disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto"
+                disabled={isResetting}
+                onClick={resetEvaluation}
+                type="button"
+              >
+                <RotateCcw size={16} />
+                {isResetting ? "Resetting..." : "Reset Evaluation"}
               </button>
             </div>
           </div>

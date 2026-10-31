@@ -12,6 +12,8 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { PARTICIPANT_TOKEN_KEY } from "@/components/auth";
+import { apiClient } from "@/lib/api-client";
+import { endpoints } from "@/lib/endpoints";
 
 type ParticipantTokenPayload = {
   email?: string;
@@ -23,9 +25,18 @@ type ParticipantTokenPayload = {
 
 const defaultParticipant = {
   email: "",
+  emailVerified: null as boolean | null,
   memberName: "Participant",
   phone: "",
   role: "Participant",
+};
+
+type ParticipantProfileResponse = {
+  profile: {
+    emailVerified?: boolean | null;
+    fullName?: string | null;
+    role?: "applicant" | "team_member";
+  };
 };
 
 const navItems = [
@@ -85,6 +96,9 @@ export function ParticipantShell({
   const [participant, setParticipant] = useState(defaultParticipant);
   const [isSessionChecked, setIsSessionChecked] = useState(false);
   const [isNavOpen, setIsNavOpen] = useState(false);
+  const [isVerificationLinkSending, setIsVerificationLinkSending] =
+    useState(false);
+  const [verificationLinkMessage, setVerificationLinkMessage] = useState("");
 
   useEffect(() => {
     const token = localStorage.getItem(PARTICIPANT_TOKEN_KEY);
@@ -98,11 +112,33 @@ export function ParticipantShell({
 
     setParticipant({
       email: participantToken.email ?? defaultParticipant.email,
+      emailVerified: null,
       memberName: participantToken.name ?? defaultParticipant.memberName,
       phone: participantToken.phone ?? defaultParticipant.phone,
       role: formatRole(participantToken.role),
     });
     setIsSessionChecked(true);
+
+    void apiClient
+      .get<ParticipantProfileResponse>(endpoints.participants.profile, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      })
+      .then((result) => {
+        setParticipant((current) => ({
+          ...current,
+          emailVerified: result.profile.emailVerified ?? false,
+          memberName: result.profile.fullName ?? current.memberName,
+          role: result.profile.role ? formatRole(result.profile.role) : current.role,
+        }));
+      })
+      .catch(() => {
+        setParticipant((current) => ({
+          ...current,
+          emailVerified: false,
+        }));
+      });
   }, [router]);
 
   const logout = () => {
@@ -111,6 +147,35 @@ export function ParticipantShell({
     setIsNavOpen(false);
     router.replace("/en/participants/login");
     router.refresh();
+  };
+
+  const requestVerificationLink = async () => {
+    const token = localStorage.getItem(PARTICIPANT_TOKEN_KEY);
+    if (!token || isVerificationLinkSending) return;
+
+    setIsVerificationLinkSending(true);
+    setVerificationLinkMessage("");
+
+    try {
+      await apiClient.post(endpoints.participants.profileVerificationLink, {
+        language: "en",
+      }, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+      setVerificationLinkMessage(
+        "Verification link sent to your registered email.",
+      );
+    } catch (error) {
+      setVerificationLinkMessage(
+        error instanceof Error
+          ? error.message
+          : "Verification link could not be sent.",
+      );
+    } finally {
+      setIsVerificationLinkSending(false);
+    }
   };
 
   useEffect(() => {
@@ -275,8 +340,8 @@ export function ParticipantShell({
             naturalScroll ? "min-h-dvh" : "h-dvh overflow-hidden"
           }`}
         >
-          <header className="sticky top-0 z-20 border-b border-slate-200 bg-white px-5 py-4 md:px-10">
-            <div className="flex min-h-16 items-center gap-4">
+          <header className="sticky top-0 z-20 border-b border-slate-200 bg-white px-4 py-2 md:px-6">
+            <div className="flex min-h-14 items-center gap-3">
               <button
                 aria-label="Open navigation"
                 className="grid size-11 shrink-0 place-items-center rounded-lg border border-slate-200 text-[#0b1f3a] hover:bg-slate-50 lg:hidden"
@@ -285,34 +350,52 @@ export function ParticipantShell({
               >
                 <Menu size={23} />
               </button>
-              <div className="min-w-0">
-                <h1 className="truncate text-2xl font-black tracking-normal text-black md:text-3xl">
-                  {title}
-                </h1>
-                <p className="mt-0.5 truncate text-sm font-semibold text-slate-600">
-                  {eyebrow ?? "Seva First Innovation Challenge - Eastern Region"}
-                </p>
+
+              <div className="grid size-12 shrink-0 place-items-center rounded-full bg-gradient-to-br from-[#f7eee6] to-[#edf2f7] text-base font-black text-[#0b1f3a] ring-1 ring-slate-100 sm:size-14">
+                {initials(participant.memberName)}
               </div>
 
-              <div className="ml-auto flex items-center gap-2 sm:gap-4">
-                <div className="hidden h-14 w-14 place-items-center rounded-full bg-gradient-to-br from-[#f7eee6] to-[#edf2f7] text-base font-black text-[#0b1f3a] sm:grid">
-                  {initials(participant.memberName)}
-                </div>
-                <div className="hidden min-w-40 sm:block">
-                  <p className="text-base font-black leading-tight text-[#0b1f3a]">
-                    {participant.memberName}
+              <div className="min-w-0">
+                <p className="truncate text-base font-black leading-tight tracking-normal text-[#0b1f3a] sm:text-lg">
+                  {participant.memberName}
+                </p>
+                <p className="mt-0.5 truncate text-xs font-bold text-slate-500 sm:text-sm">
+                  {participant.role}
+                </p>
+                {participant.emailVerified ? (
+                  <p className="mt-0.5 text-xs font-black leading-tight text-[#138808] sm:text-sm">
+                    Verified
                   </p>
-                  <p className="mt-1 text-sm font-bold text-slate-500">
-                    {participant.role}
+                ) : (
+                  <button
+                    className="mt-0.5 block text-left text-xs font-black leading-tight text-red-600 underline-offset-4 hover:underline disabled:cursor-wait disabled:text-red-400 sm:text-sm"
+                    disabled={isVerificationLinkSending}
+                    onClick={requestVerificationLink}
+                    type="button"
+                  >
+                    {isVerificationLinkSending
+                      ? "Sending verification link..."
+                      : "Click to verify your profile"}
+                  </button>
+                )}
+                {verificationLinkMessage && !participant.emailVerified ? (
+                  <p className="mt-1 text-xs font-semibold leading-tight text-slate-500">
+                    {verificationLinkMessage}
                   </p>
-                </div>
+                ) : null}
+                <span className="sr-only">
+                  {title}. {eyebrow ?? "Seva First Innovation Challenge - Eastern Region"}
+                </span>
+              </div>
+
+              <div className="ml-auto flex items-center">
                 <button
                   aria-label="Logout"
-                  className="grid h-10 w-10 place-items-center rounded-lg text-slate-600 hover:bg-slate-100"
+                  className="grid size-9 place-items-center rounded-lg text-slate-600 hover:bg-slate-100 sm:size-10"
                   onClick={logout}
                   type="button"
                 >
-                  <LogOut size={22} />
+                  <LogOut size={22} strokeWidth={2.4} />
                 </button>
               </div>
             </div>

@@ -43,6 +43,8 @@ function routeModule(request: FastifyRequest): AdminAccessModule | null {
     }
 
     if (path.includes("/users")) return "users";
+    if (path.includes("/jury/admin/")) return "users";
+    if (path.includes("/email-notifications")) return "emailNotifications";
     if (path.includes("/settings/user-roles")) return "users";
     if (path.includes("/applications")) return "applications";
     if (path.includes("/settings")) return "settings";
@@ -75,6 +77,7 @@ function isPublicAdminRoute(request: FastifyRequest) {
 function accessValueForModule(row: AdminSessionRow, module: AdminAccessModule) {
     if (module === "analytics") return effectiveAccessValue(row, module);
     if (module === "settings") return effectiveAccessValue(row, module);
+    if (module === "emailNotifications") return row.users_access;
     if (module === "applications") return row.applications_access;
     return row.users_access;
 }
@@ -106,6 +109,7 @@ function effectiveAccessValue(row: AdminSessionRow, module: AdminAccessModule) {
 
     if (module === "analytics") return row.analytics_access;
     if (module === "applications") return row.applications_access;
+    if (module === "emailNotifications") return row.users_access;
     if (module === "settings") return row.settings_access;
     return row.users_access;
 }

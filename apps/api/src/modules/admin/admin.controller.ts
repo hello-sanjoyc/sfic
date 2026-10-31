@@ -5,6 +5,8 @@ import { join, resolve } from "node:path";
 import { getApiContent } from "../../content/index.js";
 import { sendError, sendSuccess } from "../common/api-response.js";
 import { generateApplicationPdf } from "./admin-application-pdf.js";
+import { attachEvaluationSummaries } from "./admin.evaluations.js";
+import { auditService } from "../audit/audit.service.js";
 import type { AuthenticatedAdminRequest } from "./admin-auth.js";
 import type { AdminLanguage } from "./admin.model.js";
 import {
@@ -45,12 +47,44 @@ type ApplicationsQuery = {
     sortBy?: string;
     sortDirection?: string;
     status?: string;
+    includeIncomplete?: string;
 };
 
 type UsersQuery = {
     page?: string;
     pageSize?: string;
     search?: string;
+};
+
+type EmailNotificationsQuery = {
+    page?: string;
+    pageSize?: string;
+    sortBy?: string;
+    sortDirection?: string;
+};
+
+type EmailNotificationParams = {
+    notificationId?: string;
+};
+
+type CreateEmailNotificationBody = {
+    action?: string;
+    body?: string;
+    deliveryMode?: string;
+    mode?: string;
+    name?: string;
+    recipientEmail?: string;
+    recipientEmails?: string[] | string;
+    replyToEmail?: string;
+    safeguards?: {
+        excludeDuplicates?: boolean;
+        retryTemporaryErrors?: boolean;
+        skipInvalidSuppressed?: boolean;
+    };
+    scheduledDate?: string;
+    scheduledTime?: string;
+    senderName?: string;
+    subject?: string;
 };
 
 type UserParams = {
@@ -95,6 +129,62 @@ function getAdminAccess(request: FastifyRequest) {
 
 function isNonEmptyString(value: unknown): value is string {
     return typeof value === "string" && value.trim().length > 0;
+}
+
+function isPlainRecord(value: unknown): value is Record<string, unknown> {
+    return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+// Pulls the applicant's name/phone off an application row's nested
+// `participant` object (as returned by `getApplications`/`deleteApplication`),
+// so audit entries for application-scoped actions can be searched/filtered
+// by applicant identity even after the application itself is gone.
+function applicantIdentity(application: Record<string, unknown> | undefined) {
+    const participant = application?.participant as
+        | { fullName?: string | null; mobile?: string | null }
+        | undefined;
+
+    return {
+        applicantFullName: participant?.fullName ?? null,
+        applicantPhone: participant?.mobile ?? null,
+    };
+}
+
+// The admin application update body can nest edits under `participant`,
+// `profile` and `proposal` (matching how `getApplications` nests those same
+// groups in its response), so a top-level key like `participant.fullName`
+// needs its own before/after diff rather than comparing the whole nested
+// object as one opaque value.
+function applicationUpdateChanges(
+    before: Record<string, unknown> | undefined,
+    after: Record<string, unknown> | undefined,
+    submittedBody: Record<string, unknown>,
+) {
+    const changes: Record<string, { from: unknown; to: unknown }> = {};
+    const nestedGroups = ["participant", "profile", "proposal"];
+
+    for (const key of Object.keys(submittedBody)) {
+        if (nestedGroups.includes(key) && isPlainRecord(submittedBody[key])) {
+            const nestedBefore = before?.[key];
+            const nestedAfter = after?.[key];
+            const nestedChanges = auditService.buildFieldChanges(
+                isPlainRecord(nestedBefore) ? nestedBefore : null,
+                isPlainRecord(nestedAfter) ? nestedAfter : null,
+                Object.keys(submittedBody[key] as Record<string, unknown>),
+            );
+            for (const [field, change] of Object.entries(nestedChanges)) {
+                changes[`${key}.${field}`] = change;
+            }
+            continue;
+        }
+
+        Object.assign(
+            changes,
+            auditService.buildFieldChanges(before, after, [key]),
+        );
+    }
+
+    return changes;
 }
 
 function normalizeEmail(value: string) {
@@ -161,6 +251,53 @@ function normalizeSortDirection(value: string | undefined) {
     return value === "asc" ? "asc" : "desc";
 }
 
+function normalizeEmailNotificationSortBy(value: string | undefined) {
+    if (
+        value === "createdAt" ||
+        value === "failed" ||
+        value === "name" ||
+        value === "scheduledFor" ||
+        value === "sent" ||
+        value === "subject" ||
+        value === "totalRecipients"
+    ) {
+        return value;
+    }
+
+    return "createdAt";
+}
+
+function normalizeRecipientSortBy(value: string | undefined) {
+    if (
+        value === "attemptCount" ||
+        value === "deliveryStatus" ||
+        value === "email" ||
+        value === "lastAttempt" ||
+        value === "recipientName"
+    ) {
+        return value;
+    }
+
+    return "recipientName";
+}
+
+function parseNotificationId(value: string | undefined) {
+    const parsed = parsePositiveInteger(value);
+    if (!parsed) throw new AdminRuleError("A valid notification id is required.");
+    return parsed;
+}
+
+function normalizeRecipientEmails(value: string[] | string | undefined) {
+    if (Array.isArray(value)) return value.map((item) => String(item));
+    if (typeof value === "string") {
+        return value
+            .split(",")
+            .map((item) => item.trim())
+            .filter(Boolean);
+    }
+    return [];
+}
+
 function getUploadRoot() {
     return process.env.UPLOAD_DIR ?? process.env.LOCAL_STORAGE_DIR ?? "uploads";
 }
@@ -177,12 +314,12 @@ function getUploadRootCandidates() {
     );
 }
 
-function contentDispositionFileName(fileName: string) {
+export function contentDispositionFileName(fileName: string) {
     const fallbackName = fileName.replace(/[^\w. -]/g, "_");
     return `attachment; filename="${fallbackName}"; filename*=UTF-8''${encodeURIComponent(fileName)}`;
 }
 
-async function resolveStoredFilePath(storageKey: string) {
+export async function resolveStoredFilePath(storageKey: string) {
     for (const uploadRoot of getUploadRootCandidates()) {
         const candidatePath = resolve(uploadRoot, storageKey);
 
@@ -395,6 +532,27 @@ async function getDashboardCounts(
     }
 }
 
+async function getServerHealth(
+    request: FastifyRequest,
+    reply: FastifyReply,
+) {
+    try {
+        const result = await adminService.getServerHealth(getAdminAccess(request));
+
+        return reply.code(200).send(result);
+    } catch (error) {
+        request.server.log.error(error);
+
+        return sendError(request, reply, {
+            message:
+                error instanceof Error
+                    ? error.message
+                    : getApiContent("en").api.internalServerError,
+            statusCode: getErrorStatusCode(error) ?? 500,
+        });
+    }
+}
+
 async function getUsers(
     request: FastifyRequest<{ Querystring: UsersQuery }>,
     reply: FastifyReply,
@@ -491,6 +649,15 @@ async function createUser(
             getAdminAccess(request),
         );
 
+        await auditService.recordRichAuditEntry(request, pg, {
+            actorType: "admin",
+            actorId: getAdminAccess(request).userId,
+            category: "user",
+            action: "user.created",
+            statusCode: 201,
+            details: { body: request.body },
+        });
+
         return sendSuccess(request, reply, {
             data: result,
             message: "User created successfully.",
@@ -539,6 +706,12 @@ async function updateUser(
     }
 
     try {
+        const before = await adminService.getUser(
+            pg,
+            userId,
+            getAdminAccess(request),
+        );
+
         const result = await adminService.updateUser(
             pg,
             userId,
@@ -552,6 +725,21 @@ async function updateUser(
                 statusCode: 404,
             });
         }
+
+        await auditService.recordRichAuditEntry(request, pg, {
+            actorType: "admin",
+            actorId: getAdminAccess(request).userId,
+            category: "user",
+            action: "user.updated",
+            statusCode: 200,
+            details: {
+                changes: auditService.buildFieldChanges(
+                    before as unknown as Record<string, unknown>,
+                    result.user as unknown as Record<string, unknown>,
+                    Object.keys(request.body),
+                ),
+            },
+        });
 
         return sendSuccess(request, reply, {
             data: result,
@@ -602,6 +790,15 @@ async function deleteUser(
                 statusCode: 404,
             });
         }
+
+        await auditService.recordRichAuditEntry(request, pg, {
+            actorType: "admin",
+            actorId: getAdminAccess(request).userId,
+            category: "user",
+            action: "user.deleted",
+            statusCode: 200,
+            details: { userId },
+        });
 
         return sendSuccess(request, reply, {
             data: result,
@@ -1173,7 +1370,9 @@ async function createSettingsUserRole(request: FastifyRequest<{ Body?: UpsertSet
     const body = requireSettingBody(request, reply);
     if (!pg || !body) return reply;
     try {
-        return sendSuccess(request, reply, { data: await adminService.createSettingsUserRole(pg, body), message: "User role created successfully.", statusCode: 201 });
+        const data = await adminService.createSettingsUserRole(pg, body);
+        await auditService.recordRichAuditEntry(request, pg, { actorType: "admin", actorId: getAdminAccess(request).userId, category: "settings", action: "settings.user_role.created", statusCode: 201, details: { body } });
+        return sendSuccess(request, reply, { data, message: "User role created successfully.", statusCode: 201 });
     } catch (error) {
         return handleAdminSettingsError(request, reply, error);
     }
@@ -1185,8 +1384,10 @@ async function updateSettingsUserRole(request: FastifyRequest<{ Body?: UpsertSet
     if (!pg || !body) return reply;
     if (!isNonEmptyString(request.params.role)) return sendError(request, reply, { message: "A valid role is required.", statusCode: 400 });
     try {
+        const before = await adminService.getSettingsUserRole(pg, request.params.role);
         const result = await adminService.updateSettingsUserRole(pg, request.params.role, body);
         if (!result) return sendError(request, reply, { message: "User role not found.", statusCode: 404 });
+        await auditService.recordRichAuditEntry(request, pg, { actorType: "admin", actorId: getAdminAccess(request).userId, category: "settings", action: "settings.user_role.updated", statusCode: 200, details: { role: request.params.role, changes: auditService.buildFieldChanges(before as unknown as Record<string, unknown>, result.userRole as unknown as Record<string, unknown>, Object.keys(body)) } });
         return sendSuccess(request, reply, { data: result, message: "User role updated successfully." });
     } catch (error) {
         return handleAdminSettingsError(request, reply, error);
@@ -1200,6 +1401,7 @@ async function deleteSettingsUserRole(request: FastifyRequest<{ Params: SettingR
     try {
         const result = await adminService.deleteSettingsUserRole(pg, request.params.role);
         if (!result) return sendError(request, reply, { message: "User role not found.", statusCode: 404 });
+        await auditService.recordRichAuditEntry(request, pg, { actorType: "admin", actorId: getAdminAccess(request).userId, category: "settings", action: "settings.user_role.deleted", statusCode: 200, details: { role: request.params.role } });
         return sendSuccess(request, reply, { data: result, message: "User role deactivated successfully." });
     } catch (error) {
         return handleAdminSettingsError(request, reply, error);
@@ -1238,8 +1440,10 @@ async function createRbacRule(request: FastifyRequest<{ Body?: UpsertSettingBody
     const body = requireSettingBody(request, reply);
     if (!pg || !body) return reply;
     try {
+        const data = await adminService.createRbacRule(pg, body);
+        await auditService.recordRichAuditEntry(request, pg, { actorType: "admin", actorId: getAdminAccess(request).userId, category: "settings", action: "settings.rbac_rule.created", statusCode: 201, details: { body } });
         return sendSuccess(request, reply, {
-            data: await adminService.createRbacRule(pg, body),
+            data,
             message: "RBAC rule created successfully.",
             statusCode: 201,
         });
@@ -1255,8 +1459,10 @@ async function updateRbacRule(request: FastifyRequest<{ Body?: UpsertSettingBody
     if (!pg || !body) return reply;
     if (!id) return sendError(request, reply, { message: "A valid id is required.", statusCode: 400 });
     try {
+        const before = await adminService.getRbacRule(pg, id);
         const result = await adminService.updateRbacRule(pg, id, body);
         if (!result) return sendError(request, reply, { message: "RBAC rule not found.", statusCode: 404 });
+        await auditService.recordRichAuditEntry(request, pg, { actorType: "admin", actorId: getAdminAccess(request).userId, category: "settings", action: "settings.rbac_rule.updated", statusCode: 200, details: { id, changes: auditService.buildFieldChanges(before?.rbacRule as unknown as Record<string, unknown>, result.rbacRule as unknown as Record<string, unknown>, Object.keys(body)) } });
         return sendSuccess(request, reply, { data: result, message: "RBAC rule updated successfully." });
     } catch (error) {
         return handleAdminSettingsError(request, reply, error);
@@ -1276,16 +1482,26 @@ async function getApplications(
     try {
         const result = await adminService.getApplications(pg, {
             access: getAdminAccess(request),
+            // Honoured for SUPERADMIN only; the service ignores it otherwise.
+            includeIncomplete: request.query.includeIncomplete === "true",
             page,
             pageSize,
             search: request.query.search,
             sortBy: normalizeSortBy(request.query.sortBy),
             sortDirection: normalizeSortDirection(request.query.sortDirection),
-            status: request.query.status,
+            // Only completed (submitted) applications are listed by default.
+            status: "submitted",
         });
 
         return sendSuccess(request, reply, {
-            data: result,
+            data: {
+                ...result,
+                applications: await attachEvaluationSummaries(
+                    pg,
+                    result.applications,
+                    (error) => request.server.log.error(error),
+                ),
+            },
             message: "Applications fetched successfully.",
         });
     } catch (error) {
@@ -1320,14 +1536,20 @@ async function getApplication(
             applicationId,
             pageSize: 1,
         });
-        const application = result.applications[0];
+        const found = result.applications[0];
 
-        if (!application) {
+        if (!found) {
             return sendError(request, reply, {
                 message: "Application not found.",
                 statusCode: 404,
             });
         }
+
+        const [application] = await attachEvaluationSummaries(
+            pg,
+            [found],
+            (error) => request.server.log.error(error),
+        );
 
         return sendSuccess(request, reply, {
             data: { application },
@@ -1370,6 +1592,15 @@ async function updateApplication(
     }
 
     try {
+        const beforeResult = await adminService.getApplications(pg, {
+            access: getAdminAccess(request),
+            applicationId,
+            pageSize: 1,
+        });
+        const before = beforeResult.applications[0] as
+            | Record<string, unknown>
+            | undefined;
+
         const result = await adminService.updateApplication(
             pg,
             {
@@ -1385,6 +1616,21 @@ async function updateApplication(
                 statusCode: 404,
             });
         }
+
+        const after = result.application as Record<string, unknown>;
+        await auditService.recordRichAuditEntry(request, pg, {
+            actorType: "admin",
+            actorId: getAdminAccess(request).userId,
+            category: "application",
+            action: "application.updated",
+            applicationId,
+            applicationNumber: (after.applicationNumber as string) ?? null,
+            ...applicantIdentity(after),
+            statusCode: 200,
+            details: {
+                changes: applicationUpdateChanges(before, after, request.body),
+            },
+        });
 
         return sendSuccess(request, reply, {
             data: result,
@@ -1423,6 +1669,15 @@ async function deleteApplication(
     }
 
     try {
+        const beforeResult = await adminService.getApplications(pg, {
+            access: getAdminAccess(request),
+            applicationId,
+            pageSize: 1,
+        });
+        const before = beforeResult.applications[0] as
+            | Record<string, unknown>
+            | undefined;
+
         const result = await adminService.deleteApplication(
             pg,
             applicationId,
@@ -1450,6 +1705,18 @@ async function deleteApplication(
         const fileDeleteFailures = fileDeleteResults.filter(
             (fileResult) => fileResult.status === "rejected",
         ).length;
+
+        await auditService.recordRichAuditEntry(request, pg, {
+            actorType: "admin",
+            actorId: getAdminAccess(request).userId,
+            category: "application",
+            action: "application.deleted",
+            applicationId,
+            applicationNumber: result.application.applicationNumber,
+            ...applicantIdentity(before),
+            statusCode: 200,
+            details: { documentsDeleted: result.documents.length, filesDeleted },
+        });
 
         return sendSuccess(request, reply, {
             data: {
@@ -1575,6 +1842,33 @@ async function deleteApplicationDocument(
             fileDeleted = true;
         }
 
+        const appRow = await pg.query<{
+            application_number: string;
+            full_name: string | null;
+            mobile: string | null;
+        }>(
+            `SELECT pa.application_number, p.full_name, p.mobile
+             FROM public.participant_applications pa
+             LEFT JOIN public.participants p ON p.id = pa.participant_id
+             WHERE pa.id = $1`,
+            [applicationId],
+        );
+        await auditService.recordRichAuditEntry(request, pg, {
+            actorType: "admin",
+            actorId: getAdminAccess(request).userId,
+            category: "application",
+            action: "application.document_deleted",
+            applicationId,
+            applicationNumber: appRow.rows[0]?.application_number ?? null,
+            applicantFullName: appRow.rows[0]?.full_name ?? null,
+            applicantPhone: appRow.rows[0]?.mobile ?? null,
+            statusCode: 200,
+            details: {
+                documentId,
+                originalFileName: result.document.originalFileName,
+            },
+        });
+
         return sendSuccess(request, reply, {
             data: {
                 ...result,
@@ -1586,8 +1880,11 @@ async function deleteApplicationDocument(
         request.server.log.error(error);
 
         return sendError(request, reply, {
-            message: "Document could not be deleted.",
-            statusCode: 500,
+            message:
+                error instanceof Error
+                    ? error.message
+                    : "Document could not be deleted.",
+            statusCode: getErrorStatusCode(error) ?? 500,
         });
     }
 }
@@ -1752,6 +2049,355 @@ async function getDashboardChallengeCategoryCounts(
     }
 }
 
+async function getEmailNotifications(
+    request: FastifyRequest<{ Querystring: EmailNotificationsQuery }>,
+    reply: FastifyReply,
+) {
+    const pg = requireDatabase(request, reply);
+    if (!pg) return reply;
+
+    const page = parsePositiveInteger(request.query.page) ?? 1;
+    const pageSize = Math.min(
+        parsePositiveInteger(request.query.pageSize) ?? 10,
+        100,
+    );
+
+    try {
+        const result = await adminService.getEmailNotifications(pg, {
+            page,
+            pageSize,
+            sortBy: normalizeEmailNotificationSortBy(request.query.sortBy),
+            sortDirection: normalizeSortDirection(request.query.sortDirection),
+        });
+
+        return sendSuccess(request, reply, {
+            data: result,
+            message: "Email notifications fetched successfully.",
+        });
+    } catch (error) {
+        request.server.log.error(error);
+
+        return sendError(request, reply, {
+            message:
+                error instanceof Error
+                    ? error.message
+                    : "Unable to fetch email notifications.",
+            statusCode: getErrorStatusCode(error) ?? 500,
+        });
+    }
+}
+
+async function createEmailNotification(
+    request: FastifyRequest<{ Body?: CreateEmailNotificationBody }>,
+    reply: FastifyReply,
+) {
+    const pg = requireDatabase(request, reply);
+    if (!pg) return reply;
+
+    const body = request.body ?? {};
+    const errors: string[] = [];
+    const mode = body.mode === "bulk" ? "bulk" : "individual";
+    const action = body.action === "send" ? "send" : "draft";
+    const deliveryMode =
+        body.deliveryMode === "scheduled" ? "scheduled" : "immediate";
+    const senderName = isNonEmptyString(body.senderName)
+        ? body.senderName.trim()
+        : "";
+    const replyToEmail = isNonEmptyString(body.replyToEmail)
+        ? normalizeEmail(body.replyToEmail)
+        : "";
+    const name = isNonEmptyString(body.name) ? body.name.trim() : "";
+    const subject = isNonEmptyString(body.subject) ? body.subject.trim() : "";
+    const messageBody = isNonEmptyString(body.body) ? body.body.trim() : "";
+
+    if (!name) errors.push("Notification/Campaign Name is required.");
+    if (!senderName) errors.push("Sender name is required.");
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(replyToEmail)) {
+        errors.push("A valid reply-to email is required.");
+    }
+    if (!subject) errors.push("Subject is required.");
+    if (!messageBody) errors.push("Message body is required.");
+    if (
+        mode === "individual" &&
+        !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(
+            String(body.recipientEmail ?? "").trim(),
+        )
+    ) {
+        errors.push("A valid recipient email is required.");
+    }
+    if (
+        mode === "bulk" &&
+        normalizeRecipientEmails(body.recipientEmails).length === 0
+    ) {
+        errors.push("At least one recipient email is required.");
+    }
+    if (
+        deliveryMode === "scheduled" &&
+        (!body.scheduledDate || !body.scheduledTime)
+    ) {
+        errors.push("Scheduled date and time are required.");
+    }
+
+    if (errors.length) {
+        return sendError(request, reply, {
+            data: { errors },
+            messageKey: "validationError",
+            statusCode: 400,
+        });
+    }
+
+    try {
+        const result = await adminService.createEmailNotification(pg, {
+            action,
+            body: messageBody,
+            createdByUserId: getAdminAccess(request).userId,
+            deliveryMode,
+            mode,
+            name,
+            recipientEmail: isNonEmptyString(body.recipientEmail)
+                ? normalizeEmail(body.recipientEmail)
+                : undefined,
+            recipientEmails: normalizeRecipientEmails(body.recipientEmails),
+            replyToEmail,
+            safeguards: body.safeguards,
+            scheduledDate: body.scheduledDate,
+            scheduledTime: body.scheduledTime,
+            senderName,
+            subject,
+        });
+
+        return sendSuccess(request, reply, {
+            data: result,
+            message:
+                action === "send"
+                    ? "Email notification send request accepted."
+                    : "Email notification draft saved.",
+            statusCode: 201,
+        });
+    } catch (error) {
+        request.server.log.error(error);
+
+        return sendError(request, reply, {
+            message:
+                error instanceof Error
+                    ? error.message
+                    : "Unable to save email notification.",
+            statusCode: getErrorStatusCode(error) ?? 500,
+        });
+    }
+}
+
+async function getEmailNotificationAnalytics(
+    request: FastifyRequest<{ Params: EmailNotificationParams }>,
+    reply: FastifyReply,
+) {
+    const pg = requireDatabase(request, reply);
+    if (!pg) return reply;
+
+    try {
+        const result = await adminService.getEmailNotificationAnalytics(
+            pg,
+            parseNotificationId(request.params.notificationId),
+        );
+
+        if (!result) {
+            return sendError(request, reply, {
+                message: "Email notification was not found.",
+                statusCode: 404,
+            });
+        }
+
+        return sendSuccess(request, reply, {
+            data: result,
+            message: "Email notification analytics fetched successfully.",
+        });
+    } catch (error) {
+        request.server.log.error(error);
+
+        return sendError(request, reply, {
+            message:
+                error instanceof Error
+                    ? error.message
+                    : "Unable to fetch email notification analytics.",
+            statusCode: getErrorStatusCode(error) ?? 500,
+        });
+    }
+}
+
+async function getEmailNotification(
+    request: FastifyRequest<{ Params: EmailNotificationParams }>,
+    reply: FastifyReply,
+) {
+    const pg = requireDatabase(request, reply);
+    if (!pg) return reply;
+
+    try {
+        const result = await adminService.getEmailNotification(
+            pg,
+            parseNotificationId(request.params.notificationId),
+        );
+
+        if (!result) {
+            return sendError(request, reply, {
+                message: "Email notification was not found.",
+                statusCode: 404,
+            });
+        }
+
+        return sendSuccess(request, reply, {
+            data: result,
+            message: "Email notification fetched successfully.",
+        });
+    } catch (error) {
+        request.server.log.error(error);
+
+        return sendError(request, reply, {
+            message:
+                error instanceof Error
+                    ? error.message
+                    : "Unable to fetch email notification.",
+            statusCode: getErrorStatusCode(error) ?? 500,
+        });
+    }
+}
+
+async function updateEmailNotification(
+    request: FastifyRequest<{
+        Body?: CreateEmailNotificationBody;
+        Params: EmailNotificationParams;
+    }>,
+    reply: FastifyReply,
+) {
+    const pg = requireDatabase(request, reply);
+    if (!pg) return reply;
+
+    const body = request.body ?? {};
+
+    try {
+        const result = await adminService.updateEmailNotification(pg, {
+            action: body.action === "send" ? "send" : "draft",
+            body: isNonEmptyString(body.body) ? body.body.trim() : undefined,
+            createdByUserId: getAdminAccess(request).userId,
+            deliveryMode:
+                body.deliveryMode === "scheduled" ? "scheduled" : undefined,
+            mode:
+                body.mode === "bulk" || body.mode === "individual"
+                    ? body.mode
+                    : undefined,
+            notificationId: parseNotificationId(request.params.notificationId),
+            name: isNonEmptyString(body.name) ? body.name.trim() : undefined,
+            recipientEmail: isNonEmptyString(body.recipientEmail)
+                ? normalizeEmail(body.recipientEmail)
+                : undefined,
+            recipientEmails: body.recipientEmails
+                ? normalizeRecipientEmails(body.recipientEmails)
+                : undefined,
+            replyToEmail: isNonEmptyString(body.replyToEmail)
+                ? normalizeEmail(body.replyToEmail)
+                : undefined,
+            safeguards: body.safeguards,
+            scheduledDate: body.scheduledDate,
+            scheduledTime: body.scheduledTime,
+            senderName: isNonEmptyString(body.senderName)
+                ? body.senderName.trim()
+                : undefined,
+            subject: isNonEmptyString(body.subject)
+                ? body.subject.trim()
+                : undefined,
+        });
+
+        return sendSuccess(request, reply, {
+            data: result,
+            message:
+                body.action === "send"
+                    ? "Email notification submitted successfully."
+                    : "Email notification draft updated.",
+        });
+    } catch (error) {
+        request.server.log.error(error);
+
+        return sendError(request, reply, {
+            message:
+                error instanceof Error
+                    ? error.message
+                    : "Unable to update email notification.",
+            statusCode: getErrorStatusCode(error) ?? 500,
+        });
+    }
+}
+
+async function getEmailNotificationRecipients(
+    request: FastifyRequest<{
+        Params: EmailNotificationParams;
+        Querystring: EmailNotificationsQuery;
+    }>,
+    reply: FastifyReply,
+) {
+    const pg = requireDatabase(request, reply);
+    if (!pg) return reply;
+
+    const page = parsePositiveInteger(request.query.page) ?? 1;
+    const pageSize = Math.min(
+        parsePositiveInteger(request.query.pageSize) ?? 10,
+        100,
+    );
+
+    try {
+        const result = await adminService.getEmailNotificationRecipients(pg, {
+            notificationId: parseNotificationId(request.params.notificationId),
+            page,
+            pageSize,
+            sortBy: normalizeRecipientSortBy(request.query.sortBy),
+            sortDirection: normalizeSortDirection(request.query.sortDirection),
+        });
+
+        return sendSuccess(request, reply, {
+            data: result,
+            message: "Email notification recipients fetched successfully.",
+        });
+    } catch (error) {
+        request.server.log.error(error);
+
+        return sendError(request, reply, {
+            message:
+                error instanceof Error
+                    ? error.message
+                    : "Unable to fetch email notification recipients.",
+            statusCode: getErrorStatusCode(error) ?? 500,
+        });
+    }
+}
+
+async function deleteEmailNotification(
+    request: FastifyRequest<{ Params: EmailNotificationParams }>,
+    reply: FastifyReply,
+) {
+    const pg = requireDatabase(request, reply);
+    if (!pg) return reply;
+
+    try {
+        const result = await adminService.deleteEmailNotification(
+            pg,
+            parseNotificationId(request.params.notificationId),
+        );
+
+        return sendSuccess(request, reply, {
+            data: result,
+            message: "Email notification draft deleted successfully.",
+        });
+    } catch (error) {
+        request.server.log.error(error);
+
+        return sendError(request, reply, {
+            message:
+                error instanceof Error
+                    ? error.message
+                    : "Unable to delete email notification.",
+            statusCode: getErrorStatusCode(error) ?? 500,
+        });
+    }
+}
+
 export const adminController = {
     createSettingsChallengeCategory,
     createSettingsConfiguration,
@@ -1761,9 +2407,11 @@ export const adminController = {
     createSettingsParticipantCategory,
     createSettingsState,
     createSettingsUserRole,
+    createEmailNotification,
     createUser,
     deleteApplication,
     deleteApplicationDocument,
+    deleteEmailNotification,
     deleteSettingsChallengeCategory,
     deleteSettingsConfiguration,
     deleteSettingsDistrict,
@@ -1780,6 +2428,10 @@ export const adminController = {
     getDashboardCounts,
     getDashboardDistrictCounts,
     getDashboardOrganisationTypeCounts,
+    getEmailNotificationAnalytics,
+    getEmailNotification,
+    getEmailNotificationRecipients,
+    getEmailNotifications,
     getPageViewAnalytics,
     getRbacRule,
     getRbacRules,
@@ -1797,6 +2449,7 @@ export const adminController = {
     getSettingsStates,
     getSettingsUserRole,
     getSettingsUserRoles,
+    getServerHealth,
     getUser,
     getUsers,
     requestLoginCode,
@@ -1810,6 +2463,7 @@ export const adminController = {
     updateSettingsState,
     updateSettingsUserRole,
     updateApplication,
+    updateEmailNotification,
     updateUser,
     verifyLoginCode,
 };

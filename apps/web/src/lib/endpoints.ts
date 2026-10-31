@@ -33,12 +33,44 @@ export const endpoints = {
         applicationDownload: (hash: string) =>
             `${api}/participants/applications/${encodeURIComponent(hash)}/download`,
         applications: `${api}/participants/applications`,
+        forgotPassword: `${api}/participants/forgot-password`,
         login: `${api}/participants/login`,
+        loginCode: `${api}/participants/login-code`,
         profile: `${api}/participants/profile`,
+        profileVerificationLink: `${api}/participants/profile/verification-link`,
+        resetPassword: `${api}/participants/reset-password`,
         resendLoginCode: `${api}/participants/resend-login-code`,
         verifyLogin: `${api}/participants/verify-login`,
     },
+    jury: {
+        adminProfiles: `${api}/jury/admin/profiles`,
+        adminProfile: (id: string | number) => `${api}/jury/admin/profiles/${id}`,
+        resendInvitation: (id: string | number) => `${api}/jury/admin/profiles/${id}/resend-invitation`,
+        adminResetEvaluation: (applicationId: string | number, level: string) =>
+            `${api}/jury/admin/applications/${applicationId}/evaluation?level=${encodeURIComponent(level)}`,
+        application: (id: string | number) => `${api}/jury/applications/${id}`,
+        applicationDocumentDownload: (
+            applicationId: string | number,
+            documentId: string | number,
+        ) =>
+            `${api}/jury/applications/${applicationId}/documents/${documentId}/download`,
+        applicationDownload: (id: string | number) =>
+            `${api}/jury/applications/${id}/download`,
+        applicationEvaluation: (id: string | number) =>
+            `${api}/jury/applications/${id}/evaluation`,
+        applicationEvaluationSubmit: (id: string | number) =>
+            `${api}/jury/applications/${id}/evaluation/submit`,
+        applications: `${api}/jury/applications`,
+        dashboard: `${api}/jury/dashboard`,
+        login: `${api}/jury/login`,
+        profile: `${api}/jury/profile`,
+        profileDocument: (kind: "avatar" | "cv") => `${api}/jury/profile/documents/${kind}`,
+        profileDocuments: `${api}/jury/profile/documents`,
+        verifyEmail: `${api}/jury/verify-email`,
+        verifyLogin: `${api}/jury/verify-login`,
+    },
     admin: {
+        auditLog: `${api}/admin/audit-log`,
         application: (id: string | number) => `${api}/admin/applications/${id}`,
         applicationDownload: (id: string | number) =>
             `${api}/admin/applications/${id}/download`,
@@ -53,10 +85,19 @@ export const endpoints = {
         ) =>
             `${api}/admin/applications/${applicationId}/documents/${documentId}`,
         applications: `${api}/admin/applications`,
+        applicationRankings: `${api}/admin/applications/rankings`,
         dashboardChallengeCategoryCounts: `${api}/admin/dashboard-challenge-category-counts`,
         dashboardCounts: `${api}/admin/dashboard-counts`,
         dashboardDistrictCounts: `${api}/admin/dashboard-district-counts`,
         dashboardOrganisationTypeCounts: `${api}/admin/dashboard-organisation-type-counts`,
+        serverHealth: `${api}/admin/server-health`,
+        emailNotificationAnalytics: (id: string | number) =>
+            `${api}/admin/email-notifications/${id}/analytics`,
+        emailNotification: (id: string | number) =>
+            `${api}/admin/email-notifications/${id}`,
+        emailNotificationRecipients: (id: string | number) =>
+            `${api}/admin/email-notifications/${id}/recipients`,
+        emailNotifications: `${api}/admin/email-notifications`,
         login: `${api}/admin/login`,
         pageViewAnalytics: `${api}/admin/page-view-analytics`,
         resendLoginCode: `${api}/admin/resend-login-code`,

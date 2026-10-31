@@ -73,6 +73,7 @@ type ChallengeCategoryOption = {
 
 type LookupOption = {
     id: number;
+    isRegistrationEnabled?: boolean;
     name: LocalizedText;
     participantCategoryCodes?: string[];
     stateId?: number;
@@ -94,6 +95,7 @@ type ParticipantRole = "applicant" | "team_member";
 
 type ParticipantApplicationDetails = {
     applicationHash?: string | null;
+    isLocked?: boolean;
     challengeCategory?: {
         id?: number | null;
         name?: LocalizedText | null;
@@ -338,7 +340,8 @@ const validationMessages = {
     pdfOnly: "Upload PDF files only.",
     proposalCharacters: "Enter 50 to 1000 characters.",
     supportingDocumentMax: `Upload a maximum of ${maxSupportingDocuments} PDF files.`,
-    supportingDocumentRequired: "Upload at least one supporting document.",
+    supportingDocumentRequired:
+        "Upload at least one supporting document. Keep the file name as 'prototype.pdf' or 'innovators_cv.pdf' etc.",
     supportingDocumentSize: `Each supporting document must be ${maxSupportingDocumentSizeMb} MB or smaller.`,
     teamMemberRequired: "Add at least one team member.",
     teamEmailUnique: "Team member email IDs must be unique.",
@@ -736,16 +739,25 @@ function applicantProfileValuesFromApplication(
 }
 
 function isApplicantProfileIncomplete(
-    values: ApplicantProfileValues,
     application?: ParticipantApplicationDetails | null,
 ) {
+    if (!application) return false;
+
+    const profile = application.profile;
+
     return (
-        !application?.participant?.dateOfBirth ||
+        !application.participant?.dateOfBirth ||
         !application.participant?.gender ||
-        Object.entries(values).some(([field, value]) => {
-            if (field === "dateOfBirth" || field === "gender") return false;
-            return !value.trim();
-        })
+        !application.state?.id ||
+        !application.district?.id ||
+        !profileString(profile, "city").trim() ||
+        !profileString(profile, "pinCode").trim() ||
+        !profileString(profile, "address").trim() ||
+        !profileString(profile, "highestEducationalQualification").trim() ||
+        !profileString(profile, "lastAttendedEducationalInstitute").trim() ||
+        !profileString(profile, "yearOfPassing").trim() ||
+        !profileString(profile, "instituteName").trim() ||
+        !optionId(application.instituteType?.id ?? profile?.instituteTypeId)
     );
 }
 
@@ -960,9 +972,8 @@ export function ParticipantApplicationFormPage({
         formatLastDateOfSubmission(applicationClosingDate);
     const needsDateOfBirth = Boolean(applicantData && !applicantData.participant?.dateOfBirth);
     const needsGender = Boolean(applicantData && !applicantData.participant?.gender);
-    const needsApplicantProfileCompletion = applicantData
-        ? isApplicantProfileIncomplete(applicantProfileValues, applicantData)
-        : false;
+    const needsApplicantProfileCompletion =
+        isApplicantProfileIncomplete(applicantData);
     const applicantProfileErrors = useMemo(
         () =>
             needsApplicantProfileCompletion
@@ -1062,12 +1073,19 @@ export function ParticipantApplicationFormPage({
             ? isEditMode
                 ? "Only the applicant can edit this application."
                 : "Only the applicant can create a new application."
+            : isEditMode && applicantData?.isLocked
+              ? "This application can no longer be edited because the registration period has ended or its evaluation has started."
+              : "";
+    const emailVerificationBlockReason =
+        !isEditMode && applicantData?.participant?.emailVerified === false
+            ? "Verify your email address to create a new application."
             : "";
     const isFormLocked = Boolean(
         (!isEditMode && (isSettingsLoading || settingsError)) ||
         lookupsError ||
         challengeCategoryError ||
         roleBlockReason ||
+        emailVerificationBlockReason ||
         applicationBlockReason,
     );
     const canSubmit =
@@ -1117,7 +1135,10 @@ export function ParticipantApplicationFormPage({
             .get<CommonLookupsResponse>(endpoints.common.lookups)
             .then((result) => {
                 if (!isMounted) return;
-                setCommonLookups(result);
+                setCommonLookups({
+                    ...result,
+                    states: result.states.filter((s) => s.isRegistrationEnabled !== false),
+                });
                 setLookupsError("");
             })
             .catch(() => {
@@ -1750,6 +1771,7 @@ export function ParticipantApplicationFormPage({
                                 lookupsError ||
                                 challengeCategoryError ||
                                 roleBlockReason ||
+                                emailVerificationBlockReason ||
                                 applicationBlockReason
                                     ? "border-b border-slate-200"
                                     : ""
@@ -1800,6 +1822,7 @@ export function ParticipantApplicationFormPage({
                             lookupsError ||
                             challengeCategoryError ||
                             roleBlockReason ||
+                            emailVerificationBlockReason ||
                             applicationBlockReason) && (
                             <div className="grid gap-5 p-5 md:p-7">
                                 <div
@@ -1815,6 +1838,7 @@ export function ParticipantApplicationFormPage({
                                           lookupsError ||
                                           challengeCategoryError ||
                                           roleBlockReason ||
+                                          emailVerificationBlockReason ||
                                           applicationBlockReason}
                                 </div>
                             </div>
@@ -2660,6 +2684,7 @@ export function ParticipantApplicationFormPage({
                                                                 ),
                                                             )}
                                                         </span>
+                                                        {!applicantData?.isLocked && (
                                                         <button
                                                             aria-label={`Delete ${
                                                                 document.originalFileName ??
@@ -2684,6 +2709,7 @@ export function ParticipantApplicationFormPage({
                                                                 ? "Deleting..."
                                                                 : "Delete"}
                                                         </button>
+                                                        )}
                                                     </span>
                                                 </li>
                                             ),

@@ -66,18 +66,18 @@ const settingsLinks = [
 export function AdminSettingsPage() {
   return (
     <AdminShell eyebrow="Master data and access configuration" title="Settings">
-      <section className="rounded-lg border border-slate-200 bg-white shadow-sm">
-        <div className="border-b border-slate-200 p-5">
+      <section className="w-full min-w-0 rounded-lg border border-slate-200 bg-white shadow-sm">
+        <div className="border-b border-slate-200 p-4 sm:p-5">
           <h2 className="text-lg font-black text-[#0b1f3a]">Settings Directory</h2>
           <p className="mt-1 text-sm text-slate-500">
             Choose a master-data section to manage.
           </p>
         </div>
 
-        <div className="grid gap-4 p-5 md:grid-cols-2 xl:grid-cols-3">
+        <div className="grid min-w-0 gap-3 p-3 sm:gap-4 sm:p-5 md:grid-cols-2 xl:grid-cols-3">
           {settingsLinks.map(({ description, href, icon: Icon, label }) => (
             <Link
-              className="group flex min-h-32 items-start gap-4 rounded-lg border border-slate-200 bg-white p-5 transition hover:border-blue-200 hover:bg-blue-50/40"
+              className="group flex min-h-28 min-w-0 items-start gap-3 rounded-lg border border-slate-200 bg-white p-4 transition hover:border-blue-200 hover:bg-blue-50/40 sm:min-h-32 sm:gap-4 sm:p-5"
               href={href}
               key={label}
             >

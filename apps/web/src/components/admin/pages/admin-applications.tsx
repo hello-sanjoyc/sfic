@@ -1,7 +1,6 @@
 "use client";
 
 import {
-  ArrowRight,
   ChevronDown,
   ChevronLeft,
   ChevronRight,
@@ -9,16 +8,20 @@ import {
   ChevronUp,
   ClipboardList,
   Search,
+  View,
 } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { AdminShell } from "@/components/admin/common/admin-shell";
+import { AUTH_STORAGE_KEY } from "@/components/auth";
 import { apiClient } from "@/lib/api-client";
 import { endpoints } from "@/lib/endpoints";
 
 type ApplicationStatus =
   | "Draft"
   | "Email Verification"
+  | "Evaluated"
+  | "On Evaluation"
   | "Profile Completion"
   | "Proposal Submission"
   | "Submitted"
@@ -27,7 +30,9 @@ type ApplicationStatus =
 type Application = {
   id: number;
   number: string;
+  recommendation: string;
   review: string;
+  totalScore: number | null;
   state: string;
   status: ApplicationStatus;
   title: string;
@@ -51,6 +56,12 @@ type AdminApplicationApiItem = {
     name?: LocalizedText | null;
   } | null;
   documents?: unknown[];
+  evaluation?: {
+    level?: string;
+    recommendation?: string | null;
+    status?: "evaluated" | "on_evaluation";
+    totalScore?: number | null;
+  } | null;
   id?: number | string | null;
   participant?: {
     fullName?: string | null;
@@ -83,6 +94,22 @@ const columns = [
   { key: "review", label: "Review" },
 ] satisfies { key: SortKey; label: string }[];
 
+function isCurrentAdminSuperAdmin() {
+  if (typeof window === "undefined") return false;
+
+  try {
+    const session = JSON.parse(localStorage.getItem(AUTH_STORAGE_KEY) ?? "{}") as {
+      actor?: string;
+      admin?: { role?: string };
+    };
+    const role = session.actor === "admin" ? (session.admin?.role ?? "") : "";
+
+    return role.trim().toUpperCase().replace(/[\s-]+/g, "_") === "SUPERADMIN";
+  } catch {
+    return false;
+  }
+}
+
 function formatStatus(status = "draft"): ApplicationStatus {
   const labels: Record<string, ApplicationStatus> = {
     draft: "Draft",
@@ -97,11 +124,20 @@ function formatStatus(status = "draft"): ApplicationStatus {
 }
 
 function statusClasses(status: ApplicationStatus) {
-  if (status === "Submitted") return "bg-emerald-50 text-emerald-700";
+  if (status === "Evaluated") return "bg-emerald-100 text-emerald-800";
+  if (status === "On Evaluation") return "bg-amber-100 text-amber-800";
+  if (status === "Submitted") return "bg-blue-100 text-blue-700";
   if (status === "Draft") return "bg-slate-100 text-slate-600";
   if (status === "Withdrawn") return "bg-rose-50 text-rose-700";
   if (status === "Email Verification") return "bg-blue-50 text-blue-700";
   return "bg-amber-50 text-amber-700";
+}
+
+function recommendationClasses(recommendation: string) {
+  if (recommendation === "Recommend") return "bg-emerald-50 text-emerald-700";
+  if (recommendation === "Reject") return "bg-red-100 text-red-700";
+  if (recommendation === "Review") return "bg-amber-100 text-amber-800";
+  return "bg-slate-100 text-slate-600";
 }
 
 function localizedName(value?: LocalizedText | null) {
@@ -125,9 +161,23 @@ function toTableApplication(application: AdminApplicationApiItem): Application {
   return {
     id: Number(application.id ?? 0),
     number: application.applicationNumber ?? "Not assigned",
+    recommendation:
+      application.evaluation?.status === "evaluated"
+        ? (application.evaluation.recommendation ?? "")
+        : "",
     review: `${formatCount(membersCount, "member")} / ${formatCount(documentsCount, "document")}`,
+    totalScore:
+      application.evaluation?.status === "evaluated"
+        ? (application.evaluation.totalScore ?? null)
+        : null,
     state: localizedName(application.state?.name) || "Not selected",
-    status: formatStatus(application.status ?? undefined),
+    // A jury evaluation replaces "Submitted" with its own state.
+    status:
+      application.evaluation?.status === "evaluated"
+        ? "Evaluated"
+        : application.evaluation?.status === "on_evaluation"
+          ? "On Evaluation"
+          : formatStatus(application.status ?? undefined),
     title,
   };
 }
@@ -146,7 +196,9 @@ function SortIcon({
 export function AdminApplicationsPage() {
   const [applications, setApplications] = useState<Application[]>([]);
   const [errorMessage, setErrorMessage] = useState("");
+  const [includeIncomplete, setIncludeIncomplete] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [isSuperAdmin, setIsSuperAdmin] = useState(false);
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
   const [query, setQuery] = useState("");
@@ -159,6 +211,10 @@ export function AdminApplicationsPage() {
   const resultEnd = Math.min(page * pageSize, totalApplications);
 
   useEffect(() => {
+    setIsSuperAdmin(isCurrentAdminSuperAdmin());
+  }, []);
+
+  useEffect(() => {
     if (effectiveSearch.length > 0 && effectiveSearch.length < 3) return;
 
     let isMounted = true;
@@ -169,6 +225,7 @@ export function AdminApplicationsPage() {
     void apiClient
       .get<AdminApplicationsResponse>(endpoints.admin.applications, {
         query: {
+          includeIncomplete: includeIncomplete ? true : undefined,
           page,
           pageSize,
           search: effectiveSearch || undefined,
@@ -202,7 +259,7 @@ export function AdminApplicationsPage() {
     return () => {
       isMounted = false;
     };
-  }, [effectiveSearch, page, pageSize, sortDirection, sortKey]);
+  }, [effectiveSearch, includeIncomplete, page, pageSize, sortDirection, sortKey]);
 
   const sortBy = (key: SortKey) => {
     setPage(1);
@@ -218,32 +275,48 @@ export function AdminApplicationsPage() {
 
   return (
     <AdminShell eyebrow="Screen, assign and track innovation submissions" title="Applications">
-      <section className="rounded-lg border border-slate-200 bg-white shadow-sm">
-        <div className="flex flex-wrap items-center justify-between gap-4 border-b border-slate-200 p-5">
-          <div className="flex items-center gap-3">
+      <section className="w-full min-w-0 rounded-lg border border-slate-200 bg-white shadow-sm">
+        <div className="flex min-w-0 flex-wrap items-center justify-between gap-4 border-b border-slate-200 p-3 sm:p-5">
+          <div className="flex min-w-0 items-center gap-3">
             <ClipboardList className="text-blue-600" size={22} />
-            <div>
+            <div className="min-w-0">
               <h2 className="text-lg font-black">Application Register</h2>
               <p className="text-sm text-slate-500">Current application pipeline</p>
             </div>
           </div>
-          <div className="flex h-11 w-full items-center gap-3 rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-500 sm:w-80 lg:w-96">
-            <Search size={18} />
-            <input
-              aria-label="Search application register"
-              className="min-w-0 flex-1 bg-transparent font-medium text-slate-700 outline-none placeholder:text-slate-500"
-              onChange={(event) => {
-                setPage(1);
-                setQuery(event.target.value);
-              }}
-              placeholder="Search applications"
-              type="search"
-              value={query}
-            />
+          <div className="flex w-full flex-wrap items-center gap-3 sm:w-auto">
+            {isSuperAdmin && (
+              <label className="inline-flex h-11 cursor-pointer items-center gap-2 text-sm font-semibold text-slate-700">
+                <input
+                  checked={includeIncomplete}
+                  className="h-4 w-4 accent-blue-600"
+                  onChange={(event) => {
+                    setPage(1);
+                    setIncludeIncomplete(event.target.checked);
+                  }}
+                  type="checkbox"
+                />
+                Incomplete
+              </label>
+            )}
+            <div className="flex h-11 w-full items-center gap-3 rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-500 sm:w-80 lg:w-96">
+              <Search size={18} />
+              <input
+                aria-label="Search application register"
+                className="min-w-0 flex-1 bg-transparent font-medium text-slate-700 outline-none placeholder:text-slate-500"
+                onChange={(event) => {
+                  setPage(1);
+                  setQuery(event.target.value);
+                }}
+                placeholder="Search applications"
+                type="search"
+                value={query}
+              />
+            </div>
           </div>
         </div>
-        <div className="overflow-x-auto">
-          <table className="w-full min-w-[58rem] border-collapse text-left text-sm">
+        <div className="hidden w-full min-w-0 overflow-x-auto overscroll-x-contain md:block">
+          <table className="w-full min-w-[72rem] border-collapse text-left text-sm">
             <thead className="bg-slate-50 text-xs font-bold text-slate-500">
               <tr>
                 {columns.map((column) => (
@@ -261,20 +334,22 @@ export function AdminApplicationsPage() {
                     </button>
                   </th>
                 ))}
-                <th className="px-4 py-3 uppercase text-slate-500">Action</th>
+                <th className="px-4 py-3 uppercase text-slate-500">Score</th>
+                <th className="px-4 py-3 uppercase text-slate-500">Recommendation</th>
+                <th className="px-4 py-3 text-center uppercase text-slate-500">Action</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
               {isLoading && (
                 <tr>
-                  <td className="px-4 py-8 text-center text-sm font-semibold text-slate-500" colSpan={6}>
+                  <td className="px-4 py-8 text-center text-sm font-semibold text-slate-500" colSpan={8}>
                     Loading applications...
                   </td>
                 </tr>
               )}
               {!isLoading && errorMessage && (
                 <tr>
-                  <td className="px-4 py-8 text-center text-sm font-semibold text-rose-600" colSpan={6}>
+                  <td className="px-4 py-8 text-center text-sm font-semibold text-rose-600" colSpan={8}>
                     {errorMessage}
                   </td>
                 </tr>
@@ -290,16 +365,28 @@ export function AdminApplicationsPage() {
                     </span>
                   </td>
                   <td className="px-4 py-3 text-slate-600">{application.review}</td>
+                  <td className="px-4 py-3 font-black text-[#0b1f3a]">
+                    {application.totalScore === null ? <span className="font-normal text-slate-400">-</span> : `${application.totalScore.toFixed(2)} / 100`}
+                  </td>
                   <td className="px-4 py-3">
-                    <Link className="inline-flex items-center gap-1 text-sm font-bold text-blue-600" href={`/admin/applications/${application.id}`}>
-                      Manage <ArrowRight size={15} />
+                    {application.recommendation ? (
+                      <span className={`rounded-full px-3 py-1 text-xs font-bold ${recommendationClasses(application.recommendation)}`}>
+                        {application.recommendation}
+                      </span>
+                    ) : (
+                      <span className="text-slate-400">-</span>
+                    )}
+                  </td>
+                  <td className="px-4 py-3 text-center">
+                    <Link aria-label="View application" className="inline-flex items-center justify-center text-blue-600 hover:text-blue-700" href={`/admin/applications/${application.id}`}>
+                      <View size={18} />
                     </Link>
                   </td>
                 </tr>
               ))}
               {!isLoading && !errorMessage && applications.length === 0 && (
                 <tr>
-                  <td className="px-4 py-8 text-center text-sm font-semibold text-slate-500" colSpan={6}>
+                  <td className="px-4 py-8 text-center text-sm font-semibold text-slate-500" colSpan={8}>
                     No applications match your search.
                   </td>
                 </tr>
@@ -307,11 +394,45 @@ export function AdminApplicationsPage() {
             </tbody>
           </table>
         </div>
-        <div className="flex flex-wrap items-center justify-between gap-3 border-t border-slate-200 p-4 text-sm text-slate-600">
+        <div className="divide-y divide-slate-100 md:hidden">
+          {isLoading ? (
+            <p className="p-4 text-center text-sm font-semibold text-slate-500">Loading applications...</p>
+          ) : errorMessage ? (
+            <p className="p-4 text-center text-sm font-semibold text-rose-600">{errorMessage}</p>
+          ) : applications.length === 0 ? (
+            <p className="p-4 text-center text-sm font-semibold text-slate-500">No applications match your search.</p>
+          ) : applications.map((application) => (
+            <article className="grid min-w-0 gap-3 p-4" key={application.id || application.number}>
+              <div className="flex min-w-0 items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="break-words text-sm font-black text-[#0b1f3a]">{application.number}</p>
+                  <p className="mt-1 break-words text-sm font-semibold text-slate-700">{application.title}</p>
+                </div>
+                <span className={`shrink-0 rounded-full px-2.5 py-1 text-xs font-bold ${statusClasses(application.status)}`}>
+                  {application.status}
+                </span>
+              </div>
+              <dl className="grid grid-cols-1 gap-2 text-sm min-[420px]:grid-cols-2">
+                <div className="min-w-0"><dt className="text-xs font-bold text-slate-500">State</dt><dd className="break-words text-slate-700">{application.state}</dd></div>
+                <div className="min-w-0"><dt className="text-xs font-bold text-slate-500">Review</dt><dd className="break-words text-slate-700">{application.review}</dd></div>
+                {application.totalScore !== null && (
+                  <div className="min-w-0"><dt className="text-xs font-bold text-slate-500">Score</dt><dd className="break-words font-black text-[#0b1f3a]">{application.totalScore.toFixed(2)} / 100</dd></div>
+                )}
+                {application.recommendation && (
+                  <div className="min-w-0"><dt className="text-xs font-bold text-slate-500">Recommendation</dt><dd className="break-words text-slate-700">{application.recommendation}</dd></div>
+                )}
+              </dl>
+              <Link aria-label="View application" className="inline-flex min-h-10 items-center self-start text-blue-600 hover:text-blue-700" href={`/admin/applications/${application.id}`}>
+                <View size={20} />
+              </Link>
+            </article>
+          ))}
+        </div>
+        <div className="flex flex-col items-start justify-between gap-3 border-t border-slate-200 p-3 text-sm text-slate-600 sm:flex-row sm:items-center sm:p-4">
           <div className="font-semibold">
             Showing {resultStart}-{resultEnd} of {totalApplications}
           </div>
-          <div className="flex flex-wrap items-center gap-3">
+          <div className="flex w-full flex-wrap items-center justify-between gap-3 sm:w-auto sm:justify-start">
             <label className="inline-flex items-center gap-2 font-semibold">
               Rows
               <select

@@ -14,6 +14,8 @@ import {
     participantCategoryInstituteTypeFromRow,
     type ParticipantCategoryInstituteTypeRow,
     type ParticipantCategoryRow,
+    stateFromRow,
+    type StateRow,
 } from "./common.model.js";
 
 export type DatabaseClient = {
@@ -43,14 +45,14 @@ function districtWhereClause(filters: DistrictFilters) {
 }
 
 async function getStates(pg: DatabaseClient) {
-    const result = await pg.query<NamedRow>(`
-    SELECT id, name_en, name_bn, name_hi
+    const result = await pg.query<StateRow>(`
+    SELECT id, name_en, name_bn, name_hi, is_registration_enabled
     FROM states
     WHERE is_active = TRUE
     ORDER BY name_en
   `);
 
-    return result.rows.map(listItemFromRow);
+    return result.rows.map(stateFromRow);
 }
 
 async function getAppSettings(pg: DatabaseClient) {

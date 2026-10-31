@@ -1,13 +1,17 @@
 "use client";
 
 import {
+  Award,
   ClipboardList,
+  History,
   LineChart,
   Home,
   LogOut,
+  Mail,
   Menu,
   Settings,
   ShieldCheck,
+  Trophy,
   Users,
   X,
 } from "lucide-react";
@@ -48,7 +52,11 @@ const defaultAdmin = {
 const navItems = [
   ["Dashboards", Home, "/admin/dashboard"],
   ["Applications", ClipboardList, "/admin/applications"],
+  ["Rankings", Trophy, "/admin/rankings"],
+  ["Juries", Award, "/admin/juries"],
   ["Users", Users, "/admin/users"],
+  ["Email Notification", Mail, "/admin/email-notifications"],
+  ["Audit Trail", History, "/admin/activities"],
   ["Page Views", LineChart, "/admin/analytics"],
   ["Settings", Settings, "/admin/settings"],
 ] as const;
@@ -222,7 +230,12 @@ export function AdminShell({
   }, [pathname]);
 
   const visibleNavItems = navItems.filter(([label]) => {
-    if (label === "Applications") return hasAccess(admin.applicationsAccess);
+    if (label === "Email Notification" || label === "Audit Trail") {
+      return normalizeAdminRole(admin.role) === "SUPERADMIN";
+    }
+    if (label === "Applications" || label === "Rankings") {
+      return hasAccess(admin.applicationsAccess);
+    }
     if (label === "Users") return hasAccess(admin.usersAccess);
     if (label === "Page Views") {
       const role = normalizeAdminRole(admin.role);

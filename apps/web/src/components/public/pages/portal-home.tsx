@@ -1,3 +1,6 @@
+"use client";
+
+import { useEffect, useState } from "react";
 import {
     ArrowDown,
     ArrowRight,
@@ -29,8 +32,12 @@ import {
 } from "@/mocks/public";
 import { getSiteContent } from "@/content";
 import { challengeDates } from "@/lib/challenge-dates";
+import { apiClient } from "@/lib/api-client";
+import { endpoints } from "@/lib/endpoints";
 import {
+    type AppSettingsMap,
     getAppSettings,
+    registrationAvailability,
     registrationPeriodText,
     settingsMap,
 } from "@/lib/registration-settings";
@@ -161,31 +168,51 @@ const registrationDateLocales: Record<string, string> = {
     hi: "hi-IN",
 };
 
-export async function PortalHome({ locale }: { locale: string }) {
+type StateLookup = { id: number; isRegistrationEnabled?: boolean; name: { bn: string; en: string; hi: string } };
+
+export function PortalHome({ locale }: { locale: string }) {
     const content = getSiteContent(locale);
     const home = content.home;
     const link = (path: string) => `/${locale}${path}`;
-    const appSettings = await getAppSettings()
-        .then(settingsMap)
-        .catch(() => ({}));
+
+    const [appSettings, setAppSettings] = useState<AppSettingsMap>({});
+    const [allStates, setAllStates] = useState<StateLookup[]>([]);
+
+    useEffect(() => {
+        Promise.all([
+            getAppSettings().then(settingsMap).catch(() => ({} as AppSettingsMap)),
+            apiClient.get<StateLookup[]>(endpoints.common.states).catch(() => [] as StateLookup[]),
+        ]).then(([settings, states]) => {
+            setAppSettings(settings);
+            setAllStates(states);
+        });
+    }, []);
+
     const registrationPeriod = registrationPeriodText(
         appSettings,
         registrationDateLocales[locale] ?? registrationDateLocales.en,
     );
+    const canRegister = registrationAvailability(appSettings, locale).canRegister;
+    const openStates = allStates.filter((s) => s.isRegistrationEnabled !== false);
+    const localeKey = (locale === "bn" || locale === "hi") ? locale : "en";
+    const openStatesText = openStates.length > 0
+        ? openStates.map((s) => s.name[localeKey]).join(", ")
+        : (locale === "bn" ? "কোনো রাজ্য নেই" : locale === "hi" ? "कोई राज्य नहीं" : "No states");
     const fallbackQuickItem = (
         item: string[] | undefined,
         fallback: [string, string],
     ): [string, string] => [item?.[0] ?? fallback[0], item?.[1] ?? fallback[1]];
+    const openToLabel: Record<string, string> = { bn: "কার জন্য খোলা", en: "Open to", hi: "किसके लिए खुला" };
     const quickInfo: Array<[string, string]> = [
         [
             registrationOpenLabels[locale] ?? registrationOpenLabels.en,
             registrationPeriod,
         ],
         fallbackQuickItem(home.quick[1], ["Regional hub", "Kolkata"]),
-        fallbackQuickItem(home.quick[2], [
-            "Open to",
-            "West Bengal, Bihar and Jharkhand",
-        ]),
+        [
+            openToLabel[locale] ?? openToLabel.en,
+            openStatesText,
+        ],
         fallbackQuickItem(home.quick[3], [
             "Need assistance?",
             "Contact the helpdesk",
@@ -198,6 +225,7 @@ export async function PortalHome({ locale }: { locale: string }) {
     };
     const guidelinesPdfHref =
         guidelinesPdfByLocale[locale] ?? guidelinesPdfByLocale.en;
+    let localizedTextSlideIndex = -1;
     const slides = heroSlides.map((slide) => {
         const hasSlideContent =
             Boolean(slide.eyebrow.trim()) ||
@@ -206,7 +234,7 @@ export async function PortalHome({ locale }: { locale: string }) {
             Boolean(slide.primaryCTA.label.trim() && slide.primaryCTA.href.trim()) ||
             Boolean(slide.secondaryCTA.label.trim() && slide.secondaryCTA.href.trim());
         const localizedSlide = hasSlideContent
-            ? home.heroSlides.find((item) => item.eyebrow === slide.eyebrow)
+            ? home.heroSlides[++localizedTextSlideIndex]
             : undefined;
 
         return {
@@ -216,10 +244,16 @@ export async function PortalHome({ locale }: { locale: string }) {
             description: localizedSlide?.description ?? slide.description,
             primaryCTA: {
                 ...slide.primaryCTA,
-                label: localizedSlide?.primaryCTA ?? slide.primaryCTA.label,
-                href: slide.primaryCTA.href
-                    ? slide.primaryCTA.href.replace("/en", `/${locale}`)
-                    : "",
+                label:
+                    !canRegister && slide.primaryCTA.href.includes("/register")
+                        ? ""
+                        : localizedSlide?.primaryCTA ?? slide.primaryCTA.label,
+                href:
+                    !canRegister && slide.primaryCTA.href.includes("/register")
+                        ? ""
+                        : slide.primaryCTA.href
+                          ? slide.primaryCTA.href.replace("/en", `/${locale}`)
+                          : "",
             },
             secondaryCTA: {
                 ...slide.secondaryCTA,
@@ -882,12 +916,23 @@ export async function PortalHome({ locale }: { locale: string }) {
                         <p className="mt-5 max-w-xl text-base font-medium leading-7 text-slate-700 md:text-lg">
                             {home.cta.description}
                         </p>
-                        <Link
-                            className="mt-8 inline-flex items-center gap-3 rounded-full bg-[#ff6b1a] px-8 py-4 text-lg font-bold text-white shadow-[0_14px_30px_rgba(255,107,26,.25)] transition hover:-translate-y-0.5 hover:bg-[#f08a24]"
-                            href={link("/register")}
-                        >
-                            {content.common.applyNow} <ArrowRight size={20} />
-                        </Link>
+                        {canRegister ? (
+                            <Link
+                                className="mt-8 inline-flex items-center gap-3 rounded-full bg-[#ff6b1a] px-8 py-4 text-lg font-bold text-white shadow-[0_14px_30px_rgba(255,107,26,.25)] transition hover:-translate-y-0.5 hover:bg-[#f08a24]"
+                                href={link("/register")}
+                            >
+                                {content.common.applyNow} <ArrowRight size={20} />
+                            </Link>
+                        ) : (
+                            <p className="mt-8 inline-flex items-center gap-3 rounded-full bg-slate-100 px-8 py-4 text-lg font-bold text-slate-500">
+                                {
+                                    registrationAvailability(
+                                        appSettings,
+                                        locale,
+                                    ).message
+                                }
+                            </p>
+                        )}
                         <p className="mt-7 text-xs font-black uppercase tracking-[0.22em] text-[#5f8fce]">
                             {home.cta.footer}
                         </p>
@@ -895,14 +940,18 @@ export async function PortalHome({ locale }: { locale: string }) {
                 </div>
             </section>
 
-            <span className="sticky-apply-spacer" aria-hidden="true" />
-            <StickyApply
-                href={link("/register")}
-                label={content.common.applyNow}
-                statusText={content.common.applicationsOpen}
-                hint={registrationPeriod}
-                hideWhenVisible="apply"
-            />
+            {canRegister && (
+                <>
+                    <span className="sticky-apply-spacer" aria-hidden="true" />
+                    <StickyApply
+                        href={link("/register")}
+                        label={content.common.applyNow}
+                        statusText={content.common.applicationsOpen}
+                        hint={registrationPeriod}
+                        hideWhenVisible="apply"
+                    />
+                </>
+            )}
         </>
     );
 }

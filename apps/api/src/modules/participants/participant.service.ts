@@ -1,4 +1,4 @@
-import { createHash } from "node:crypto";
+import { createHash, randomBytes, scryptSync, timingSafeEqual } from "node:crypto";
 import type { PoolClient, QueryResultRow } from "pg";
 import { getApiContent } from "../../content/index.js";
 import { emailService } from "../email/email.service.js";
@@ -12,9 +12,13 @@ import type {
     ParticipantApplicationsResult,
     ParticipantLanguage,
     ParticipantLoginApplication,
+    ParticipantPasswordLoginInput,
     ParticipantProfileResult,
     RequestParticipantLoginCodeInput,
     RequestParticipantLoginCodeResult,
+    RequestParticipantPasswordResetInput,
+    RequestParticipantPasswordResetResult,
+    ResetParticipantPasswordInput,
     SubmitParticipantApplicationInput,
     SubmitParticipantApplicationResult,
     UpdateParticipantApplicationSubmissionInput,
@@ -45,6 +49,7 @@ export class ParticipantRuleError extends Error {
 }
 
 type ParticipantLoginRow = {
+    application_hash?: string;
     application_id: string;
     application_number: string;
     email: string;
@@ -53,6 +58,24 @@ type ParticipantLoginRow = {
     member_id: string;
     mobile: string;
     status: string;
+};
+
+type ParticipantPasswordLoginRow = {
+    application_hash: string | null;
+    application_id: string | null;
+    application_number: string | null;
+    email: string;
+    full_name: string;
+    member_id: string | null;
+    mobile: string;
+    password_hash: string | null;
+    status: string | null;
+};
+
+type ParticipantPasswordResetRow = {
+    email: string;
+    full_name: string;
+    id: string;
 };
 
 type ParticipantApplicationSummaryRow = {
@@ -85,6 +108,15 @@ type ParticipantProfileResultRow = {
     profile: ParticipantProfileResult["profile"];
 };
 
+type ParticipantEmailVerificationProfileRow = {
+    application_id: string;
+    email: string;
+    email_verified: boolean;
+    full_name: string;
+    mobile: string;
+    participant_id: string;
+};
+
 type ApplicationDocumentDownloadRow = {
     file_size_bytes: string;
     id?: string;
@@ -107,6 +139,7 @@ type ChallengeCategoryRow = {
 
 type StateRow = {
     code: string;
+    is_registration_enabled: boolean;
     name_en: string;
 };
 
@@ -186,6 +219,94 @@ function hashToken(token: string) {
     return createHash("sha256").update(token).digest("hex");
 }
 
+function createEmailVerificationLinkToken() {
+    return randomBytes(32).toString("hex");
+}
+
+function createPasswordResetToken() {
+    return randomBytes(32).toString("base64url");
+}
+
+function hashPassword(password: string) {
+    const salt = randomBytes(16).toString("hex");
+    const hash = scryptSync(password, salt, 64).toString("hex");
+
+    return `scrypt$${salt}$${hash}`;
+}
+
+function getApiBaseUrl() {
+    const apiUrl = process.env.API_BASE_URL ?? process.env.NEXT_PUBLIC_API_URL;
+
+    if (!apiUrl) {
+        throw new Error(
+            "API base URL must be configured. Set either API_BASE_URL or NEXT_PUBLIC_API_URL in .env file",
+        );
+    }
+
+    // Accept a server URL or a base that already includes the API prefix.
+    return `${apiUrl.replace(/\/+$/, "").replace(/\/api(?:\/v1)?$/, "")}/api/v1`;
+}
+
+function getPortalUrl() {
+    const portalUrl =
+        process.env.APP_URL ??
+        process.env.NEXT_PUBLIC_APP_URL ??
+        process.env.NEXT_PUBLIC_WEB_URL;
+
+    if (!portalUrl) {
+        throw new Error(
+            "Portal URL must be configured. Set APP_URL or NEXT_PUBLIC_APP_URL in .env file",
+        );
+    }
+
+    return portalUrl.replace(/\/+$/, "");
+}
+
+function passwordResetTokenTtlMinutes() {
+    return Number(process.env.PARTICIPANT_PASSWORD_RESET_TOKEN_TTL_MINUTES ?? 30);
+}
+
+function buildPasswordResetUrl(input: {
+    language: ParticipantLanguage;
+    token: string;
+}) {
+    const url = new URL(
+        `/${input.language}/participants/reset-password`,
+        getPortalUrl(),
+    );
+    url.searchParams.set("token", input.token);
+
+    return url.toString();
+}
+
+function buildProfileVerificationUrl(input: {
+    applicationId: string;
+    language: ParticipantLanguage;
+    token: string;
+}) {
+    const url = new URL(`${getApiBaseUrl()}/registrations/verify-email`);
+    url.searchParams.set("token", input.token);
+    url.searchParams.set("locale", input.language);
+    url.searchParams.set("applicationId", input.applicationId);
+    url.searchParams.set("redirectTo", "participants/profile");
+
+    return url.toString();
+}
+
+function verifyPassword(password: string, storedHash: string | null) {
+    if (!storedHash) return false;
+
+    const [scheme, salt, hash] = storedHash.split("$");
+    if (scheme !== "scrypt" || !salt || !hash) return false;
+
+    const expected = Buffer.from(hash, "hex");
+    const actual = scryptSync(password, salt, expected.length);
+
+    return (
+        actual.length === expected.length && timingSafeEqual(actual, expected)
+    );
+}
+
 function formatDateOfBirth(value: Date | string | null) {
     if (!value) return "";
 
@@ -238,14 +359,6 @@ function booleanSetting(settings: AppSettingsMap, key: string) {
 function integerSetting(settings: AppSettingsMap, key: string) {
     const value = Number(settings[key]);
     return Number.isInteger(value) ? value : 0;
-}
-
-function dateSetting(settings: AppSettingsMap, key: string) {
-    const value = settings[key];
-    if (!value) return null;
-
-    const date = new Date(value);
-    return Number.isNaN(date.getTime()) ? null : date;
 }
 
 function createVerificationCode() {
@@ -348,6 +461,11 @@ async function ensureParticipantLoginTables(pg: DatabaseClient) {
   `);
 
     await pg.query(`
+    ALTER TABLE participants
+    ADD COLUMN IF NOT EXISTS password_hash VARCHAR(255)
+  `);
+
+    await pg.query(`
     CREATE TABLE IF NOT EXISTS participant_login_verification_attempts (
       id                 BIGSERIAL PRIMARY KEY,
       email              VARCHAR(255) NOT NULL UNIQUE,
@@ -380,6 +498,21 @@ async function ensureParticipantLoginTables(pg: DatabaseClient) {
   `);
 
     await pg.query(`
+    CREATE TABLE IF NOT EXISTS participant_password_reset_tokens (
+      id             BIGSERIAL PRIMARY KEY,
+      participant_id BIGINT NOT NULL,
+      email          VARCHAR(255) NOT NULL,
+      token_hash     VARCHAR(128) NOT NULL UNIQUE,
+      expires_at     TIMESTAMPTZ NOT NULL,
+      consumed_at    TIMESTAMPTZ,
+      created_at     TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      CONSTRAINT fk_participant_password_reset_tokens_participant
+        FOREIGN KEY (participant_id) REFERENCES participants(id)
+        ON UPDATE CASCADE ON DELETE CASCADE
+    )
+  `);
+
+    await pg.query(`
     CREATE INDEX IF NOT EXISTS idx_participant_login_attempts_locked_until
       ON participant_login_verification_attempts(locked_until)
   `);
@@ -393,6 +526,17 @@ async function ensureParticipantLoginTables(pg: DatabaseClient) {
     CREATE INDEX IF NOT EXISTS idx_participant_login_tokens_active
       ON participant_login_verification_tokens(token_hash, expires_at)
       WHERE consumed_at IS NULL
+  `);
+
+    await pg.query(`
+    CREATE INDEX IF NOT EXISTS idx_participant_password_reset_tokens_active
+      ON participant_password_reset_tokens(token_hash, expires_at)
+      WHERE consumed_at IS NULL
+  `);
+
+    await pg.query(`
+    CREATE INDEX IF NOT EXISTS idx_participant_password_reset_tokens_email
+      ON participant_password_reset_tokens(email)
   `);
 
     await pg.query(`
@@ -418,6 +562,10 @@ function toLoginApplication(
         role: row.is_team_lead ? "applicant" : "team_member",
         status: row.status,
     };
+}
+
+function loginRedirectForApplication() {
+    return "/participants/applications";
 }
 
 function getResendAvailableAt(lastSentAt = new Date()) {
@@ -695,6 +843,7 @@ async function verifyLoginCode(
             `
         SELECT
           pa.id AS application_id,
+          md5(pa.id::text) AS application_hash,
           pa.application_number,
           pa.status,
           atm.id AS member_id,
@@ -750,10 +899,263 @@ async function verifyLoginCode(
                 ...participant,
                 email: row.email,
             },
+            redirectTo: loginRedirectForApplication(),
             session: {
                 token: sessionToken,
             },
         };
+    } catch (error) {
+        await client.query("ROLLBACK");
+        throw error;
+    } finally {
+        client.release();
+    }
+}
+
+async function loginWithPassword(
+    pg: DatabasePool,
+    input: ParticipantPasswordLoginInput,
+): Promise<VerifyParticipantLoginResult> {
+    const language = normalizeLanguage(input.language);
+    const identifier = input.identifier.trim().toLowerCase();
+    const numericIdentifier = input.identifier.replace(/\D/g, "");
+    const client = await pg.connect();
+
+    try {
+        const result = await client.query<ParticipantPasswordLoginRow>(
+            `
+      SELECT
+        p.email,
+        p.full_name,
+        p.mobile,
+        p.password_hash,
+        pa.id AS application_id,
+        md5(pa.id::text) AS application_hash,
+        pa.application_number,
+        pa.status,
+        atm.id AS member_id
+      FROM participants p
+      LEFT JOIN LATERAL (
+        SELECT id, application_number, status, updated_at
+        FROM participant_applications
+        WHERE participant_id = p.id
+        ORDER BY
+          CASE WHEN status = 'submitted' THEN 1 ELSE 0 END,
+          updated_at DESC,
+          id DESC
+        LIMIT 1
+      ) pa ON TRUE
+      LEFT JOIN application_team_members atm
+        ON atm.application_id = pa.id
+       AND atm.is_applicant = TRUE
+      WHERE LOWER(p.email) = $1
+         OR p.mobile = $2
+      LIMIT 1
+    `,
+            [identifier, numericIdentifier],
+        );
+        const row = result.rows[0];
+
+        if (!row || !verifyPassword(input.password, row.password_hash)) {
+            throw new ParticipantRuleError(
+                "Invalid email/mobile number or password.",
+                401,
+            );
+        }
+
+        const memberId = row.member_id ?? row.application_id;
+        if (!memberId) {
+            throw new ParticipantRuleError(
+                getApiContent(language).api.participantNotFound,
+                404,
+            );
+        }
+
+        const participant: ParticipantLoginApplication = {
+            applicationId: Number(row.application_id ?? 0),
+            applicationNumber: row.application_number ?? "",
+            memberId: Number(memberId),
+            memberName: row.full_name,
+            phone: row.mobile,
+            role: "applicant",
+            status: row.status ?? "",
+        };
+        const sessionToken = createParticipantJwt({
+            email: row.email,
+            name: row.full_name,
+            phone: row.mobile,
+            role: "applicant",
+            sub: memberId,
+        });
+
+        return {
+            participant: {
+                ...participant,
+                email: row.email,
+            },
+            redirectTo: loginRedirectForApplication(),
+            session: {
+                token: sessionToken,
+            },
+        };
+    } finally {
+        client.release();
+    }
+}
+
+async function findParticipantPasswordResetTarget(
+    client: PoolClient,
+    email: string,
+) {
+    const result = await client.query<ParticipantPasswordResetRow>(
+        `
+      SELECT id, email, full_name
+      FROM participants
+      WHERE LOWER(email) = LOWER($1)
+      LIMIT 1
+    `,
+        [email],
+    );
+
+    return result.rows[0] ?? null;
+}
+
+async function requestPasswordReset(
+    pg: DatabasePool,
+    input: RequestParticipantPasswordResetInput,
+): Promise<RequestParticipantPasswordResetResult> {
+    const language = normalizeLanguage(input.language);
+    const email = input.email.trim().toLowerCase();
+    const client = await pg.connect();
+    const token = createPasswordResetToken();
+    const ttlMinutes = passwordResetTokenTtlMinutes();
+    let participant: ParticipantPasswordResetRow | null = null;
+
+    try {
+        await client.query("BEGIN");
+        participant = await findParticipantPasswordResetTarget(client, email);
+
+        if (participant) {
+            await client.query(
+                `
+          UPDATE participant_password_reset_tokens
+          SET consumed_at = COALESCE(consumed_at, NOW())
+          WHERE participant_id = $1
+            AND consumed_at IS NULL
+        `,
+                [participant.id],
+            );
+
+            await client.query(
+                `
+          INSERT INTO participant_password_reset_tokens (
+            participant_id,
+            email,
+            token_hash,
+            expires_at
+          )
+          VALUES ($1, $2, $3, NOW() + ($4 || ' minutes')::interval)
+        `,
+                [
+                    participant.id,
+                    participant.email,
+                    hashToken(token),
+                    ttlMinutes,
+                ],
+            );
+        }
+
+        await client.query("COMMIT");
+    } catch (error) {
+        await client.query("ROLLBACK");
+        throw error;
+    } finally {
+        client.release();
+    }
+
+    if (!participant) {
+        return {
+            emailDelivery: null,
+            passwordResetRequest: { email },
+        };
+    }
+
+    const resetUrl = buildPasswordResetUrl({ language, token });
+    const emailDelivery = await emailService.sendParticipantPasswordResetEmail({
+        language,
+        participantEmail: participant.email,
+        participantName: participant.full_name,
+        resetUrl,
+        ttlMinutes,
+    });
+
+    if (!emailDelivery.delivered) {
+        console.info(
+            `Participant password reset link for ${participant.email}: ${resetUrl}`,
+        );
+    }
+
+    return {
+        emailDelivery,
+        passwordResetRequest: { email: participant.email },
+    };
+}
+
+async function resetPassword(
+    pg: DatabasePool,
+    input: ResetParticipantPasswordInput,
+) {
+    const language = normalizeLanguage(input.language);
+    const client = await pg.connect();
+
+    try {
+        await client.query("BEGIN");
+
+        const tokenResult = await client.query<{
+            participant_id: string;
+            token_hash: string;
+        }>(
+            `
+        SELECT participant_id, token_hash
+        FROM participant_password_reset_tokens
+        WHERE token_hash = $1
+          AND consumed_at IS NULL
+          AND expires_at > NOW()
+        FOR UPDATE
+      `,
+            [hashToken(input.token)],
+        );
+        const tokenRow = tokenResult.rows[0];
+
+        if (!tokenRow) {
+            throw new ParticipantRuleError(
+                getApiContent(language).api.invalidToken,
+                400,
+            );
+        }
+
+        await client.query(
+            `
+        UPDATE participants
+        SET password_hash = $1,
+            updated_at = NOW()
+        WHERE id = $2
+      `,
+            [hashPassword(input.password), tokenRow.participant_id],
+        );
+
+        await client.query(
+            `
+        UPDATE participant_password_reset_tokens
+        SET consumed_at = NOW()
+        WHERE token_hash = $1
+      `,
+            [tokenRow.token_hash],
+        );
+
+        await client.query("COMMIT");
+
+        return { reset: true };
     } catch (error) {
         await client.query("ROLLBACK");
         throw error;
@@ -794,11 +1196,14 @@ function assertApplicationSettingsAllowSubmit(input: {
     }
 
     const now = new Date();
-    const startDate = dateSetting(
-        settings,
-        appSettingKeys.registrationStartDate,
+    const startDate = registrationDateInstant(
+        settings[appSettingKeys.registrationStartDate],
+        "start",
     );
-    const endDate = dateSetting(settings, appSettingKeys.registrationEndDate);
+    const endDate = registrationDateInstant(
+        settings[appSettingKeys.registrationEndDate],
+        "end",
+    );
 
     if (startDate && now < startDate) {
         throw new ParticipantRuleError(
@@ -926,7 +1331,7 @@ async function completeMissingParticipantBasics(
 async function getState(client: PoolClient, stateId: number) {
     const result = await client.query<StateRow>(
         `
-      SELECT id, name_en
+      SELECT id, name_en, is_registration_enabled
       FROM public.states
       WHERE id = $1
         AND is_active = TRUE
@@ -937,6 +1342,7 @@ async function getState(client: PoolClient, stateId: number) {
     const state = result.rows[0];
 
     if (!state) return null;
+    if (!state.is_registration_enabled) return "registration_closed" as const;
 
     return {
         ...state,
@@ -1177,6 +1583,54 @@ async function insertApplicationDocuments(input: {
     }
 }
 
+// Registration dates are Indian dates: a date-only value covers the whole day in IST (UTC+05:30).
+function registrationDateInstant(value: string | undefined, boundary: "start" | "end") {
+    const text = value?.trim();
+    if (!text) return null;
+    const dateOnly = /^\d{4}-\d{2}-\d{2}$/.test(text);
+    const date = new Date(
+        dateOnly
+            ? `${text}T${boundary === "start" ? "00:00:00.000" : "23:59:59.999"}+05:30`
+            : text,
+    );
+    return Number.isNaN(date.getTime()) ? null : date;
+}
+
+// Participants (never SuperAdmin) cannot edit or delete an application once an evaluation has started
+// or the registration end date has passed, whichever is earlier. Admin edits are SuperAdmin-only in the admin module.
+const registrationEndedMessage =
+    "The registration period has ended. This application can no longer be edited or deleted.";
+const underEvaluationMessage =
+    "This application is under evaluation and can no longer be edited or deleted.";
+
+function isRegistrationEnded(settings: AppSettingsMap) {
+    const endDate = registrationDateInstant(
+        settings[appSettingKeys.registrationEndDate],
+        "end",
+    );
+    return Boolean(endDate && new Date() > endDate);
+}
+
+async function assertApplicationEditable(
+    client: Pick<DatabasePool, "query">,
+    applicationId: string | number,
+) {
+    const settings = await getApplicationSettings(client as PoolClient);
+
+    if (isRegistrationEnded(settings)) {
+        throw new ParticipantRuleError(registrationEndedMessage, 403);
+    }
+
+    const evaluation = await client.query<{ started: boolean }>(
+        `SELECT EXISTS (SELECT 1 FROM public.jury_evaluations WHERE application_id = $1) AS started`,
+        [applicationId],
+    );
+
+    if (evaluation.rows[0]?.started) {
+        throw new ParticipantRuleError(underEvaluationMessage, 403);
+    }
+}
+
 async function getEditableApplicantApplication(input: {
     applicationHash: string;
     client: PoolClient;
@@ -1358,6 +1812,12 @@ async function submitApplication(
         }
 
         const state = await getState(client, input.stateId);
+        if (state === "registration_closed") {
+            throw new ParticipantRuleError(
+                "Participant registration is not open for the selected state.",
+                403,
+            );
+        }
         if (!state) {
             throw new ParticipantRuleError(
                 getApiContent(language).api.invalidState,
@@ -1640,13 +2100,6 @@ async function updateApplicationSubmission(
             },
         );
 
-        if (!applicant.email_verified) {
-            throw new ParticipantRuleError(
-                getApiContent(language).api.emailMustBeVerified,
-                403,
-            );
-        }
-
         applicant = await completeMissingParticipantBasics(client, applicant, {
             dateOfBirth: input.dateOfBirth,
             gender: input.gender,
@@ -1683,6 +2136,8 @@ async function updateApplicationSubmission(
             );
         }
 
+        await assertApplicationEditable(client, existingApplication.id);
+
         const existingDocumentCount = Number(
             existingApplication.document_count ?? 0,
         );
@@ -1704,7 +2159,7 @@ async function updateApplicationSubmission(
         }
 
         const state = await getState(client, input.stateId);
-        if (!state) {
+        if (!state || state === "registration_closed") {
             throw new ParticipantRuleError(
                 getApiContent(language).api.invalidState,
             );
@@ -2070,6 +2525,7 @@ async function getProfile(
         jsonb_build_object(
           'fullName', atm.full_name,
           'email', atm.email::text,
+          'emailVerified', p.email_verified,
           'mobile', atm.mobile,
           'role', CASE
             WHEN atm.id = pa.team_lead_team_member_id OR atm.is_applicant = TRUE
@@ -2151,6 +2607,129 @@ async function getProfile(
     return profile ? { profile } : null;
 }
 
+async function requestProfileVerificationLink(
+    pg: DatabasePool,
+    input: { email: string; language: ParticipantLanguage },
+) {
+    const language = normalizeLanguage(input.language);
+    const client = await pg.connect();
+    let participant: ParticipantEmailVerificationProfileRow;
+    let verificationUrl = "";
+
+    try {
+        await client.query("BEGIN");
+
+        const participantResult =
+            await client.query<ParticipantEmailVerificationProfileRow>(
+                `
+      SELECT
+        p.id AS participant_id,
+        p.email::text AS email,
+        p.email_verified,
+        p.full_name,
+        p.mobile,
+        pa.id AS application_id
+      FROM public.participants p
+      JOIN public.participant_applications pa
+        ON pa.participant_id = p.id
+      WHERE LOWER(p.email::text) = LOWER($1)
+      ORDER BY pa.updated_at DESC, pa.id DESC
+      LIMIT 1
+      FOR UPDATE OF p
+    `,
+                [input.email],
+            );
+        const row = participantResult.rows[0];
+
+        if (!row) {
+            throw new ParticipantRuleError(
+                getApiContent(language).api.participantNotFound,
+                404,
+            );
+        }
+
+        if (row.email_verified) {
+            throw new ParticipantRuleError(
+                getApiContent(language).api.emailVerified,
+                409,
+            );
+        }
+
+        const latestToken = await client.query<{ created_at: Date }>(
+            `
+      SELECT created_at
+      FROM public.participant_email_verification_tokens
+      WHERE participant_id = $1
+      ORDER BY created_at DESC
+      LIMIT 1
+    `,
+            [row.participant_id],
+        );
+        const lastCreatedAt = latestToken.rows[0]?.created_at;
+        if (
+            lastCreatedAt &&
+            Date.now() - lastCreatedAt.getTime() <
+                verificationResendIntervalMinutes() * 60 * 1000
+        ) {
+            throw new ParticipantRuleError(
+                getApiContent(language).api.verificationResendTooSoon.replace(
+                    "{minutes}",
+                    String(verificationResendIntervalMinutes()),
+                ),
+                429,
+            );
+        }
+
+        const token = createEmailVerificationLinkToken();
+        await client.query(
+            `
+      INSERT INTO public.participant_email_verification_tokens (
+        participant_id,
+        application_id,
+        token_hash,
+        expires_at
+      )
+      VALUES ($1, $2, $3, 'infinity'::timestamptz)
+    `,
+            [row.participant_id, row.application_id, hashToken(token)],
+        );
+
+        verificationUrl = buildProfileVerificationUrl({
+            applicationId: row.application_id,
+            language,
+            token,
+        });
+        participant = row;
+
+        await client.query("COMMIT");
+    } catch (error) {
+        await client.query("ROLLBACK");
+        throw error;
+    } finally {
+        client.release();
+    }
+
+    const emailDelivery = await emailService.sendParticipantVerificationEmail({
+        language,
+        participantEmail: participant.email,
+        participantName: participant.full_name,
+        verificationUrl,
+    });
+
+    if (!emailDelivery.delivered) {
+        console.info(
+            `Profile verification link for ${participant.email}: ${verificationUrl}`,
+        );
+    }
+
+    return {
+        emailDelivery,
+        resendAvailableAt: new Date(
+            Date.now() + verificationResendIntervalMinutes() * 60 * 1000,
+        ).toISOString(),
+    };
+}
+
 async function getApplication(
     pg: DatabasePool,
     input: GetParticipantApplicationInput,
@@ -2167,6 +2746,7 @@ async function getApplication(
           'submittedAt', pa.submitted_at,
           'createdAt', pa.created_at,
           'updatedAt', pa.updated_at,
+          'evaluationStarted', EXISTS (SELECT 1 FROM public.jury_evaluations je WHERE je.application_id = pa.id),
           'title', COALESCE(NULLIF(pa.proposed_solution, ''), c.title_en, pa.application_number),
           'profile', jsonb_build_object(
             'city', pa.city,
@@ -2324,8 +2904,19 @@ async function getApplication(
         [input.email, input.applicationHash],
     );
 
-    const application = result.rows[0]?.application;
-    return application ? { application } : null;
+    const row = result.rows[0]?.application;
+    if (!row) return null;
+
+    // The UI hides Edit / Delete when the application is locked (evaluation started or registration ended).
+    const { evaluationStarted, ...application } = row;
+    const settings = await getApplicationSettings(pg as unknown as PoolClient);
+
+    return {
+        application: {
+            ...application,
+            isLocked: Boolean(evaluationStarted) || isRegistrationEnded(settings),
+        },
+    };
 }
 
 async function getApplicationDocumentDownload(
@@ -2378,6 +2969,22 @@ async function deleteApplicationDocument(
         email: string;
     },
 ): Promise<DeleteParticipantApplicationDocumentResult | null> {
+    const application = await pg.query<{ id: string }>(
+        `
+      SELECT pa.id::text
+      FROM public.participant_applications pa
+      JOIN public.participants p ON p.id = pa.participant_id
+      WHERE md5(pa.id::text) = LOWER($1)
+        AND LOWER(p.email::text) = LOWER($2)
+      LIMIT 1
+    `,
+        [input.applicationHash, input.email],
+    );
+
+    if (application.rows[0]) {
+        await assertApplicationEditable(pg, application.rows[0].id);
+    }
+
     const result = await pg.query<
         ApplicationDocumentDownloadRow & {
             id: string;
@@ -2466,8 +3073,12 @@ export const participantService = {
     getApplicationDocumentDownload,
     getApplications,
     getProfile,
+    loginWithPassword,
     normalizeLanguage,
+    requestPasswordReset,
+    requestProfileVerificationLink,
     requestLoginCode,
+    resetPassword,
     resendLoginCode,
     submitApplication,
     updateApplicationSubmission,
