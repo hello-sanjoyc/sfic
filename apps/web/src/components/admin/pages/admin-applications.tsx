@@ -7,6 +7,7 @@ import {
   ChevronsUpDown,
   ChevronUp,
   ClipboardList,
+  FileText,
   Search,
   View,
 } from "lucide-react";
@@ -15,6 +16,7 @@ import { useEffect, useState } from "react";
 import { AdminShell } from "@/components/admin/common/admin-shell";
 import { AUTH_STORAGE_KEY } from "@/components/auth";
 import { apiClient } from "@/lib/api-client";
+import { appConfig } from "@/lib/app-config";
 import { endpoints } from "@/lib/endpoints";
 
 type ApplicationStatus =
@@ -110,6 +112,31 @@ function isCurrentAdminSuperAdmin() {
   }
 }
 
+function getAdminAuthorizationHeader() {
+  if (typeof window === "undefined") return "";
+  try {
+    const session = JSON.parse(localStorage.getItem(AUTH_STORAGE_KEY) ?? "{}") as {
+      actor?: string;
+      session?: { token?: string };
+    };
+    const token = session.actor === "admin" ? session.session?.token : undefined;
+    return token ? `Bearer ${token}` : "";
+  } catch {
+    return "";
+  }
+}
+
+function triggerDownload(blob: Blob, filename: string) {
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
+}
+
 function formatStatus(status = "draft"): ApplicationStatus {
   const labels: Record<string, ApplicationStatus> = {
     draft: "Draft",
@@ -195,6 +222,7 @@ function SortIcon({
 
 export function AdminApplicationsPage() {
   const [applications, setApplications] = useState<Application[]>([]);
+  const [downloadingCardId, setDownloadingCardId] = useState<number | null>(null);
   const [errorMessage, setErrorMessage] = useState("");
   const [includeIncomplete, setIncludeIncomplete] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
@@ -378,9 +406,39 @@ export function AdminApplicationsPage() {
                     )}
                   </td>
                   <td className="px-4 py-3 text-center">
-                    <Link aria-label="View application" className="inline-flex items-center justify-center text-blue-600 hover:text-blue-700" href={`/admin/applications/${application.id}`}>
-                      <View size={18} />
-                    </Link>
+                    <div className="inline-flex items-center justify-center gap-2">
+                      <Link aria-label="View application" className="inline-flex items-center justify-center text-blue-600 hover:text-blue-700" href={`/admin/applications/${application.id}`}>
+                        <View size={18} />
+                      </Link>
+                      {application.status === "Evaluated" && (
+                        <button
+                          aria-label="Download scoring card"
+                          className="inline-flex items-center justify-center text-emerald-600 hover:text-emerald-700 disabled:opacity-40"
+                          disabled={downloadingCardId === application.id}
+                          onClick={async () => {
+                            const authorization = getAdminAuthorizationHeader();
+                            if (!authorization || downloadingCardId !== null) return;
+                            setDownloadingCardId(application.id);
+                            try {
+                              const response = await fetch(
+                                `${appConfig.apiUrl}${endpoints.admin.applicationScoringCard(application.id)}`,
+                                { headers: { Authorization: authorization } },
+                              );
+                              if (!response.ok) throw new Error("Download failed.");
+                              const blob = await response.blob();
+                              triggerDownload(blob, `${application.number}-scoring-card.pdf`);
+                            } catch {
+                              // silently ignore
+                            } finally {
+                              setDownloadingCardId(null);
+                            }
+                          }}
+                          type="button"
+                        >
+                          <FileText size={18} />
+                        </button>
+                      )}
+                    </div>
                   </td>
                 </tr>
               ))}

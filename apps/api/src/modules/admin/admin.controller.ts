@@ -5,6 +5,7 @@ import { join, resolve } from "node:path";
 import { getApiContent } from "../../content/index.js";
 import { sendError, sendSuccess } from "../common/api-response.js";
 import { generateApplicationPdf } from "./admin-application-pdf.js";
+import { generateScoringCardPdf } from "./admin-scoring-card-pdf.js";
 import { attachEvaluationSummaries } from "./admin.evaluations.js";
 import { auditService } from "../audit/audit.service.js";
 import type { AuthenticatedAdminRequest } from "./admin-auth.js";
@@ -283,7 +284,8 @@ function normalizeRecipientSortBy(value: string | undefined) {
 
 function parseNotificationId(value: string | undefined) {
     const parsed = parsePositiveInteger(value);
-    if (!parsed) throw new AdminRuleError("A valid notification id is required.");
+    if (!parsed)
+        throw new AdminRuleError("A valid notification id is required.");
     return parsed;
 }
 
@@ -532,12 +534,11 @@ async function getDashboardCounts(
     }
 }
 
-async function getServerHealth(
-    request: FastifyRequest,
-    reply: FastifyReply,
-) {
+async function getServerHealth(request: FastifyRequest, reply: FastifyReply) {
     try {
-        const result = await adminService.getServerHealth(getAdminAccess(request));
+        const result = await adminService.getServerHealth(
+            getAdminAccess(request),
+        );
 
         return reply.code(200).send(result);
     } catch (error) {
@@ -605,7 +606,11 @@ async function getUser(
     }
 
     try {
-        const user = await adminService.getUser(pg, userId, getAdminAccess(request));
+        const user = await adminService.getUser(
+            pg,
+            userId,
+            getAdminAccess(request),
+        );
 
         if (!user) {
             return sendError(request, reply, {
@@ -674,7 +679,7 @@ async function createUser(
             statusCode:
                 error instanceof AdminRuleError
                     ? error.statusCode
-                    : getErrorStatusCode(error) ?? 500,
+                    : (getErrorStatusCode(error) ?? 500),
         });
     }
 }
@@ -756,7 +761,7 @@ async function updateUser(
             statusCode:
                 error instanceof AdminRuleError
                     ? error.statusCode
-                    : getErrorStatusCode(error) ?? 500,
+                    : (getErrorStatusCode(error) ?? 500),
         });
     }
 }
@@ -815,7 +820,7 @@ async function deleteUser(
             statusCode:
                 error instanceof AdminRuleError
                     ? error.statusCode
-                    : getErrorStatusCode(error) ?? 500,
+                    : (getErrorStatusCode(error) ?? 500),
         });
     }
 }
@@ -835,7 +840,7 @@ function handleAdminSettingsError(
         statusCode:
             error instanceof AdminRuleError
                 ? error.statusCode
-                : getErrorStatusCode(error) ?? 500,
+                : (getErrorStatusCode(error) ?? 500),
     });
 }
 
@@ -877,7 +882,8 @@ async function getSettingsConfigurations(
     try {
         return sendSuccess(request, reply, {
             data: {
-                configurations: await adminService.getSettingsConfigurations(pg),
+                configurations:
+                    await adminService.getSettingsConfigurations(pg),
             },
             message: "Configurations fetched successfully.",
         });
@@ -1019,12 +1025,23 @@ async function getSettingsState(
     const pg = requireDatabase(request, reply);
     if (!pg) return reply;
     const id = parsePositiveInteger(request.params.id);
-    if (!id) return sendError(request, reply, { message: "A valid id is required.", statusCode: 400 });
+    if (!id)
+        return sendError(request, reply, {
+            message: "A valid id is required.",
+            statusCode: 400,
+        });
 
     try {
         const state = await adminService.getSettingsState(pg, id);
-        if (!state) return sendError(request, reply, { message: "State not found.", statusCode: 404 });
-        return sendSuccess(request, reply, { data: { state }, message: "State fetched successfully." });
+        if (!state)
+            return sendError(request, reply, {
+                message: "State not found.",
+                statusCode: 404,
+            });
+        return sendSuccess(request, reply, {
+            data: { state },
+            message: "State fetched successfully.",
+        });
     } catch (error) {
         return handleAdminSettingsError(request, reply, error);
     }
@@ -1050,19 +1067,33 @@ async function createSettingsState(
 }
 
 async function updateSettingsState(
-    request: FastifyRequest<{ Body?: UpsertSettingBody; Params: SettingItemParams }>,
+    request: FastifyRequest<{
+        Body?: UpsertSettingBody;
+        Params: SettingItemParams;
+    }>,
     reply: FastifyReply,
 ) {
     const pg = requireDatabase(request, reply);
     const body = requireSettingBody(request, reply);
     const id = parsePositiveInteger(request.params.id);
     if (!pg || !body) return reply;
-    if (!id) return sendError(request, reply, { message: "A valid id is required.", statusCode: 400 });
+    if (!id)
+        return sendError(request, reply, {
+            message: "A valid id is required.",
+            statusCode: 400,
+        });
 
     try {
         const result = await adminService.updateSettingsState(pg, id, body);
-        if (!result) return sendError(request, reply, { message: "State not found.", statusCode: 404 });
-        return sendSuccess(request, reply, { data: result, message: "State updated successfully." });
+        if (!result)
+            return sendError(request, reply, {
+                message: "State not found.",
+                statusCode: 404,
+            });
+        return sendSuccess(request, reply, {
+            data: result,
+            message: "State updated successfully.",
+        });
     } catch (error) {
         return handleAdminSettingsError(request, reply, error);
     }
@@ -1075,334 +1106,711 @@ async function deleteSettingsState(
     const pg = requireDatabase(request, reply);
     if (!pg) return reply;
     const id = parsePositiveInteger(request.params.id);
-    if (!id) return sendError(request, reply, { message: "A valid id is required.", statusCode: 400 });
+    if (!id)
+        return sendError(request, reply, {
+            message: "A valid id is required.",
+            statusCode: 400,
+        });
 
     try {
         const result = await adminService.deleteSettingsState(pg, id);
-        if (!result) return sendError(request, reply, { message: "State not found.", statusCode: 404 });
-        return sendSuccess(request, reply, { data: result, message: "State deactivated successfully." });
+        if (!result)
+            return sendError(request, reply, {
+                message: "State not found.",
+                statusCode: 404,
+            });
+        return sendSuccess(request, reply, {
+            data: result,
+            message: "State deactivated successfully.",
+        });
     } catch (error) {
         return handleAdminSettingsError(request, reply, error);
     }
 }
 
-async function getSettingsDistricts(request: FastifyRequest, reply: FastifyReply) {
+async function getSettingsDistricts(
+    request: FastifyRequest,
+    reply: FastifyReply,
+) {
     const pg = requireDatabase(request, reply);
     if (!pg) return reply;
     try {
-        return sendSuccess(request, reply, { data: { districts: await adminService.getSettingsDistricts(pg) }, message: "Districts fetched successfully." });
+        return sendSuccess(request, reply, {
+            data: { districts: await adminService.getSettingsDistricts(pg) },
+            message: "Districts fetched successfully.",
+        });
     } catch (error) {
         return handleAdminSettingsError(request, reply, error);
     }
 }
 
-async function getSettingsDistrict(request: FastifyRequest<{ Params: SettingItemParams }>, reply: FastifyReply) {
+async function getSettingsDistrict(
+    request: FastifyRequest<{ Params: SettingItemParams }>,
+    reply: FastifyReply,
+) {
     const pg = requireDatabase(request, reply);
     if (!pg) return reply;
     const id = parsePositiveInteger(request.params.id);
-    if (!id) return sendError(request, reply, { message: "A valid id is required.", statusCode: 400 });
+    if (!id)
+        return sendError(request, reply, {
+            message: "A valid id is required.",
+            statusCode: 400,
+        });
     try {
         const district = await adminService.getSettingsDistrict(pg, id);
-        if (!district) return sendError(request, reply, { message: "District not found.", statusCode: 404 });
-        return sendSuccess(request, reply, { data: { district }, message: "District fetched successfully." });
+        if (!district)
+            return sendError(request, reply, {
+                message: "District not found.",
+                statusCode: 404,
+            });
+        return sendSuccess(request, reply, {
+            data: { district },
+            message: "District fetched successfully.",
+        });
     } catch (error) {
         return handleAdminSettingsError(request, reply, error);
     }
 }
 
-async function createSettingsDistrict(request: FastifyRequest<{ Body?: UpsertSettingBody }>, reply: FastifyReply) {
+async function createSettingsDistrict(
+    request: FastifyRequest<{ Body?: UpsertSettingBody }>,
+    reply: FastifyReply,
+) {
     const pg = requireDatabase(request, reply);
     const body = requireSettingBody(request, reply);
     if (!pg || !body) return reply;
     try {
-        return sendSuccess(request, reply, { data: await adminService.createSettingsDistrict(pg, body), message: "District created successfully.", statusCode: 201 });
+        return sendSuccess(request, reply, {
+            data: await adminService.createSettingsDistrict(pg, body),
+            message: "District created successfully.",
+            statusCode: 201,
+        });
     } catch (error) {
         return handleAdminSettingsError(request, reply, error);
     }
 }
 
-async function updateSettingsDistrict(request: FastifyRequest<{ Body?: UpsertSettingBody; Params: SettingItemParams }>, reply: FastifyReply) {
+async function updateSettingsDistrict(
+    request: FastifyRequest<{
+        Body?: UpsertSettingBody;
+        Params: SettingItemParams;
+    }>,
+    reply: FastifyReply,
+) {
     const pg = requireDatabase(request, reply);
     const body = requireSettingBody(request, reply);
     const id = parsePositiveInteger(request.params.id);
     if (!pg || !body) return reply;
-    if (!id) return sendError(request, reply, { message: "A valid id is required.", statusCode: 400 });
+    if (!id)
+        return sendError(request, reply, {
+            message: "A valid id is required.",
+            statusCode: 400,
+        });
     try {
         const result = await adminService.updateSettingsDistrict(pg, id, body);
-        if (!result) return sendError(request, reply, { message: "District not found.", statusCode: 404 });
-        return sendSuccess(request, reply, { data: result, message: "District updated successfully." });
+        if (!result)
+            return sendError(request, reply, {
+                message: "District not found.",
+                statusCode: 404,
+            });
+        return sendSuccess(request, reply, {
+            data: result,
+            message: "District updated successfully.",
+        });
     } catch (error) {
         return handleAdminSettingsError(request, reply, error);
     }
 }
 
-async function deleteSettingsDistrict(request: FastifyRequest<{ Params: SettingItemParams }>, reply: FastifyReply) {
+async function deleteSettingsDistrict(
+    request: FastifyRequest<{ Params: SettingItemParams }>,
+    reply: FastifyReply,
+) {
     const pg = requireDatabase(request, reply);
     if (!pg) return reply;
     const id = parsePositiveInteger(request.params.id);
-    if (!id) return sendError(request, reply, { message: "A valid id is required.", statusCode: 400 });
+    if (!id)
+        return sendError(request, reply, {
+            message: "A valid id is required.",
+            statusCode: 400,
+        });
     try {
         const result = await adminService.deleteSettingsDistrict(pg, id);
-        if (!result) return sendError(request, reply, { message: "District not found.", statusCode: 404 });
-        return sendSuccess(request, reply, { data: result, message: "District deactivated successfully." });
+        if (!result)
+            return sendError(request, reply, {
+                message: "District not found.",
+                statusCode: 404,
+            });
+        return sendSuccess(request, reply, {
+            data: result,
+            message: "District deactivated successfully.",
+        });
     } catch (error) {
         return handleAdminSettingsError(request, reply, error);
     }
 }
 
-async function getSettingsInstituteTypes(request: FastifyRequest, reply: FastifyReply) {
+async function getSettingsInstituteTypes(
+    request: FastifyRequest,
+    reply: FastifyReply,
+) {
     const pg = requireDatabase(request, reply);
     if (!pg) return reply;
     try {
-        return sendSuccess(request, reply, { data: { instituteTypes: await adminService.getSettingsInstituteTypes(pg) }, message: "Institute types fetched successfully." });
+        return sendSuccess(request, reply, {
+            data: {
+                instituteTypes:
+                    await adminService.getSettingsInstituteTypes(pg),
+            },
+            message: "Institute types fetched successfully.",
+        });
     } catch (error) {
         return handleAdminSettingsError(request, reply, error);
     }
 }
 
-async function getSettingsInstituteType(request: FastifyRequest<{ Params: SettingItemParams }>, reply: FastifyReply) {
+async function getSettingsInstituteType(
+    request: FastifyRequest<{ Params: SettingItemParams }>,
+    reply: FastifyReply,
+) {
     const pg = requireDatabase(request, reply);
     if (!pg) return reply;
     const id = parsePositiveInteger(request.params.id);
-    if (!id) return sendError(request, reply, { message: "A valid id is required.", statusCode: 400 });
+    if (!id)
+        return sendError(request, reply, {
+            message: "A valid id is required.",
+            statusCode: 400,
+        });
     try {
-        const instituteType = await adminService.getSettingsInstituteType(pg, id);
-        if (!instituteType) return sendError(request, reply, { message: "Institute type not found.", statusCode: 404 });
-        return sendSuccess(request, reply, { data: { instituteType }, message: "Institute type fetched successfully." });
+        const instituteType = await adminService.getSettingsInstituteType(
+            pg,
+            id,
+        );
+        if (!instituteType)
+            return sendError(request, reply, {
+                message: "Institute type not found.",
+                statusCode: 404,
+            });
+        return sendSuccess(request, reply, {
+            data: { instituteType },
+            message: "Institute type fetched successfully.",
+        });
     } catch (error) {
         return handleAdminSettingsError(request, reply, error);
     }
 }
 
-async function createSettingsInstituteType(request: FastifyRequest<{ Body?: UpsertSettingBody }>, reply: FastifyReply) {
+async function createSettingsInstituteType(
+    request: FastifyRequest<{ Body?: UpsertSettingBody }>,
+    reply: FastifyReply,
+) {
     const pg = requireDatabase(request, reply);
     const body = requireSettingBody(request, reply);
     if (!pg || !body) return reply;
     try {
-        return sendSuccess(request, reply, { data: await adminService.createSettingsInstituteType(pg, body), message: "Institute type created successfully.", statusCode: 201 });
+        return sendSuccess(request, reply, {
+            data: await adminService.createSettingsInstituteType(pg, body),
+            message: "Institute type created successfully.",
+            statusCode: 201,
+        });
     } catch (error) {
         return handleAdminSettingsError(request, reply, error);
     }
 }
 
-async function updateSettingsInstituteType(request: FastifyRequest<{ Body?: UpsertSettingBody; Params: SettingItemParams }>, reply: FastifyReply) {
+async function updateSettingsInstituteType(
+    request: FastifyRequest<{
+        Body?: UpsertSettingBody;
+        Params: SettingItemParams;
+    }>,
+    reply: FastifyReply,
+) {
     const pg = requireDatabase(request, reply);
     const body = requireSettingBody(request, reply);
     const id = parsePositiveInteger(request.params.id);
     if (!pg || !body) return reply;
-    if (!id) return sendError(request, reply, { message: "A valid id is required.", statusCode: 400 });
+    if (!id)
+        return sendError(request, reply, {
+            message: "A valid id is required.",
+            statusCode: 400,
+        });
     try {
-        const result = await adminService.updateSettingsInstituteType(pg, id, body);
-        if (!result) return sendError(request, reply, { message: "Institute type not found.", statusCode: 404 });
-        return sendSuccess(request, reply, { data: result, message: "Institute type updated successfully." });
+        const result = await adminService.updateSettingsInstituteType(
+            pg,
+            id,
+            body,
+        );
+        if (!result)
+            return sendError(request, reply, {
+                message: "Institute type not found.",
+                statusCode: 404,
+            });
+        return sendSuccess(request, reply, {
+            data: result,
+            message: "Institute type updated successfully.",
+        });
     } catch (error) {
         return handleAdminSettingsError(request, reply, error);
     }
 }
 
-async function deleteSettingsInstituteType(request: FastifyRequest<{ Params: SettingItemParams }>, reply: FastifyReply) {
+async function deleteSettingsInstituteType(
+    request: FastifyRequest<{ Params: SettingItemParams }>,
+    reply: FastifyReply,
+) {
     const pg = requireDatabase(request, reply);
     if (!pg) return reply;
     const id = parsePositiveInteger(request.params.id);
-    if (!id) return sendError(request, reply, { message: "A valid id is required.", statusCode: 400 });
+    if (!id)
+        return sendError(request, reply, {
+            message: "A valid id is required.",
+            statusCode: 400,
+        });
     try {
         const result = await adminService.deleteSettingsInstituteType(pg, id);
-        if (!result) return sendError(request, reply, { message: "Institute type not found.", statusCode: 404 });
-        return sendSuccess(request, reply, { data: result, message: "Institute type deactivated successfully." });
+        if (!result)
+            return sendError(request, reply, {
+                message: "Institute type not found.",
+                statusCode: 404,
+            });
+        return sendSuccess(request, reply, {
+            data: result,
+            message: "Institute type deactivated successfully.",
+        });
     } catch (error) {
         return handleAdminSettingsError(request, reply, error);
     }
 }
 
-async function getSettingsParticipantCategories(request: FastifyRequest, reply: FastifyReply) {
+async function getSettingsParticipantCategories(
+    request: FastifyRequest,
+    reply: FastifyReply,
+) {
     const pg = requireDatabase(request, reply);
     if (!pg) return reply;
     try {
-        return sendSuccess(request, reply, { data: { participantCategories: await adminService.getSettingsParticipantCategories(pg) }, message: "Participant categories fetched successfully." });
+        return sendSuccess(request, reply, {
+            data: {
+                participantCategories:
+                    await adminService.getSettingsParticipantCategories(pg),
+            },
+            message: "Participant categories fetched successfully.",
+        });
     } catch (error) {
         return handleAdminSettingsError(request, reply, error);
     }
 }
 
-async function getSettingsParticipantCategory(request: FastifyRequest<{ Params: SettingItemParams }>, reply: FastifyReply) {
+async function getSettingsParticipantCategory(
+    request: FastifyRequest<{ Params: SettingItemParams }>,
+    reply: FastifyReply,
+) {
     const pg = requireDatabase(request, reply);
     if (!pg) return reply;
     const id = parsePositiveInteger(request.params.id);
-    if (!id) return sendError(request, reply, { message: "A valid id is required.", statusCode: 400 });
+    if (!id)
+        return sendError(request, reply, {
+            message: "A valid id is required.",
+            statusCode: 400,
+        });
     try {
-        const participantCategory = await adminService.getSettingsParticipantCategory(pg, id);
-        if (!participantCategory) return sendError(request, reply, { message: "Participant category not found.", statusCode: 404 });
-        return sendSuccess(request, reply, { data: { participantCategory }, message: "Participant category fetched successfully." });
+        const participantCategory =
+            await adminService.getSettingsParticipantCategory(pg, id);
+        if (!participantCategory)
+            return sendError(request, reply, {
+                message: "Participant category not found.",
+                statusCode: 404,
+            });
+        return sendSuccess(request, reply, {
+            data: { participantCategory },
+            message: "Participant category fetched successfully.",
+        });
     } catch (error) {
         return handleAdminSettingsError(request, reply, error);
     }
 }
 
-async function createSettingsParticipantCategory(request: FastifyRequest<{ Body?: UpsertSettingBody }>, reply: FastifyReply) {
+async function createSettingsParticipantCategory(
+    request: FastifyRequest<{ Body?: UpsertSettingBody }>,
+    reply: FastifyReply,
+) {
     const pg = requireDatabase(request, reply);
     const body = requireSettingBody(request, reply);
     if (!pg || !body) return reply;
     try {
-        return sendSuccess(request, reply, { data: await adminService.createSettingsParticipantCategory(pg, body), message: "Participant category created successfully.", statusCode: 201 });
+        return sendSuccess(request, reply, {
+            data: await adminService.createSettingsParticipantCategory(
+                pg,
+                body,
+            ),
+            message: "Participant category created successfully.",
+            statusCode: 201,
+        });
     } catch (error) {
         return handleAdminSettingsError(request, reply, error);
     }
 }
 
-async function updateSettingsParticipantCategory(request: FastifyRequest<{ Body?: UpsertSettingBody; Params: SettingItemParams }>, reply: FastifyReply) {
+async function updateSettingsParticipantCategory(
+    request: FastifyRequest<{
+        Body?: UpsertSettingBody;
+        Params: SettingItemParams;
+    }>,
+    reply: FastifyReply,
+) {
     const pg = requireDatabase(request, reply);
     const body = requireSettingBody(request, reply);
     const id = parsePositiveInteger(request.params.id);
     if (!pg || !body) return reply;
-    if (!id) return sendError(request, reply, { message: "A valid id is required.", statusCode: 400 });
+    if (!id)
+        return sendError(request, reply, {
+            message: "A valid id is required.",
+            statusCode: 400,
+        });
     try {
-        const result = await adminService.updateSettingsParticipantCategory(pg, id, body);
-        if (!result) return sendError(request, reply, { message: "Participant category not found.", statusCode: 404 });
-        return sendSuccess(request, reply, { data: result, message: "Participant category updated successfully." });
+        const result = await adminService.updateSettingsParticipantCategory(
+            pg,
+            id,
+            body,
+        );
+        if (!result)
+            return sendError(request, reply, {
+                message: "Participant category not found.",
+                statusCode: 404,
+            });
+        return sendSuccess(request, reply, {
+            data: result,
+            message: "Participant category updated successfully.",
+        });
     } catch (error) {
         return handleAdminSettingsError(request, reply, error);
     }
 }
 
-async function deleteSettingsParticipantCategory(request: FastifyRequest<{ Params: SettingItemParams }>, reply: FastifyReply) {
+async function deleteSettingsParticipantCategory(
+    request: FastifyRequest<{ Params: SettingItemParams }>,
+    reply: FastifyReply,
+) {
     const pg = requireDatabase(request, reply);
     if (!pg) return reply;
     const id = parsePositiveInteger(request.params.id);
-    if (!id) return sendError(request, reply, { message: "A valid id is required.", statusCode: 400 });
+    if (!id)
+        return sendError(request, reply, {
+            message: "A valid id is required.",
+            statusCode: 400,
+        });
     try {
-        const result = await adminService.deleteSettingsParticipantCategory(pg, id);
-        if (!result) return sendError(request, reply, { message: "Participant category not found.", statusCode: 404 });
-        return sendSuccess(request, reply, { data: result, message: "Participant category deactivated successfully." });
+        const result = await adminService.deleteSettingsParticipantCategory(
+            pg,
+            id,
+        );
+        if (!result)
+            return sendError(request, reply, {
+                message: "Participant category not found.",
+                statusCode: 404,
+            });
+        return sendSuccess(request, reply, {
+            data: result,
+            message: "Participant category deactivated successfully.",
+        });
     } catch (error) {
         return handleAdminSettingsError(request, reply, error);
     }
 }
 
-async function getSettingsChallengeCategories(request: FastifyRequest, reply: FastifyReply) {
+async function getSettingsChallengeCategories(
+    request: FastifyRequest,
+    reply: FastifyReply,
+) {
     const pg = requireDatabase(request, reply);
     if (!pg) return reply;
     try {
-        return sendSuccess(request, reply, { data: { challengeCategories: await adminService.getSettingsChallengeCategories(pg) }, message: "Challenge categories fetched successfully." });
+        return sendSuccess(request, reply, {
+            data: {
+                challengeCategories:
+                    await adminService.getSettingsChallengeCategories(pg),
+            },
+            message: "Challenge categories fetched successfully.",
+        });
     } catch (error) {
         return handleAdminSettingsError(request, reply, error);
     }
 }
 
-async function getSettingsChallengeCategory(request: FastifyRequest<{ Params: SettingItemParams }>, reply: FastifyReply) {
+async function getSettingsChallengeCategory(
+    request: FastifyRequest<{ Params: SettingItemParams }>,
+    reply: FastifyReply,
+) {
     const pg = requireDatabase(request, reply);
     if (!pg) return reply;
     const id = parsePositiveInteger(request.params.id);
-    if (!id) return sendError(request, reply, { message: "A valid id is required.", statusCode: 400 });
+    if (!id)
+        return sendError(request, reply, {
+            message: "A valid id is required.",
+            statusCode: 400,
+        });
     try {
-        const challengeCategory = await adminService.getSettingsChallengeCategory(pg, id);
-        if (!challengeCategory) return sendError(request, reply, { message: "Challenge category not found.", statusCode: 404 });
-        return sendSuccess(request, reply, { data: { challengeCategory }, message: "Challenge category fetched successfully." });
+        const challengeCategory =
+            await adminService.getSettingsChallengeCategory(pg, id);
+        if (!challengeCategory)
+            return sendError(request, reply, {
+                message: "Challenge category not found.",
+                statusCode: 404,
+            });
+        return sendSuccess(request, reply, {
+            data: { challengeCategory },
+            message: "Challenge category fetched successfully.",
+        });
     } catch (error) {
         return handleAdminSettingsError(request, reply, error);
     }
 }
 
-async function createSettingsChallengeCategory(request: FastifyRequest<{ Body?: UpsertSettingBody }>, reply: FastifyReply) {
+async function createSettingsChallengeCategory(
+    request: FastifyRequest<{ Body?: UpsertSettingBody }>,
+    reply: FastifyReply,
+) {
     const pg = requireDatabase(request, reply);
     const body = requireSettingBody(request, reply);
     if (!pg || !body) return reply;
     try {
-        return sendSuccess(request, reply, { data: await adminService.createSettingsChallengeCategory(pg, body), message: "Challenge category created successfully.", statusCode: 201 });
+        return sendSuccess(request, reply, {
+            data: await adminService.createSettingsChallengeCategory(pg, body),
+            message: "Challenge category created successfully.",
+            statusCode: 201,
+        });
     } catch (error) {
         return handleAdminSettingsError(request, reply, error);
     }
 }
 
-async function updateSettingsChallengeCategory(request: FastifyRequest<{ Body?: UpsertSettingBody; Params: SettingItemParams }>, reply: FastifyReply) {
+async function updateSettingsChallengeCategory(
+    request: FastifyRequest<{
+        Body?: UpsertSettingBody;
+        Params: SettingItemParams;
+    }>,
+    reply: FastifyReply,
+) {
     const pg = requireDatabase(request, reply);
     const body = requireSettingBody(request, reply);
     const id = parsePositiveInteger(request.params.id);
     if (!pg || !body) return reply;
-    if (!id) return sendError(request, reply, { message: "A valid id is required.", statusCode: 400 });
+    if (!id)
+        return sendError(request, reply, {
+            message: "A valid id is required.",
+            statusCode: 400,
+        });
     try {
-        const result = await adminService.updateSettingsChallengeCategory(pg, id, body);
-        if (!result) return sendError(request, reply, { message: "Challenge category not found.", statusCode: 404 });
-        return sendSuccess(request, reply, { data: result, message: "Challenge category updated successfully." });
+        const result = await adminService.updateSettingsChallengeCategory(
+            pg,
+            id,
+            body,
+        );
+        if (!result)
+            return sendError(request, reply, {
+                message: "Challenge category not found.",
+                statusCode: 404,
+            });
+        return sendSuccess(request, reply, {
+            data: result,
+            message: "Challenge category updated successfully.",
+        });
     } catch (error) {
         return handleAdminSettingsError(request, reply, error);
     }
 }
 
-async function deleteSettingsChallengeCategory(request: FastifyRequest<{ Params: SettingItemParams }>, reply: FastifyReply) {
+async function deleteSettingsChallengeCategory(
+    request: FastifyRequest<{ Params: SettingItemParams }>,
+    reply: FastifyReply,
+) {
     const pg = requireDatabase(request, reply);
     if (!pg) return reply;
     const id = parsePositiveInteger(request.params.id);
-    if (!id) return sendError(request, reply, { message: "A valid id is required.", statusCode: 400 });
+    if (!id)
+        return sendError(request, reply, {
+            message: "A valid id is required.",
+            statusCode: 400,
+        });
     try {
-        const result = await adminService.deleteSettingsChallengeCategory(pg, id);
-        if (!result) return sendError(request, reply, { message: "Challenge category not found.", statusCode: 404 });
-        return sendSuccess(request, reply, { data: result, message: "Challenge category deactivated successfully." });
+        const result = await adminService.deleteSettingsChallengeCategory(
+            pg,
+            id,
+        );
+        if (!result)
+            return sendError(request, reply, {
+                message: "Challenge category not found.",
+                statusCode: 404,
+            });
+        return sendSuccess(request, reply, {
+            data: result,
+            message: "Challenge category deactivated successfully.",
+        });
     } catch (error) {
         return handleAdminSettingsError(request, reply, error);
     }
 }
 
-async function getSettingsUserRoles(request: FastifyRequest, reply: FastifyReply) {
+async function getSettingsUserRoles(
+    request: FastifyRequest,
+    reply: FastifyReply,
+) {
     const pg = requireDatabase(request, reply);
     if (!pg) return reply;
     try {
-        return sendSuccess(request, reply, { data: { userRoles: await adminService.getSettingsUserRoles(pg) }, message: "User roles fetched successfully." });
+        return sendSuccess(request, reply, {
+            data: { userRoles: await adminService.getSettingsUserRoles(pg) },
+            message: "User roles fetched successfully.",
+        });
     } catch (error) {
         return handleAdminSettingsError(request, reply, error);
     }
 }
 
-async function getSettingsUserRole(request: FastifyRequest<{ Params: SettingRoleParams }>, reply: FastifyReply) {
+async function getSettingsUserRole(
+    request: FastifyRequest<{ Params: SettingRoleParams }>,
+    reply: FastifyReply,
+) {
     const pg = requireDatabase(request, reply);
     if (!pg) return reply;
-    if (!isNonEmptyString(request.params.role)) return sendError(request, reply, { message: "A valid role is required.", statusCode: 400 });
+    if (!isNonEmptyString(request.params.role))
+        return sendError(request, reply, {
+            message: "A valid role is required.",
+            statusCode: 400,
+        });
     try {
-        const userRole = await adminService.getSettingsUserRole(pg, request.params.role);
-        if (!userRole) return sendError(request, reply, { message: "User role not found.", statusCode: 404 });
-        return sendSuccess(request, reply, { data: { userRole }, message: "User role fetched successfully." });
+        const userRole = await adminService.getSettingsUserRole(
+            pg,
+            request.params.role,
+        );
+        if (!userRole)
+            return sendError(request, reply, {
+                message: "User role not found.",
+                statusCode: 404,
+            });
+        return sendSuccess(request, reply, {
+            data: { userRole },
+            message: "User role fetched successfully.",
+        });
     } catch (error) {
         return handleAdminSettingsError(request, reply, error);
     }
 }
 
-async function createSettingsUserRole(request: FastifyRequest<{ Body?: UpsertSettingBody }>, reply: FastifyReply) {
+async function createSettingsUserRole(
+    request: FastifyRequest<{ Body?: UpsertSettingBody }>,
+    reply: FastifyReply,
+) {
     const pg = requireDatabase(request, reply);
     const body = requireSettingBody(request, reply);
     if (!pg || !body) return reply;
     try {
         const data = await adminService.createSettingsUserRole(pg, body);
-        await auditService.recordRichAuditEntry(request, pg, { actorType: "admin", actorId: getAdminAccess(request).userId, category: "settings", action: "settings.user_role.created", statusCode: 201, details: { body } });
-        return sendSuccess(request, reply, { data, message: "User role created successfully.", statusCode: 201 });
+        await auditService.recordRichAuditEntry(request, pg, {
+            actorType: "admin",
+            actorId: getAdminAccess(request).userId,
+            category: "settings",
+            action: "settings.user_role.created",
+            statusCode: 201,
+            details: { body },
+        });
+        return sendSuccess(request, reply, {
+            data,
+            message: "User role created successfully.",
+            statusCode: 201,
+        });
     } catch (error) {
         return handleAdminSettingsError(request, reply, error);
     }
 }
 
-async function updateSettingsUserRole(request: FastifyRequest<{ Body?: UpsertSettingBody; Params: SettingRoleParams }>, reply: FastifyReply) {
+async function updateSettingsUserRole(
+    request: FastifyRequest<{
+        Body?: UpsertSettingBody;
+        Params: SettingRoleParams;
+    }>,
+    reply: FastifyReply,
+) {
     const pg = requireDatabase(request, reply);
     const body = requireSettingBody(request, reply);
     if (!pg || !body) return reply;
-    if (!isNonEmptyString(request.params.role)) return sendError(request, reply, { message: "A valid role is required.", statusCode: 400 });
+    if (!isNonEmptyString(request.params.role))
+        return sendError(request, reply, {
+            message: "A valid role is required.",
+            statusCode: 400,
+        });
     try {
-        const before = await adminService.getSettingsUserRole(pg, request.params.role);
-        const result = await adminService.updateSettingsUserRole(pg, request.params.role, body);
-        if (!result) return sendError(request, reply, { message: "User role not found.", statusCode: 404 });
-        await auditService.recordRichAuditEntry(request, pg, { actorType: "admin", actorId: getAdminAccess(request).userId, category: "settings", action: "settings.user_role.updated", statusCode: 200, details: { role: request.params.role, changes: auditService.buildFieldChanges(before as unknown as Record<string, unknown>, result.userRole as unknown as Record<string, unknown>, Object.keys(body)) } });
-        return sendSuccess(request, reply, { data: result, message: "User role updated successfully." });
+        const before = await adminService.getSettingsUserRole(
+            pg,
+            request.params.role,
+        );
+        const result = await adminService.updateSettingsUserRole(
+            pg,
+            request.params.role,
+            body,
+        );
+        if (!result)
+            return sendError(request, reply, {
+                message: "User role not found.",
+                statusCode: 404,
+            });
+        await auditService.recordRichAuditEntry(request, pg, {
+            actorType: "admin",
+            actorId: getAdminAccess(request).userId,
+            category: "settings",
+            action: "settings.user_role.updated",
+            statusCode: 200,
+            details: {
+                role: request.params.role,
+                changes: auditService.buildFieldChanges(
+                    before as unknown as Record<string, unknown>,
+                    result.userRole as unknown as Record<string, unknown>,
+                    Object.keys(body),
+                ),
+            },
+        });
+        return sendSuccess(request, reply, {
+            data: result,
+            message: "User role updated successfully.",
+        });
     } catch (error) {
         return handleAdminSettingsError(request, reply, error);
     }
 }
 
-async function deleteSettingsUserRole(request: FastifyRequest<{ Params: SettingRoleParams }>, reply: FastifyReply) {
+async function deleteSettingsUserRole(
+    request: FastifyRequest<{ Params: SettingRoleParams }>,
+    reply: FastifyReply,
+) {
     const pg = requireDatabase(request, reply);
     if (!pg) return reply;
-    if (!isNonEmptyString(request.params.role)) return sendError(request, reply, { message: "A valid role is required.", statusCode: 400 });
+    if (!isNonEmptyString(request.params.role))
+        return sendError(request, reply, {
+            message: "A valid role is required.",
+            statusCode: 400,
+        });
     try {
-        const result = await adminService.deleteSettingsUserRole(pg, request.params.role);
-        if (!result) return sendError(request, reply, { message: "User role not found.", statusCode: 404 });
-        await auditService.recordRichAuditEntry(request, pg, { actorType: "admin", actorId: getAdminAccess(request).userId, category: "settings", action: "settings.user_role.deleted", statusCode: 200, details: { role: request.params.role } });
-        return sendSuccess(request, reply, { data: result, message: "User role deactivated successfully." });
+        const result = await adminService.deleteSettingsUserRole(
+            pg,
+            request.params.role,
+        );
+        if (!result)
+            return sendError(request, reply, {
+                message: "User role not found.",
+                statusCode: 404,
+            });
+        await auditService.recordRichAuditEntry(request, pg, {
+            actorType: "admin",
+            actorId: getAdminAccess(request).userId,
+            category: "settings",
+            action: "settings.user_role.deleted",
+            statusCode: 200,
+            details: { role: request.params.role },
+        });
+        return sendSuccess(request, reply, {
+            data: result,
+            message: "User role deactivated successfully.",
+        });
     } catch (error) {
         return handleAdminSettingsError(request, reply, error);
     }
@@ -1421,27 +1829,51 @@ async function getRbacRules(request: FastifyRequest, reply: FastifyReply) {
     }
 }
 
-async function getRbacRule(request: FastifyRequest<{ Params: RbacRuleParams }>, reply: FastifyReply) {
+async function getRbacRule(
+    request: FastifyRequest<{ Params: RbacRuleParams }>,
+    reply: FastifyReply,
+) {
     const pg = requireDatabase(request, reply);
     if (!pg) return reply;
     const id = parsePositiveInteger(request.params.id);
-    if (!id) return sendError(request, reply, { message: "A valid id is required.", statusCode: 400 });
+    if (!id)
+        return sendError(request, reply, {
+            message: "A valid id is required.",
+            statusCode: 400,
+        });
     try {
         const result = await adminService.getRbacRule(pg, id);
-        if (!result) return sendError(request, reply, { message: "RBAC rule not found.", statusCode: 404 });
-        return sendSuccess(request, reply, { data: result, message: "RBAC rule fetched successfully." });
+        if (!result)
+            return sendError(request, reply, {
+                message: "RBAC rule not found.",
+                statusCode: 404,
+            });
+        return sendSuccess(request, reply, {
+            data: result,
+            message: "RBAC rule fetched successfully.",
+        });
     } catch (error) {
         return handleAdminSettingsError(request, reply, error);
     }
 }
 
-async function createRbacRule(request: FastifyRequest<{ Body?: UpsertSettingBody }>, reply: FastifyReply) {
+async function createRbacRule(
+    request: FastifyRequest<{ Body?: UpsertSettingBody }>,
+    reply: FastifyReply,
+) {
     const pg = requireDatabase(request, reply);
     const body = requireSettingBody(request, reply);
     if (!pg || !body) return reply;
     try {
         const data = await adminService.createRbacRule(pg, body);
-        await auditService.recordRichAuditEntry(request, pg, { actorType: "admin", actorId: getAdminAccess(request).userId, category: "settings", action: "settings.rbac_rule.created", statusCode: 201, details: { body } });
+        await auditService.recordRichAuditEntry(request, pg, {
+            actorType: "admin",
+            actorId: getAdminAccess(request).userId,
+            category: "settings",
+            action: "settings.rbac_rule.created",
+            statusCode: 201,
+            details: { body },
+        });
         return sendSuccess(request, reply, {
             data,
             message: "RBAC rule created successfully.",
@@ -1452,18 +1884,49 @@ async function createRbacRule(request: FastifyRequest<{ Body?: UpsertSettingBody
     }
 }
 
-async function updateRbacRule(request: FastifyRequest<{ Body?: UpsertSettingBody; Params: RbacRuleParams }>, reply: FastifyReply) {
+async function updateRbacRule(
+    request: FastifyRequest<{
+        Body?: UpsertSettingBody;
+        Params: RbacRuleParams;
+    }>,
+    reply: FastifyReply,
+) {
     const pg = requireDatabase(request, reply);
     const body = requireSettingBody(request, reply);
     const id = parsePositiveInteger(request.params.id);
     if (!pg || !body) return reply;
-    if (!id) return sendError(request, reply, { message: "A valid id is required.", statusCode: 400 });
+    if (!id)
+        return sendError(request, reply, {
+            message: "A valid id is required.",
+            statusCode: 400,
+        });
     try {
         const before = await adminService.getRbacRule(pg, id);
         const result = await adminService.updateRbacRule(pg, id, body);
-        if (!result) return sendError(request, reply, { message: "RBAC rule not found.", statusCode: 404 });
-        await auditService.recordRichAuditEntry(request, pg, { actorType: "admin", actorId: getAdminAccess(request).userId, category: "settings", action: "settings.rbac_rule.updated", statusCode: 200, details: { id, changes: auditService.buildFieldChanges(before?.rbacRule as unknown as Record<string, unknown>, result.rbacRule as unknown as Record<string, unknown>, Object.keys(body)) } });
-        return sendSuccess(request, reply, { data: result, message: "RBAC rule updated successfully." });
+        if (!result)
+            return sendError(request, reply, {
+                message: "RBAC rule not found.",
+                statusCode: 404,
+            });
+        await auditService.recordRichAuditEntry(request, pg, {
+            actorType: "admin",
+            actorId: getAdminAccess(request).userId,
+            category: "settings",
+            action: "settings.rbac_rule.updated",
+            statusCode: 200,
+            details: {
+                id,
+                changes: auditService.buildFieldChanges(
+                    before?.rbacRule as unknown as Record<string, unknown>,
+                    result.rbacRule as unknown as Record<string, unknown>,
+                    Object.keys(body),
+                ),
+            },
+        });
+        return sendSuccess(request, reply, {
+            data: result,
+            message: "RBAC rule updated successfully.",
+        });
     } catch (error) {
         return handleAdminSettingsError(request, reply, error);
     }
@@ -1647,7 +2110,7 @@ async function updateApplication(
             statusCode:
                 error instanceof AdminRuleError
                     ? error.statusCode
-                    : getErrorStatusCode(error) ?? 500,
+                    : (getErrorStatusCode(error) ?? 500),
         });
     }
 }
@@ -1693,14 +2156,17 @@ async function deleteApplication(
 
         const fileDeleteResults = await Promise.allSettled(
             result.documents.map(async (document) => {
-                const filePath = await resolveStoredFilePath(document.storageKey);
+                const filePath = await resolveStoredFilePath(
+                    document.storageKey,
+                );
                 if (!filePath) return false;
                 await unlink(filePath);
                 return true;
             }),
         );
         const filesDeleted = fileDeleteResults.filter(
-            (fileResult) => fileResult.status === "fulfilled" && fileResult.value,
+            (fileResult) =>
+                fileResult.status === "fulfilled" && fileResult.value,
         ).length;
         const fileDeleteFailures = fileDeleteResults.filter(
             (fileResult) => fileResult.status === "rejected",
@@ -1715,7 +2181,10 @@ async function deleteApplication(
             applicationNumber: result.application.applicationNumber,
             ...applicantIdentity(before),
             statusCode: 200,
-            details: { documentsDeleted: result.documents.length, filesDeleted },
+            details: {
+                documentsDeleted: result.documents.length,
+                filesDeleted,
+            },
         });
 
         return sendSuccess(request, reply, {
@@ -1834,7 +2303,9 @@ async function deleteApplicationDocument(
             });
         }
 
-        const filePath = await resolveStoredFilePath(result.document.storageKey);
+        const filePath = await resolveStoredFilePath(
+            result.document.storageKey,
+        );
         let fileDeleted = false;
 
         if (filePath) {
@@ -1944,6 +2415,167 @@ async function downloadApplicationPdf(
     }
 }
 
+async function downloadScoringCardPdf(
+    request: FastifyRequest<{ Params: ApplicationParams }>,
+    reply: FastifyReply,
+) {
+    const pg = requireDatabase(request, reply);
+    if (!pg) return reply;
+
+    const applicationId = parsePositiveInteger(request.params.applicationId);
+    if (!applicationId) {
+        return sendError(request, reply, {
+            message: "A valid application id is required.",
+            statusCode: 400,
+        });
+    }
+
+    try {
+        const result = await adminService.getApplications(pg, {
+            access: getAdminAccess(request),
+            applicationId,
+            pageSize: 1,
+        });
+        const [application] = await attachEvaluationSummaries(
+            pg,
+            result.applications,
+            (error) => request.server.log.error(error),
+        );
+
+        if (!application || application.evaluation?.status !== "evaluated") {
+            return sendError(request, reply, {
+                message: "Evaluated application not found.",
+                statusCode: 404,
+            });
+        }
+
+        type EvalRow = {
+            id: string;
+            total_score: number;
+            recommendation: string | null;
+            comments: string | null;
+            submitted_at: string | null;
+            jury_name: string;
+            jury_designation: string | null;
+            jury_institute: string | null;
+            jury_email: string | null;
+            jury_phone: string | null;
+        };
+
+        const evalResult = await pg.query<EvalRow>(
+            `SELECT DISTINCT ON (e.application_id)
+                e.id::text, e.total_score, e.recommendation, e.comments, e.submitted_at,
+                jp.full_name AS jury_name,
+                jp.designation AS jury_designation,
+                jp.organisation_name AS jury_institute,
+                jp.email AS jury_email,
+                jp.mobile AS jury_phone
+             FROM public.jury_evaluations e
+             JOIN public.jury_profiles jp ON jp.id = e.jury_profile_id
+             WHERE e.application_id = $1
+               AND e.status IN ('submitted', 'auto_submitted')
+             ORDER BY e.application_id, CASE e.level WHEN 'State' THEN 0 ELSE 1 END`,
+            [applicationId],
+        );
+        const evalRow = evalResult.rows[0];
+
+        if (!evalRow) {
+            return sendError(request, reply, {
+                message: "Evaluation not found.",
+                statusCode: 404,
+            });
+        }
+
+        type ScoreRow = { criterion_key: string; score: number };
+        const scoresResult = await pg.query<ScoreRow>(
+            `SELECT criterion_key, score FROM public.jury_evaluation_scores WHERE evaluation_id = $1`,
+            [evalRow.id],
+        );
+        const scores: Record<string, number> = {};
+        for (const row of scoresResult.rows)
+            scores[row.criterion_key] = row.score;
+
+        type LocalizedName = { en?: string; bn?: string };
+        type WithName = { name?: LocalizedName };
+
+        const districtObj = (application as Record<string, unknown>).district;
+        const districtName =
+            typeof districtObj === "object" && districtObj !== null
+                ? String(
+                      (districtObj as WithName).name?.en ??
+                          (districtObj as WithName).name?.bn ??
+                          "-",
+                  )
+                : "-";
+
+        const stateObj = (application as Record<string, unknown>).state;
+        const stateName =
+            typeof stateObj === "object" && stateObj !== null
+                ? String(
+                      (stateObj as WithName).name?.en ??
+                          (stateObj as WithName).name?.bn ??
+                          "-",
+                  )
+                : "-";
+
+        const participantCategoryObj = (application as Record<string, unknown>)
+            .participantCategory;
+        const participantCategoryName =
+            typeof participantCategoryObj === "object" &&
+            participantCategoryObj !== null
+                ? String(
+                      (participantCategoryObj as WithName).name?.en ??
+                          (participantCategoryObj as WithName).name?.bn ??
+                          "-",
+                  )
+                : "-";
+
+        const pdf = generateScoringCardPdf({
+            applicationNumber: String(application.applicationNumber ?? "-"),
+            city: String((application as Record<string, unknown>).city ?? "-"),
+            district: districtName,
+            state: stateName,
+            juryName: evalRow.jury_name ?? "-",
+            juryDesignation: evalRow.jury_designation,
+            juryInstitute: evalRow.jury_institute,
+            juryEmail: evalRow.jury_email,
+            juryPhone: evalRow.jury_phone,
+            participantCategory: participantCategoryName,
+            participationMode: String(
+                (application as Record<string, unknown>).participationMode ??
+                    "-",
+            ),
+            recommendation: evalRow.recommendation,
+            remarks: evalRow.comments,
+            scores,
+            submittedAt: evalRow.submitted_at,
+            totalScore: evalRow.total_score,
+        });
+
+        const applicationNumber =
+            typeof application.applicationNumber === "string"
+                ? application.applicationNumber
+                : `application-${applicationId}`;
+
+        return reply
+            .header("Content-Type", "application/pdf")
+            .header("Content-Length", String(pdf.length))
+            .header(
+                "Content-Disposition",
+                contentDispositionFileName(
+                    `${applicationNumber}-scoring-card.pdf`,
+                ),
+            )
+            .send(pdf);
+    } catch (error) {
+        request.server.log.error(error);
+        return sendError(request, reply, {
+            message: "Scoring card PDF could not be generated.",
+            statusCode: 500,
+        });
+    }
+}
+
 async function getPageViewAnalytics(
     request: FastifyRequest,
     reply: FastifyReply,
@@ -1996,17 +2628,80 @@ async function getDashboardOrganisationTypeCounts(
 }
 
 async function getDashboardDistrictCounts(
-    request: FastifyRequest,
+    request: FastifyRequest<{ Querystring: { stateId?: string } }>,
     reply: FastifyReply,
 ) {
     const pg = requireDatabase(request, reply);
     if (!pg) return reply;
 
+    const filterStateId = request.query.stateId
+        ? Number(request.query.stateId)
+        : undefined;
+
     try {
         const result = await adminService.getDashboardDistrictCounts(
             pg,
             getAdminAccess(request),
+            Number.isFinite(filterStateId) ? filterStateId : undefined,
         );
+
+        return sendSuccess(request, reply, {
+            data: result,
+            message: getApiContent("en").api.adminDashboardCountsFetched,
+        });
+    } catch (error) {
+        request.server.log.error(error);
+
+        return sendError(request, reply, {
+            message: getApiContent("en").api.internalServerError,
+            statusCode: 500,
+        });
+    }
+}
+
+async function getDashboardJuryCategoryEvaluation(
+    request: FastifyRequest<{
+        Querystring: {
+            stateId?: string;
+            categoryKey?: string;
+            districtId?: string;
+        };
+    }>,
+    reply: FastifyReply,
+) {
+    const pg = requireDatabase(request, reply);
+    if (!pg) return reply;
+
+    const stateId = Number(request.query.stateId);
+    const categoryKey = request.query.categoryKey ?? "";
+    const districtId = request.query.districtId
+        ? Number(request.query.districtId)
+        : undefined;
+
+    if (!Number.isFinite(stateId) || stateId <= 0 || !categoryKey) {
+        return sendError(request, reply, {
+            message: "stateId and categoryKey are required.",
+            statusCode: 400,
+        });
+    }
+
+    try {
+        const result = await adminService.getDashboardJuryCategoryEvaluation(
+            pg,
+            stateId,
+            categoryKey,
+            getAdminAccess(request),
+            Number.isFinite(districtId) && districtId! > 0
+                ? districtId
+                : undefined,
+        );
+
+        if (!result) {
+            return sendError(request, reply, {
+                message: "Not found or access denied.",
+                statusCode: 404,
+            });
+        }
 
         return sendSuccess(request, reply, {
             data: result,
@@ -2422,11 +3117,13 @@ export const adminController = {
     deleteUser,
     downloadApplicationDocument,
     downloadApplicationPdf,
+    downloadScoringCardPdf,
     getApplication,
     getApplications,
     getDashboardChallengeCategoryCounts,
     getDashboardCounts,
     getDashboardDistrictCounts,
+    getDashboardJuryCategoryEvaluation,
     getDashboardOrganisationTypeCounts,
     getEmailNotificationAnalytics,
     getEmailNotification,

@@ -15,6 +15,7 @@ import type {
     AdminDashboardChallengeCategoryCountsResult,
     AdminDashboardCountsResult,
     AdminDashboardDistrictCountsResult,
+    AdminDashboardJuryCategoryEvaluationResult,
     AdminDashboardOrganisationTypeCountsResult,
     AdminEmailNotification,
     AdminEmailNotificationAnalyticsResult,
@@ -220,8 +221,14 @@ type DistrictApplicationCountRow = {
     count: string;
     district_id: string;
     district_name: string;
+    evaluated: string;
+    on_evaluation: string;
+    recommended: string;
+    rejected: string;
+    reviewed: string;
     state_id: string;
     state_name: string;
+    viewed: string;
 };
 
 type ApplicationDetailsRow = {
@@ -3888,6 +3895,24 @@ async function getApplications(
                 FROM public.application_form_saves afs
                 WHERE afs.application_id = pa.id
             ), '[]'::jsonb),
+            'isLocked', EXISTS (
+                SELECT 1
+                FROM public.app_settings aps
+                JOIN public.states st_lock ON st_lock.id = pa.state_id
+                WHERE aps.is_active = TRUE
+                  AND aps.setting_key = 'JURY_DISTRICT_EVALUATION_START_DATE_' || CASE
+                      WHEN LOWER(TRIM(st_lock.name_en)) = 'bihar' THEN 'BI'
+                      WHEN LOWER(TRIM(st_lock.name_en)) = 'jharkhand' THEN 'JH'
+                      WHEN LOWER(TRIM(st_lock.name_en)) = 'west bengal' THEN 'WB'
+                      ELSE NULL
+                  END
+                  AND CASE
+                      WHEN LOWER(TRIM(st_lock.name_en)) IN ('bihar', 'jharkhand', 'west bengal') THEN TRUE
+                      ELSE FALSE
+                  END
+                  AND aps.setting_value ~ '^\s*\S'
+                  AND aps.setting_value::timestamptz <= NOW()
+            ),
             'verification', jsonb_build_object(
                 'emailTokens', COALESCE((
                     SELECT jsonb_agg(
@@ -4159,6 +4184,38 @@ async function updateApplication(
             return null;
         }
 
+        // Block editing once the district evaluation window has opened for this application's state.
+        const stateRow = await client.query<{ state_name: string }>(
+            `SELECT LOWER(TRIM(st.name_en)) AS state_name
+             FROM public.participant_applications pa
+             JOIN public.states st ON st.id = pa.state_id
+             WHERE pa.id = $1 LIMIT 1`,
+            [input.applicationId],
+        );
+        const stateName = stateRow.rows[0]?.state_name;
+        if (stateName) {
+            const stateCodes: Record<string, string> = { bihar: "BI", jharkhand: "JH", "west bengal": "WB" };
+            const code = stateCodes[stateName];
+            if (code) {
+                const settingRow = await client.query<{ setting_value: string }>(
+                    `SELECT setting_value FROM public.app_settings
+                     WHERE is_active = TRUE AND setting_key = $1 LIMIT 1`,
+                    [`JURY_DISTRICT_EVALUATION_START_DATE_${code}`],
+                );
+                const startVal = settingRow.rows[0]?.setting_value;
+                if (startVal?.trim()) {
+                    const startDate = new Date(startVal.trim());
+                    if (!Number.isNaN(startDate.getTime()) && startDate.getTime() <= Date.now()) {
+                        await client.query("ROLLBACK");
+                        throw new AdminRuleError(
+                            "This application is under district evaluation and can no longer be edited.",
+                            403,
+                        );
+                    }
+                }
+            }
+        }
+
         if (applicationUpdates.size) {
             const setClauses: string[] = [];
             const values: unknown[] = [];
@@ -4248,6 +4305,38 @@ async function deleteApplication(
         if (!application) {
             await client.query("ROLLBACK");
             return null;
+        }
+
+        // Block deletion once the district evaluation window has opened for this application's state.
+        const stateRow = await client.query<{ state_name: string }>(
+            `SELECT LOWER(TRIM(st.name_en)) AS state_name
+             FROM public.participant_applications pa
+             JOIN public.states st ON st.id = pa.state_id
+             WHERE pa.id = $1 LIMIT 1`,
+            [applicationId],
+        );
+        const stateName = stateRow.rows[0]?.state_name;
+        if (stateName) {
+            const stateCodes: Record<string, string> = { bihar: "BI", jharkhand: "JH", "west bengal": "WB" };
+            const code = stateCodes[stateName];
+            if (code) {
+                const settingRow = await client.query<{ setting_value: string }>(
+                    `SELECT setting_value FROM public.app_settings
+                     WHERE is_active = TRUE AND setting_key = $1 LIMIT 1`,
+                    [`JURY_DISTRICT_EVALUATION_START_DATE_${code}`],
+                );
+                const startVal = settingRow.rows[0]?.setting_value;
+                if (startVal?.trim()) {
+                    const startDate = new Date(startVal.trim());
+                    if (!Number.isNaN(startDate.getTime()) && startDate.getTime() <= Date.now()) {
+                        await client.query("ROLLBACK");
+                        throw new AdminRuleError(
+                            "This application is under district evaluation and can no longer be deleted.",
+                            403,
+                        );
+                    }
+                }
+            }
         }
 
         const documentsResult =
@@ -4474,6 +4563,7 @@ async function getDashboardOrganisationTypeCounts(
 async function getDashboardDistrictCounts(
     pg: DatabasePool,
     access?: AdminAccessContext,
+    filterStateId?: number,
 ): Promise<AdminDashboardDistrictCountsResult> {
     const values: unknown[] = [];
     const districtConditions = ["d.is_active = TRUE"];
@@ -4487,13 +4577,22 @@ async function getDashboardDistrictCounts(
         values.push(access?.stateId);
         districtConditions.push(`d.state_id = $${values.length}`);
     } else if (hasRegionalAccess(access)) {
-        districtConditions.push(`
-            d.state_id IN (
-                SELECT id
-                FROM public.states
-                WHERE LOWER(TRIM(name_en)) IN ('west bengal', 'bihar', 'jharkhand')
-            )
-        `);
+        if (filterStateId) {
+            values.push(filterStateId);
+            districtConditions.push(`d.state_id = $${values.length}`);
+        } else {
+            districtConditions.push(`
+                d.state_id IN (
+                    SELECT id
+                    FROM public.states
+                    WHERE LOWER(TRIM(name_en)) IN ('west bengal', 'bihar', 'jharkhand')
+                )
+            `);
+        }
+    } else if (filterStateId) {
+        // SuperAdmin with a selected state filter
+        values.push(filterStateId);
+        districtConditions.push(`d.state_id = $${values.length}`);
     }
 
     const result = await pg.query<DistrictApplicationCountRow>(
@@ -4503,7 +4602,27 @@ async function getDashboardDistrictCounts(
             d.name_en AS district_name,
             s.id::text AS state_id,
             s.name_en AS state_name,
-            COUNT(pa.id)::text AS count
+            COUNT(pa.id)::text AS count,
+            COUNT(pa.id) FILTER (WHERE EXISTS (
+                SELECT 1 FROM public.jury_application_views jv WHERE jv.application_id = pa.id
+            ) AND NOT EXISTS (
+                SELECT 1 FROM public.jury_evaluations je WHERE je.application_id = pa.id
+            ))::text AS viewed,
+            COUNT(pa.id) FILTER (WHERE EXISTS (
+                SELECT 1 FROM public.jury_evaluations je WHERE je.application_id = pa.id AND je.status = 'in_progress'
+            ))::text AS on_evaluation,
+            COUNT(pa.id) FILTER (WHERE EXISTS (
+                SELECT 1 FROM public.jury_evaluations je WHERE je.application_id = pa.id AND je.status IN ('submitted', 'auto_submitted')
+            ))::text AS evaluated,
+            COUNT(pa.id) FILTER (WHERE EXISTS (
+                SELECT 1 FROM public.jury_evaluations je WHERE je.application_id = pa.id AND je.status IN ('submitted', 'auto_submitted') AND je.recommendation = 'Recommend'
+            ))::text AS recommended,
+            COUNT(pa.id) FILTER (WHERE EXISTS (
+                SELECT 1 FROM public.jury_evaluations je WHERE je.application_id = pa.id AND je.status IN ('submitted', 'auto_submitted') AND je.recommendation = 'Review'
+            ))::text AS reviewed,
+            COUNT(pa.id) FILTER (WHERE EXISTS (
+                SELECT 1 FROM public.jury_evaluations je WHERE je.application_id = pa.id AND je.status IN ('submitted', 'auto_submitted') AND je.recommendation = 'Reject'
+            ))::text AS rejected
         FROM public.districts d
         JOIN public.states s
             ON s.id = d.state_id
@@ -4523,8 +4642,14 @@ async function getDashboardDistrictCounts(
             count: Number(row.count),
             districtId: Number(row.district_id),
             districtName: row.district_name,
+            evaluated: Number(row.evaluated),
+            onEvaluation: Number(row.on_evaluation),
+            recommended: Number(row.recommended),
+            rejected: Number(row.rejected),
+            reviewed: Number(row.reviewed),
             stateId: Number(row.state_id),
             stateName: row.state_name,
+            viewed: Number(row.viewed),
         })),
     };
 }
@@ -4641,6 +4766,105 @@ async function getDashboardChallengeCategoryCounts(
                 westBengalCount,
             };
         }),
+    };
+}
+
+async function getDashboardJuryCategoryEvaluation(
+    pg: DatabasePool,
+    stateId: number,
+    categoryKey: string,
+    access?: AdminAccessContext,
+    districtId?: number,
+): Promise<AdminDashboardJuryCategoryEvaluationResult | null> {
+    const categoryId = Number(categoryKey.replace("challengeCategory", ""));
+    if (!Number.isFinite(categoryId) || categoryId <= 0) return null;
+
+    if (hasRegionalAccess(access)) {
+        // Region Admin must pick one of the 3 region states
+        const stateCheck = await pg.query<{ id: string }>(
+            `SELECT id::text FROM public.states
+             WHERE id = $1 AND LOWER(TRIM(name_en)) IN ('bihar', 'jharkhand', 'west bengal') LIMIT 1`,
+            [stateId],
+        );
+        if (!stateCheck.rows[0]) return null;
+    } else if (hasScopedStateAccess(access) && access?.stateId !== stateId) {
+        return null;
+    } else if (hasScopedDistrictAccess(access) && access?.stateId !== stateId) {
+        return null;
+    } else if (!hasRegionalAccess(access) && !hasScopedStateAccess(access) && !hasScopedDistrictAccess(access) && !isSuperAdmin(access)) {
+        return null;
+    }
+
+    const meta = await pg.query<{ state_label: string; category_label: string }>(
+        `SELECT s.name_en AS state_label, cc.name_en AS category_label
+         FROM public.states s, public.challenge_categories cc
+         WHERE s.id = $1 AND cc.id = $2 LIMIT 1`,
+        [stateId, categoryId],
+    );
+    if (!meta.rows[0]) return null;
+
+    type CountRow = {
+        total: string;
+        viewed: string;
+        on_evaluation: string;
+        evaluated: string;
+        recommended: string;
+        reviewed: string;
+        rejected: string;
+    };
+
+    const result = await pg.query<CountRow>(
+        `SELECT
+            COUNT(pa.id)::text AS total,
+            COUNT(pa.id) FILTER (WHERE EXISTS (
+                SELECT 1 FROM public.jury_application_views jv WHERE jv.application_id = pa.id
+            ) AND NOT EXISTS (
+                SELECT 1 FROM public.jury_evaluations je WHERE je.application_id = pa.id
+            ))::text AS viewed,
+            COUNT(pa.id) FILTER (WHERE EXISTS (
+                SELECT 1 FROM public.jury_evaluations je WHERE je.application_id = pa.id AND je.status = 'in_progress'
+            ))::text AS on_evaluation,
+            COUNT(pa.id) FILTER (WHERE EXISTS (
+                SELECT 1 FROM public.jury_evaluations je WHERE je.application_id = pa.id AND je.status IN ('submitted', 'auto_submitted')
+            ))::text AS evaluated,
+            COUNT(pa.id) FILTER (WHERE EXISTS (
+                SELECT 1 FROM public.jury_evaluations je WHERE je.application_id = pa.id AND je.status IN ('submitted', 'auto_submitted') AND je.recommendation = 'Recommend'
+            ))::text AS recommended,
+            COUNT(pa.id) FILTER (WHERE EXISTS (
+                SELECT 1 FROM public.jury_evaluations je WHERE je.application_id = pa.id AND je.status IN ('submitted', 'auto_submitted') AND je.recommendation = 'Review'
+            ))::text AS reviewed,
+            COUNT(pa.id) FILTER (WHERE EXISTS (
+                SELECT 1 FROM public.jury_evaluations je WHERE je.application_id = pa.id AND je.status IN ('submitted', 'auto_submitted') AND je.recommendation = 'Reject'
+            ))::text AS rejected
+         FROM public.participant_applications pa
+         WHERE pa.status = 'submitted'
+           AND pa.state_id = $1
+           AND pa.challenge_category_id = $2${districtId ? " AND pa.district_id = $3" : ""}`,
+        districtId ? [stateId, categoryId, districtId] : [stateId, categoryId],
+    );
+
+    let scopeLabel = meta.rows[0].state_label;
+    if (districtId) {
+        const districtMeta = await pg.query<{ name: string }>(
+            `SELECT name_en AS name FROM public.districts WHERE id = $1 LIMIT 1`,
+            [districtId],
+        );
+        if (districtMeta.rows[0]) scopeLabel = districtMeta.rows[0].name;
+    }
+
+    const row = result.rows[0];
+    return {
+        categoryLabel: meta.rows[0].category_label,
+        counts: {
+            evaluated: Number(row?.evaluated ?? 0),
+            onEvaluation: Number(row?.on_evaluation ?? 0),
+            recommended: Number(row?.recommended ?? 0),
+            rejected: Number(row?.rejected ?? 0),
+            reviewed: Number(row?.reviewed ?? 0),
+            total: Number(row?.total ?? 0),
+            viewed: Number(row?.viewed ?? 0),
+        },
+        stateLabel: scopeLabel,
     };
 }
 
@@ -5466,6 +5690,7 @@ export const adminService = {
     getDashboardChallengeCategoryCounts,
     getDashboardCounts,
     getDashboardDistrictCounts,
+    getDashboardJuryCategoryEvaluation,
     getDashboardOrganisationTypeCounts,
     getEmailNotification,
     getEmailNotificationAnalytics,

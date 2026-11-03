@@ -38,6 +38,7 @@ type ParticipantApplicationSummary = {
     };
   } | null;
   createdAt: string;
+  districtEvaluationStatus: "Evaluated" | "On Evaluation" | null;
   participationMode: string;
   status: string;
   submittedAt: string | null;
@@ -547,7 +548,7 @@ export default function Page() {
 
       <div className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
         <div className="overflow-x-auto">
-          <table className="min-w-[940px] w-full border-collapse text-left text-sm">
+          <table className="min-w-[1080px] w-full border-collapse text-left text-sm">
             <thead className="bg-slate-50 text-xs text-slate-600">
               <tr>
                 <th className="px-5 py-4">
@@ -586,6 +587,9 @@ export default function Page() {
                     Status
                   </SortButton>
                 </th>
+                <th className="px-5 py-4 font-black uppercase tracking-wide">
+                  District Evaluation
+                </th>
                 <th className="px-5 py-4">
                   <SortButton
                     active={sortKey === "createdAt"}
@@ -605,7 +609,7 @@ export default function Page() {
                 <tr>
                   <td
                     className="px-5 py-10 text-center font-semibold text-slate-500"
-                    colSpan={6}
+                    colSpan={7}
                   >
                     Loading applications...
                   </td>
@@ -614,7 +618,7 @@ export default function Page() {
                 <tr>
                   <td
                     className="px-5 py-10 text-center font-semibold text-red-600"
-                    colSpan={6}
+                    colSpan={7}
                   >
                     {error}
                   </td>
@@ -623,7 +627,7 @@ export default function Page() {
                 <tr>
                   <td
                     className="px-5 py-10 text-center font-semibold text-slate-500"
-                    colSpan={6}
+                    colSpan={7}
                   >
                     No applications found.
                   </td>
@@ -654,6 +658,21 @@ export default function Page() {
                     >
                       {formatStatus(application.status)}
                     </span>
+                  </td>
+                  <td className="px-5 py-4">
+                    {application.districtEvaluationStatus ? (
+                      <span
+                        className={`inline-flex rounded-full px-3 py-1 text-xs font-black ${
+                          application.districtEvaluationStatus === "On Evaluation"
+                            ? "bg-blue-50 text-blue-700"
+                            : "bg-emerald-50 text-emerald-700"
+                        }`}
+                      >
+                        {application.districtEvaluationStatus}
+                      </span>
+                    ) : (
+                      <span className="text-slate-400">—</span>
+                    )}
                   </td>
                   <td className="px-5 py-4 font-semibold">
                     {formatDate(application.createdAt)}

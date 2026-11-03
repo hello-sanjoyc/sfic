@@ -63,6 +63,7 @@ type ApplicationDetails = {
   participationMode?: string | null;
   profile?: Record<string, string | number | null | undefined>;
   proposal?: Record<string, string | number | null | undefined>;
+  isLocked?: boolean | null;
   status?: string | null;
   submittedAt?: string | null;
   teamMembers?: Array<{
@@ -877,15 +878,17 @@ export function AdminApplicationEditPage({
                       {formatFileSize(document.fileSizeBytes)}
                     </p>
                   </div>
-                  <button
-                    className="inline-flex h-9 items-center gap-2 rounded-lg border border-rose-200 bg-white px-3 text-xs font-bold text-rose-700 disabled:cursor-not-allowed disabled:opacity-50"
-                    disabled={isDeletingDocument}
-                    onClick={() => setDocumentToDelete(document)}
-                    type="button"
-                  >
-                    <Trash2 size={15} />
-                    Delete
-                  </button>
+                  {!application?.isLocked && (
+                    <button
+                      className="inline-flex h-9 items-center gap-2 rounded-lg border border-rose-200 bg-white px-3 text-xs font-bold text-rose-700 disabled:cursor-not-allowed disabled:opacity-50"
+                      disabled={isDeletingDocument}
+                      onClick={() => setDocumentToDelete(document)}
+                      type="button"
+                    >
+                      <Trash2 size={15} />
+                      Delete
+                    </button>
+                  )}
                 </div>
               ))}
               {(!application?.documents || application.documents.length === 0) && (
@@ -896,22 +899,24 @@ export function AdminApplicationEditPage({
             </div>
           </Section>
 
-          <section className="flex w-full min-w-0 flex-col justify-end gap-2 rounded-lg border border-slate-200 bg-white p-4 shadow-sm sm:flex-row sm:flex-wrap sm:p-5">
-            <Link
-              className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-4 text-sm font-bold text-[#0b1f3a] sm:w-auto"
-              href={`/admin/applications/${applicationId}`}
-            >
-              Cancel
-            </Link>
-            <button
-              className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 text-sm font-bold text-white disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto"
-              disabled={isSaving}
-              type="submit"
-            >
-              <Save size={17} />
-              {isSaving ? "Saving..." : "Save Changes"}
-            </button>
-          </section>
+          {!application?.isLocked && (
+            <section className="flex w-full min-w-0 flex-col justify-end gap-2 rounded-lg border border-slate-200 bg-white p-4 shadow-sm sm:flex-row sm:flex-wrap sm:p-5">
+              <Link
+                className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-4 text-sm font-bold text-[#0b1f3a] sm:w-auto"
+                href={`/admin/applications/${applicationId}`}
+              >
+                Cancel
+              </Link>
+              <button
+                className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 text-sm font-bold text-white disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto"
+                disabled={isSaving}
+                type="submit"
+              >
+                <Save size={17} />
+                {isSaving ? "Saving..." : "Save Changes"}
+              </button>
+            </section>
+          )}
         </form>
       )}
 

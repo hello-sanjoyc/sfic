@@ -351,8 +351,14 @@ export type AdminDashboardDistrictCountRow = {
   count: number;
   districtId: number;
   districtName: string;
+  evaluated: number;
+  onEvaluation: number;
+  recommended: number;
+  rejected: number;
+  reviewed: number;
   stateId: number;
   stateName: string;
+  viewed: number;
 };
 
 export type AdminDashboardDistrictCountsResult = {
@@ -379,6 +385,22 @@ export type AdminDashboardChallengeCategoryCountCard = {
 
 export type AdminDashboardChallengeCategoryCountsResult = {
   cards: AdminDashboardChallengeCategoryCountCard[];
+};
+
+export type AdminDashboardJuryCategoryEvaluationCounts = {
+  evaluated: number;
+  onEvaluation: number;
+  recommended: number;
+  rejected: number;
+  reviewed: number;
+  total: number;
+  viewed: number;
+};
+
+export type AdminDashboardJuryCategoryEvaluationResult = {
+  categoryLabel: string;
+  counts: AdminDashboardJuryCategoryEvaluationCounts;
+  stateLabel: string;
 };
 
 export type AdminPageViewAnalyticsResult = {
