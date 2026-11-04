@@ -23,6 +23,7 @@ export const bnContent = {
         invalidParticipantCategory: "অংশগ্রহণকারী বিভাগ সঠিক নয়।",
         invalidState: "রাজ্য সঠিক নয়।",
         instituteTypesFetched: "সংস্থার ধরন সফলভাবে পাওয়া গেছে।",
+        instituteStatsFetched: "প্রতিষ্ঠানের পরিসংখ্যান সফলভাবে পাওয়া গেছে।",
         internalServerError: "কিছু সমস্যা হয়েছে। আবার চেষ্টা করুন।",
         invalidToken: "যাচাইকরণ কোডটি সঠিক নয় অথবা এর মেয়াদ শেষ হয়েছে।",
         lookupsFetched: "প্রয়োজনীয় সাধারণ তথ্য সফলভাবে পাওয়া গেছে।",
@@ -63,6 +64,7 @@ export const bnContent = {
         unableFetchCommonLookups: "প্রয়োজনীয় সাধারণ তথ্য পাওয়া যায়নি।",
         unableFetchDistricts: "জেলার তথ্য পাওয়া যায়নি।",
         unableFetchInstituteTypes: "সংস্থার ধরন পাওয়া যায়নি।",
+        unableFetchInstituteStats: "প্রতিষ্ঠানের পরিসংখ্যান পাওয়া যায়নি।",
         unableFetchParticipantCategories:
             "অংশগ্রহণকারী বিভাগ পাওয়া যায়নি।",
         unableFetchParticipantCategoryInstituteTypes:

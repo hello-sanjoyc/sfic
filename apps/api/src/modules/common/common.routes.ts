@@ -2,6 +2,8 @@ import type { FastifyPluginAsync } from "fastify";
 import {
     commonController,
     type DistrictsQuery,
+    type InstituteNamesQuery,
+    type InstituteStatsQuery,
     type InstituteTypesQuery,
 } from "./common.controller.js";
 
@@ -33,4 +35,14 @@ export const commonRoutes: FastifyPluginAsync = async (app) => {
     app.get("/challenge-categories", commonController.getChallengeCategories);
 
     app.get("/lookups", commonController.getLookups);
+
+    app.get<{ Querystring: InstituteNamesQuery }>(
+        "/institute-names",
+        commonController.getInstituteNames,
+    );
+
+    app.get<{ Querystring: InstituteStatsQuery }>(
+        "/institute-stats",
+        commonController.getInstituteStats,
+    );
 };

@@ -22,6 +22,7 @@ export type ApiContent = {
         invalidParticipantCategory: string;
         invalidState: string;
         instituteTypesFetched: string;
+        instituteStatsFetched: string;
         internalServerError: string;
         invalidToken: string;
         lookupsFetched: string;
@@ -51,6 +52,7 @@ export type ApiContent = {
         unableFetchCommonLookups: string;
         unableFetchDistricts: string;
         unableFetchInstituteTypes: string;
+        unableFetchInstituteStats: string;
         unableFetchParticipantCategories: string;
         unableFetchParticipantCategoryInstituteTypes: string;
         unableFetchRegistration: string;

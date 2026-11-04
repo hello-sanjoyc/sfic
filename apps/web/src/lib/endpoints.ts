@@ -14,6 +14,8 @@ export const endpoints = {
         appSettings: `${api}/common/app-settings`,
         challengeCategories: `${api}/common/challenge-categories`,
         districts: `${api}/common/districts`,
+        instituteNames: `${api}/common/institute-names`,
+        instituteStats: `${api}/common/institute-stats`,
         instituteTypes: `${api}/common/institute-types`,
         lookups: `${api}/common/lookups`,
         participantCategories: `${api}/common/participant-categories`,
