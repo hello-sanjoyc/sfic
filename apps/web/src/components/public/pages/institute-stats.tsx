@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { PageHero } from "@/components/public/common/page-hero";
+import { getSiteContent } from "@/content";
 import { apiClient } from "@/lib/api-client";
 import { endpoints } from "@/lib/endpoints";
 
@@ -15,7 +16,15 @@ type InstituteStatRow = {
   count: number;
 };
 
+function localeName(name: NameMap, locale: string): string {
+  if (locale === "bn") return name.bn || name.en;
+  if (locale === "hi") return name.hi || name.en;
+  return name.en;
+}
+
 export function InstituteStatsPage({ locale }: { locale: string }) {
+  const content = getSiteContent(locale).pages.instituteStats;
+
   const [states, setStates] = useState<State[]>([]);
   const [districts, setDistricts] = useState<District[]>([]);
   const [instituteNames, setInstituteNames] = useState<string[]>([]);
@@ -96,7 +105,7 @@ export function InstituteStatsPage({ locale }: { locale: string }) {
       );
       setResults(data ?? []);
     } catch {
-      setError("Failed to fetch data. Please try again.");
+      setError(content.error);
     } finally {
       setLoading(false);
     }
@@ -108,8 +117,8 @@ export function InstituteStatsPage({ locale }: { locale: string }) {
   return (
     <>
       <PageHero
-        title="Institute-wise Application Statistics"
-        description="View the count of submitted applications by state, district, and institute name."
+        title={content.title}
+        description={content.description}
         locale={locale}
       />
 
@@ -119,10 +128,9 @@ export function InstituteStatsPage({ locale }: { locale: string }) {
           className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm"
         >
           <div className="grid gap-5 sm:grid-cols-3">
-            {/* State */}
             <div>
               <label className="mb-1.5 block text-sm font-semibold text-slate-700">
-                State <span className="text-red-500">*</span>
+                {content.state} <span className="text-red-500">*</span>
               </label>
               <select
                 className={selectClass}
@@ -132,19 +140,18 @@ export function InstituteStatsPage({ locale }: { locale: string }) {
                 }
                 required
               >
-                <option value="">— Select State —</option>
+                <option value="">{content.selectState}</option>
                 {states.map((s) => (
                   <option key={s.id} value={s.id}>
-                    {s.name.en}
+                    {localeName(s.name, locale)}
                   </option>
                 ))}
               </select>
             </div>
 
-            {/* District */}
             <div>
               <label className="mb-1.5 block text-sm font-semibold text-slate-700">
-                District
+                {content.district}
               </label>
               <select
                 className={selectClass}
@@ -156,19 +163,18 @@ export function InstituteStatsPage({ locale }: { locale: string }) {
                 }
                 disabled={selectedStateId === ""}
               >
-                <option value="all">All</option>
+                <option value="all">{content.all}</option>
                 {districts.map((d) => (
                   <option key={d.id} value={d.id}>
-                    {d.name.en}
+                    {localeName(d.name, locale)}
                   </option>
                 ))}
               </select>
             </div>
 
-            {/* Institute */}
             <div>
               <label className="mb-1.5 block text-sm font-semibold text-slate-700">
-                Institute Name
+                {content.institute}
               </label>
               <select
                 className={selectClass}
@@ -176,7 +182,7 @@ export function InstituteStatsPage({ locale }: { locale: string }) {
                 onChange={(e) => setSelectedInstitute(e.target.value)}
                 disabled={selectedStateId === ""}
               >
-                <option value="all">All</option>
+                <option value="all">{content.all}</option>
                 {instituteNames.map((name) => (
                   <option key={name} value={name}>
                     {name}
@@ -192,7 +198,7 @@ export function InstituteStatsPage({ locale }: { locale: string }) {
               disabled={selectedStateId === "" || loading}
               className="rounded-full bg-[#ff9933] px-6 py-2.5 text-sm font-extrabold text-[#071426] transition hover:bg-[#f08a24] disabled:cursor-not-allowed disabled:opacity-50"
             >
-              {loading ? "Loading…" : "Submit"}
+              {loading ? content.loading : content.submit}
             </button>
           </div>
         </form>
@@ -207,7 +213,7 @@ export function InstituteStatsPage({ locale }: { locale: string }) {
           <div className="mt-8">
             {results.length === 0 ? (
               <p className="rounded-lg border border-slate-200 bg-slate-50 px-4 py-6 text-center text-sm text-slate-500">
-                No submitted applications found for the selected criteria.
+                {content.noResults}
               </p>
             ) : (
               <div className="overflow-x-auto rounded-xl border border-slate-200 shadow-sm">
@@ -215,19 +221,19 @@ export function InstituteStatsPage({ locale }: { locale: string }) {
                   <thead className="bg-[#0b1f3a] text-white">
                     <tr>
                       <th className="px-4 py-3 text-left font-semibold tracking-wide">
-                        Sl.
+                        {content.slCol}
                       </th>
                       <th className="px-4 py-3 text-left font-semibold tracking-wide">
-                        State Name
+                        {content.stateCol}
                       </th>
                       <th className="px-4 py-3 text-left font-semibold tracking-wide">
-                        District Name
+                        {content.districtCol}
                       </th>
                       <th className="px-4 py-3 text-left font-semibold tracking-wide">
-                        Institute Name
+                        {content.instituteCol}
                       </th>
                       <th className="px-4 py-3 text-right font-semibold tracking-wide">
-                        Count
+                        {content.countCol}
                       </th>
                     </tr>
                   </thead>
@@ -259,7 +265,7 @@ export function InstituteStatsPage({ locale }: { locale: string }) {
                         colSpan={4}
                         className="px-4 py-3 text-right text-sm font-bold text-slate-700"
                       >
-                        Total Applications
+                        {content.total}
                       </td>
                       <td className="px-4 py-3 text-right text-sm font-bold text-[#000080]">
                         {results.reduce((sum, r) => sum + r.count, 0)}
