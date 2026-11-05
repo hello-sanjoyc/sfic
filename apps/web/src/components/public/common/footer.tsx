@@ -18,7 +18,7 @@ export function Footer({ locale = "en" }: { locale?: string }) {
                 [content.header.nav.contact, "#contact"],
             ],
         },
-    ] as const;
+    ];
     return (
         <footer id="contact" className="mt-16 bg-gradient-to-b from-[#f8fafc] to-[#101213] px-5 pb-0 pt-5 sm:px-8 sm:pb-0 sm:pt-8 lg:px-[60px]">
             <div className="footer-surface w-full overflow-hidden rounded-t-[3rem] text-slate-200">
@@ -61,7 +61,36 @@ export function Footer({ locale = "en" }: { locale?: string }) {
                                     {heading}
                                 </h2>
                                 <ul className="mt-10 grid gap-4 text-base text-slate-300">
-                                    {links.map(([label, path]) => (
+                                    {links.slice(0, -1).map(([label, path]) => (
+                                        <li key={label}>
+                                            {policy ? (
+                                                <Link
+                                                    className="transition hover:text-[#ffd29f]"
+                                                    href={`/${locale}${path}`}
+                                                >
+                                                    {label}
+                                                </Link>
+                                            ) : (
+                                                <OnePageLink
+                                                    className="transition hover:text-[#ffd29f]"
+                                                    href={`/${locale}${path}`}
+                                                    locale={locale}
+                                                    target={path}
+                                                >
+                                                    {label}
+                                                </OnePageLink>
+                                            )}
+                                        </li>
+                                    ))}
+                                    <li>
+                                        <Link
+                                            className="transition hover:text-[#ffd29f]"
+                                            href={`/${locale}/institute-stats`}
+                                        >
+                                            {content.footer.instituteStats}
+                                        </Link>
+                                    </li>
+                                    {links.slice(-1).map(([label, path]) => (
                                         <li key={label}>
                                             {policy ? (
                                                 <Link

@@ -44,11 +44,18 @@ type EvaluationRow = {
     total_score: number;
 };
 
-function settingKey(level: Level, stateName: string) {
+function submitDateKey(level: Level, stateName: string) {
     const code = STATE_CODES[stateName.trim().toLowerCase()];
     if (!code) return null;
 
     return `JURY_${level === "District" ? "DISTRICT" : "STATE"}_EVALUATION_SUBMIT_DATE_${code}`;
+}
+
+function startDateKey(level: Level, stateName: string) {
+    const code = STATE_CODES[stateName.trim().toLowerCase()];
+    if (!code) return null;
+
+    return `JURY_${level === "District" ? "DISTRICT" : "STATE"}_EVALUATION_START_DATE_${code}`;
 }
 
 // An empty or unparsable setting means "no deadline set".
@@ -59,10 +66,14 @@ function parseDeadline(value: string | undefined) {
     return Number.isNaN(date.getTime()) ? null : date;
 }
 
-async function loadDeadlines(pg: Pool, stateName: string) {
-    const keys = (["District", "State"] as const).map((level) =>
-        settingKey(level, stateName),
-    );
+type LevelDates = { start: Date | null; submit: Date | null };
+
+async function loadDeadlines(pg: Pool, stateName: string): Promise<Record<Level, LevelDates>> {
+    const levels: Level[] = ["District", "State"];
+    const keys = levels.flatMap((level) => [
+        startDateKey(level, stateName),
+        submitDateKey(level, stateName),
+    ]);
     const result = await pg.query<{ setting_key: string; setting_value: string }>(
         `SELECT setting_key, setting_value
          FROM public.app_settings
@@ -74,14 +85,22 @@ async function loadDeadlines(pg: Pool, stateName: string) {
     );
 
     return {
-        District: parseDeadline(values.get(keys[0] ?? "")),
-        State: parseDeadline(values.get(keys[1] ?? "")),
+        District: {
+            start: parseDeadline(values.get(startDateKey("District", stateName) ?? "")),
+            submit: parseDeadline(values.get(submitDateKey("District", stateName) ?? "")),
+        },
+        State: {
+            start: parseDeadline(values.get(startDateKey("State", stateName) ?? "")),
+            submit: parseDeadline(values.get(submitDateKey("State", stateName) ?? "")),
+        },
     };
 }
 
 // Applications whose jury never pressed final submit are submitted
 // automatically once the deadline for their state and level has passed.
-export async function autoSubmitExpiredEvaluations(pg: Pool) {
+// Pass excludeJuryId to spare the requesting jury member's own in-progress
+// evaluation so they can still submit it themselves within this request.
+export async function autoSubmitExpiredEvaluations(pg: Pool, excludeJuryId?: number) {
     const result = await pg.query<{ setting_key: string; setting_value: string }>(
         `SELECT setting_key, setting_value
          FROM public.app_settings
@@ -121,11 +140,12 @@ export async function autoSubmitExpiredEvaluations(pg: Pool) {
          JOIN public.states st ON st.id = jp.state_id
          WHERE jp.id = e.jury_profile_id
            AND e.status = 'in_progress'
+           AND ($3::int IS NULL OR jp.id <> $3)
            AND (
                 (e.level = 'District' AND LOWER(TRIM(st.name_en)) = ANY($1::text[]))
                 OR (e.level = 'State' AND LOWER(TRIM(st.name_en)) = ANY($2::text[]))
            )`,
-        [expired.District, expired.State],
+        [expired.District, expired.State, excludeJuryId ?? null],
     );
 }
 
@@ -135,39 +155,54 @@ export type JuryAccess = {
     isSubmissionClosed: boolean;
     level: Level;
     message: string;
+    startDate: Date | null;
 };
 
-// District level juries can always work; state level juries only after the
-// district level deadline for their state has passed.
+// District juries can evaluate only within the start–submit window for their state.
+// State juries can start only after the district submit date has passed.
 export async function getJuryAccess(
     pg: Pool,
     loaded: LoadedJuryScope,
 ): Promise<JuryAccess> {
     const level = loaded.jury.scope;
-    const deadlines = await loadDeadlines(pg, loaded.jury.state_name);
-    const deadline = deadlines[level];
+    const dates = await loadDeadlines(pg, loaded.jury.state_name);
+    const levelDates = dates[level];
     const now = Date.now();
-    const isSubmissionClosed = Boolean(deadline && deadline.getTime() <= now);
+    const isSubmissionClosed = Boolean(levelDates.submit && levelDates.submit.getTime() <= now);
+
+    if (level === "District") {
+        const startDate = levelDates.start;
+        if (startDate && startDate.getTime() > now) {
+            return {
+                deadline: levelDates.submit,
+                isOpen: false,
+                isSubmissionClosed,
+                level,
+                message: "District level evaluation has not started yet.",
+                startDate,
+            };
+        }
+    }
 
     if (level === "State") {
-        const districtDeadline = deadlines.District;
         const districtDone = Boolean(
-            districtDeadline && districtDeadline.getTime() <= now,
+            dates.District.submit && dates.District.submit.getTime() <= now,
         );
 
         if (!districtDone) {
             return {
-                deadline,
+                deadline: levelDates.submit,
                 isOpen: false,
                 isSubmissionClosed,
                 level,
                 message:
                     "Applications will open for state level jury members once district level screening is completed.",
+                startDate: levelDates.start,
             };
         }
     }
 
-    return { deadline, isOpen: true, isSubmissionClosed, level, message: "" };
+    return { deadline: levelDates.submit, isOpen: true, isSubmissionClosed, level, message: "", startDate: levelDates.start };
 }
 
 export const LOCKED_MESSAGE =
@@ -289,11 +324,11 @@ async function prepare(
         return null;
     }
 
-    await autoSubmitExpiredEvaluations(pg);
-
     const juryId = Number(
         (request as unknown as AuthenticatedJuryRequest).jury.sub,
     );
+
+    await autoSubmitExpiredEvaluations(pg, juryId);
     const loaded = await loadJuryScope(pg, juryId);
 
     if (!loaded) {
@@ -540,6 +575,7 @@ async function ownOpenEvaluation(
     context: Context,
     request: FastifyRequest<{ Params: Params }>,
     reply: FastifyReply,
+    options: { allowAfterDeadline?: boolean } = {},
 ) {
     const evaluation = await readEvaluation(
         context.pg,
@@ -560,7 +596,16 @@ async function ownOpenEvaluation(
         return null;
     }
 
-    if (evaluation.status === "auto_submitted" || context.access.isSubmissionClosed) {
+    if (evaluation.status === "auto_submitted") {
+        sendError(request, reply, {
+            message: "The submission date has passed, so this evaluation is locked and can no longer be edited.",
+            statusCode: 409,
+        });
+        return null;
+    }
+
+    // After the deadline, only a final submit is allowed — not further draft saves.
+    if (context.access.isSubmissionClosed && !options.allowAfterDeadline) {
         sendError(request, reply, {
             message: "The submission date has passed, so this evaluation is locked and can no longer be edited.",
             statusCode: 409,
@@ -748,7 +793,7 @@ async function submitEvaluation(
         });
     }
 
-    const evaluation = await ownOpenEvaluation(context, request, reply);
+    const evaluation = await ownOpenEvaluation(context, request, reply, { allowAfterDeadline: true });
     if (!evaluation) return reply;
 
     await saveDraft(context, evaluation.id, draft, request);

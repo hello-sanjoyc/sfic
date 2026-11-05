@@ -10,6 +10,17 @@ export type DistrictsQuery = {
     stateId?: string;
 };
 
+export type InstituteStatsQuery = {
+    stateId?: string;
+    districtId?: string;
+    instituteName?: string;
+};
+
+export type InstituteNamesQuery = {
+    stateId?: string;
+    districtId?: string;
+};
+
 export type InstituteTypesQuery = {
     category?: string;
     participantCode?: string;
@@ -228,10 +239,74 @@ async function getLookups(request: FastifyRequest, reply: FastifyReply) {
     }
 }
 
+async function getInstituteNames(
+    request: FastifyRequest<{ Querystring: InstituteNamesQuery }>,
+    reply: FastifyReply,
+) {
+    const pg = requireDatabase(request, reply);
+    if (!pg) return reply;
+
+    const stateId = request.query.stateId?.trim();
+    const districtId = request.query.districtId?.trim();
+
+    if (stateId && !/^\d+$/.test(stateId)) {
+        return sendError(request, reply, {
+            messageKey: "stateIdNumeric",
+            statusCode: 400,
+        });
+    }
+
+    try {
+        return sendSuccess(request, reply, {
+            data: await commonService.getInstituteNames(pg, {
+                stateId: stateId ? Number(stateId) : undefined,
+                districtId: districtId ? Number(districtId) : undefined,
+            }),
+            messageKey: "instituteStatsFetched",
+        });
+    } catch (error) {
+        return handleFetchError(request, reply, "unableFetchInstituteStats", error);
+    }
+}
+
+async function getInstituteStats(
+    request: FastifyRequest<{ Querystring: InstituteStatsQuery }>,
+    reply: FastifyReply,
+) {
+    const pg = requireDatabase(request, reply);
+    if (!pg) return reply;
+
+    const stateId = request.query.stateId?.trim();
+    const districtId = request.query.districtId?.trim();
+    const instituteName = request.query.instituteName?.trim();
+
+    if (stateId && !/^\d+$/.test(stateId)) {
+        return sendError(request, reply, {
+            messageKey: "stateIdNumeric",
+            statusCode: 400,
+        });
+    }
+
+    try {
+        return sendSuccess(request, reply, {
+            data: await commonService.getInstituteStats(pg, {
+                stateId: stateId ? Number(stateId) : undefined,
+                districtId: districtId ? Number(districtId) : undefined,
+                instituteName: instituteName || undefined,
+            }),
+            messageKey: "instituteStatsFetched",
+        });
+    } catch (error) {
+        return handleFetchError(request, reply, "unableFetchInstituteStats", error);
+    }
+}
+
 export const commonController = {
     getAppSettings,
     getChallengeCategories,
     getDistricts,
+    getInstituteNames,
+    getInstituteStats,
     getInstituteTypes,
     getLookups,
     getParticipantCategories,

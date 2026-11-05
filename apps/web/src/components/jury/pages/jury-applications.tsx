@@ -48,7 +48,7 @@ type JuryApplicationApiItem = {
 type JuryApplicationsResponse = {
   applications: JuryApplicationApiItem[];
   currentEvaluation: { applicationId: number; applicationNumber: string } | null;
-  submission: { deadline: string | null; isClosed: boolean };
+  submission: { deadline: string | null; isClosed: boolean; isOpen: boolean; startDate: string | null };
   pagination: {
     page: number;
     pageSize: number;
@@ -277,13 +277,23 @@ export function JuryApplicationsPage() {
           </Link>
         </section>
       )}
-      {submission?.deadline && (
+      {submission && (submission.startDate || submission.deadline) && (
         <section
-          className={`rounded-lg border p-4 text-sm font-semibold ${submission.isClosed ? "border-rose-200 bg-rose-50 text-rose-800" : "border-amber-200 bg-amber-50 text-red-600"}`}
+          className={`rounded-lg border p-4 text-sm font-semibold ${
+            submission.isClosed
+              ? "border-rose-200 bg-rose-50 text-rose-800"
+              : !submission.isOpen && submission.startDate
+                ? "border-blue-200 bg-blue-50 text-blue-800"
+                : "border-amber-200 bg-amber-50 text-amber-800"
+          }`}
         >
           {submission.isClosed
-            ? `The final submission date (${formatDeadline(submission.deadline)}) has passed. Evaluations can no longer be edited or started.`
-            : `Final submission deadline: ${formatDeadline(submission.deadline)}. Evaluations not submitted by then are submitted automatically.`}
+            ? `The final submission date (${formatDeadline(submission.deadline!)}) has passed. Evaluations can no longer be edited or started.`
+            : !submission.isOpen && submission.startDate
+              ? `Evaluation period opens on ${formatDeadline(submission.startDate)}.${submission.deadline ? ` Final submission deadline: ${formatDeadline(submission.deadline)}.` : ""}`
+              : submission.deadline
+                ? `Final submission deadline: ${formatDeadline(submission.deadline)}. Evaluations not submitted by then are submitted automatically.`
+                : null}
         </section>
       )}
       <section className="w-full min-w-0 rounded-lg border border-slate-200 bg-white shadow-sm">

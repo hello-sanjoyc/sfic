@@ -22,6 +22,7 @@ export const enContent = {
         invalidParticipantCategory: "Invalid participant category.",
         invalidState: "Invalid state.",
         instituteTypesFetched: "Organisation types fetched successfully.",
+        instituteStatsFetched: "Institute statistics fetched successfully.",
         internalServerError: "Something went wrong. Please try again.",
         invalidToken: "Verification code is either invalid or has expired.",
         lookupsFetched: "Common lookups fetched successfully.",
@@ -57,6 +58,7 @@ export const enContent = {
         unableFetchCommonLookups: "Unable to fetch common lookups.",
         unableFetchDistricts: "Unable to fetch districts.",
         unableFetchInstituteTypes: "Unable to fetch organisation types.",
+        unableFetchInstituteStats: "Unable to fetch institute statistics.",
         unableFetchParticipantCategories:
             "Unable to fetch participant categories.",
         unableFetchParticipantCategoryInstituteTypes:

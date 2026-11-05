@@ -91,6 +91,7 @@ type ParticipantApplicationSummaryRow = {
             };
         } | null;
         createdAt: string;
+        districtEvaluationStatus: string | null;
         participationMode: string;
         status: string;
         submittedAt: string | null;
@@ -101,7 +102,10 @@ type ParticipantApplicationSummaryRow = {
 };
 
 type ParticipantApplicationDetailsRow = {
-    application: ParticipantApplicationDetailsResult["application"];
+    application: ParticipantApplicationDetailsResult["application"] & {
+        evaluationStarted: boolean;
+        stateNameForLock: string | null;
+    };
 };
 
 type ParticipantProfileResultRow = {
@@ -1596,8 +1600,8 @@ function registrationDateInstant(value: string | undefined, boundary: "start" | 
     return Number.isNaN(date.getTime()) ? null : date;
 }
 
-// Participants (never SuperAdmin) cannot edit or delete an application once an evaluation has started
-// or the registration end date has passed, whichever is earlier. Admin edits are SuperAdmin-only in the admin module.
+// No one (including SuperAdmin) can edit an application once the district evaluation start date
+// for its state has passed, or an evaluation row exists, or the registration period has ended.
 const registrationEndedMessage =
     "The registration period has ended. This application can no longer be edited or deleted.";
 const underEvaluationMessage =
@@ -1619,6 +1623,31 @@ async function assertApplicationEditable(
 
     if (isRegistrationEnded(settings)) {
         throw new ParticipantRuleError(registrationEndedMessage, 403);
+    }
+
+    // Block editing once the district evaluation window has opened for this application's state.
+    const stateRow = await client.query<{ state_name: string }>(
+        `SELECT LOWER(TRIM(st.name_en)) AS state_name
+         FROM public.participant_applications pa
+         JOIN public.states st ON st.id = pa.state_id
+         WHERE pa.id = $1
+         LIMIT 1`,
+        [applicationId],
+    );
+    const stateName = stateRow.rows[0]?.state_name;
+    if (stateName) {
+        const stateCodes: Record<string, string> = { bihar: "BI", jharkhand: "JH", "west bengal": "WB" };
+        const code = stateCodes[stateName];
+        if (code) {
+            const startKey = `JURY_DISTRICT_EVALUATION_START_DATE_${code}`;
+            const startValue = settings[startKey];
+            if (startValue?.trim()) {
+                const startDate = new Date(startValue.trim());
+                if (!Number.isNaN(startDate.getTime()) && startDate.getTime() <= Date.now()) {
+                    throw new ParticipantRuleError(underEvaluationMessage, 403);
+                }
+            }
+        }
     }
 
     const evaluation = await client.query<{ started: boolean }>(
@@ -2488,7 +2517,13 @@ async function getApplications(
                 'hi', cc.name_hi
               )
             )
-          END
+          END,
+          'districtEvaluationStatus', (
+            SELECT CASE WHEN je.status = 'in_progress' THEN 'On Evaluation' ELSE 'Evaluated' END
+            FROM public.jury_evaluations je
+            WHERE je.application_id = pa.id AND je.level = 'District'
+            LIMIT 1
+          )
         ) AS application
       FROM public.participant_applications pa
       LEFT JOIN public.challenges c
@@ -2505,7 +2540,18 @@ async function getApplications(
     const total = Number(result.rows[0]?.total_count ?? 0);
 
     return {
-        applications: result.rows.map((row) => row.application),
+        applications: result.rows.map((row) => {
+            const app = row.application;
+            return {
+                ...app,
+                districtEvaluationStatus: (
+                    app.districtEvaluationStatus === "On Evaluation" ||
+                    app.districtEvaluationStatus === "Evaluated"
+                        ? app.districtEvaluationStatus
+                        : null
+                ),
+            };
+        }),
         pagination: {
             page,
             pageSize,
@@ -2747,6 +2793,13 @@ async function getApplication(
           'createdAt', pa.created_at,
           'updatedAt', pa.updated_at,
           'evaluationStarted', EXISTS (SELECT 1 FROM public.jury_evaluations je WHERE je.application_id = pa.id),
+          'districtEvaluationStatus', (
+            SELECT CASE WHEN je.status = 'in_progress' THEN 'On Evaluation' ELSE 'Evaluated' END
+            FROM public.jury_evaluations je
+            WHERE je.application_id = pa.id AND je.level = 'District'
+            LIMIT 1
+          ),
+          'stateNameForLock', LOWER(TRIM(st_lock.name_en)),
           'title', COALESCE(NULLIF(pa.proposed_solution, ''), c.title_en, pa.application_number),
           'profile', jsonb_build_object(
             'city', pa.city,
@@ -2890,6 +2943,8 @@ async function getApplication(
         ON it.id = pa.institute_type_id
       LEFT JOIN public.states s
         ON s.id = pa.state_id
+      LEFT JOIN public.states st_lock
+        ON st_lock.id = pa.state_id
       LEFT JOIN public.districts d
         ON d.id = pa.district_id
       WHERE md5(pa.id::text) = LOWER($2)
@@ -2907,14 +2962,24 @@ async function getApplication(
     const row = result.rows[0]?.application;
     if (!row) return null;
 
-    // The UI hides Edit / Delete when the application is locked (evaluation started or registration ended).
-    const { evaluationStarted, ...application } = row;
+    const { evaluationStarted, stateNameForLock, districtEvaluationStatus, ...application } = row;
     const settings = await getApplicationSettings(pg as unknown as PoolClient);
+
+    const stateCodes: Record<string, string> = { bihar: "BI", jharkhand: "JH", "west bengal": "WB" };
+    const stateCode = stateCodes[stateNameForLock as string ?? ""] ?? null;
+    const districtStartKey = stateCode ? `JURY_DISTRICT_EVALUATION_START_DATE_${stateCode}` : null;
+    const districtStartValue = districtStartKey ? settings[districtStartKey] : undefined;
+    let districtEvalStarted = false;
+    if (districtStartValue?.trim()) {
+        const d = new Date(districtStartValue.trim());
+        districtEvalStarted = !Number.isNaN(d.getTime()) && d.getTime() <= Date.now();
+    }
 
     return {
         application: {
             ...application,
-            isLocked: Boolean(evaluationStarted) || isRegistrationEnded(settings),
+            districtEvaluationStatus: (districtEvaluationStatus === "On Evaluation" || districtEvaluationStatus === "Evaluated" ? districtEvaluationStatus : null),
+            isLocked: Boolean(evaluationStarted) || districtEvalStarted || isRegistrationEnded(settings),
         },
     };
 }

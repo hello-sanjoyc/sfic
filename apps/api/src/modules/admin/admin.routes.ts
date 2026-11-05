@@ -21,6 +21,10 @@ export const adminRoutes: FastifyPluginAsync = async (app) => {
         adminController.downloadApplicationPdf,
     );
     app.get(
+        "/applications/:applicationId/scoring-card",
+        adminController.downloadScoringCardPdf,
+    );
+    app.get(
         "/applications/:applicationId/documents/:documentId/download",
         adminController.downloadApplicationDocument,
     );
@@ -41,6 +45,10 @@ export const adminRoutes: FastifyPluginAsync = async (app) => {
     app.get(
         "/dashboard-challenge-category-counts",
         adminController.getDashboardChallengeCategoryCounts,
+    );
+    app.get(
+        "/dashboard-jury-category-evaluation",
+        adminController.getDashboardJuryCategoryEvaluation,
     );
     app.get("/server-health", adminController.getServerHealth);
     app.get("/page-view-analytics", adminController.getPageViewAnalytics);

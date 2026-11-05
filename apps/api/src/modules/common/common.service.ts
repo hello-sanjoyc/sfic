@@ -29,6 +29,19 @@ export type DistrictFilters = {
     stateId?: number;
 };
 
+export type InstituteStatsFilters = {
+    stateId?: number;
+    districtId?: number;
+    instituteName?: string;
+};
+
+export type InstituteStatRow = {
+    state_name: string;
+    district_name: string;
+    institute_name: string;
+    count: number;
+};
+
 function districtWhereClause(filters: DistrictFilters) {
     const conditions: string[] = ["d.is_active = TRUE", "s.is_active = TRUE"];
     const values: number[] = [];
@@ -225,6 +238,90 @@ async function getChallengeCategories(pg: DatabaseClient) {
     return result.rows.map(listItemFromRow);
 }
 
+async function getInstituteNames(
+    pg: DatabaseClient,
+    filters: InstituteStatsFilters = {},
+) {
+    const conditions: string[] = [
+        "pa.status = 'submitted'",
+        "pa.institute_name IS NOT NULL",
+        "TRIM(pa.institute_name) != ''",
+    ];
+    const values: (number | string)[] = [];
+
+    if (filters.stateId !== undefined) {
+        values.push(filters.stateId);
+        conditions.push(`pa.state_id = $${values.length}`);
+    }
+
+    if (filters.districtId !== undefined) {
+        values.push(filters.districtId);
+        conditions.push(`pa.district_id = $${values.length}`);
+    }
+
+    const where = `WHERE ${conditions.join(" AND ")}`;
+    const result = await pg.query<{ institute_name: string }>(
+        `
+        SELECT DISTINCT TRIM(pa.institute_name) AS institute_name
+        FROM participant_applications pa
+        ${where}
+        ORDER BY institute_name
+        `,
+        values,
+    );
+
+    return result.rows.map((r) => r.institute_name);
+}
+
+async function getInstituteStats(
+    pg: DatabaseClient,
+    filters: InstituteStatsFilters = {},
+) {
+    const conditions: string[] = [
+        "pa.status = 'submitted'",
+        "pa.institute_name IS NOT NULL",
+        "TRIM(pa.institute_name) != ''",
+        "s.id IS NOT NULL",
+        "d.id IS NOT NULL",
+    ];
+    const values: (number | string)[] = [];
+
+    if (filters.stateId !== undefined) {
+        values.push(filters.stateId);
+        conditions.push(`pa.state_id = $${values.length}`);
+    }
+
+    if (filters.districtId !== undefined) {
+        values.push(filters.districtId);
+        conditions.push(`pa.district_id = $${values.length}`);
+    }
+
+    if (filters.instituteName !== undefined) {
+        values.push(filters.instituteName);
+        conditions.push(`TRIM(pa.institute_name) = $${values.length}`);
+    }
+
+    const where = `WHERE ${conditions.join(" AND ")}`;
+    const result = await pg.query<InstituteStatRow>(
+        `
+        SELECT
+            s.name_en AS state_name,
+            d.name_en AS district_name,
+            TRIM(pa.institute_name) AS institute_name,
+            COUNT(*)::integer AS count
+        FROM participant_applications pa
+        JOIN states s ON s.id = pa.state_id
+        JOIN districts d ON d.id = pa.district_id
+        ${where}
+        GROUP BY s.name_en, d.name_en, TRIM(pa.institute_name)
+        ORDER BY s.name_en, d.name_en, institute_name
+        `,
+        values,
+    );
+
+    return result.rows;
+}
+
 async function getLookups(pg: DatabaseClient) {
     const [
         states,
@@ -253,6 +350,8 @@ export const commonService = {
     getAppSettings,
     getChallengeCategories,
     getDistricts,
+    getInstituteNames,
+    getInstituteStats,
     getInstituteTypesByParticipantCategory,
     getInstituteTypes,
     getLookups,

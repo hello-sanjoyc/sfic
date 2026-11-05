@@ -14,6 +14,8 @@ export const endpoints = {
         appSettings: `${api}/common/app-settings`,
         challengeCategories: `${api}/common/challenge-categories`,
         districts: `${api}/common/districts`,
+        instituteNames: `${api}/common/institute-names`,
+        instituteStats: `${api}/common/institute-stats`,
         instituteTypes: `${api}/common/institute-types`,
         lookups: `${api}/common/lookups`,
         participantCategories: `${api}/common/participant-categories`,
@@ -74,6 +76,8 @@ export const endpoints = {
         application: (id: string | number) => `${api}/admin/applications/${id}`,
         applicationDownload: (id: string | number) =>
             `${api}/admin/applications/${id}/download`,
+        applicationScoringCard: (id: string | number) =>
+            `${api}/admin/applications/${id}/scoring-card`,
         applicationDocumentDownload: (
             applicationId: string | number,
             documentId: string | number,
@@ -89,6 +93,7 @@ export const endpoints = {
         dashboardChallengeCategoryCounts: `${api}/admin/dashboard-challenge-category-counts`,
         dashboardCounts: `${api}/admin/dashboard-counts`,
         dashboardDistrictCounts: `${api}/admin/dashboard-district-counts`,
+        dashboardJuryCategoryEvaluation: `${api}/admin/dashboard-jury-category-evaluation`,
         dashboardOrganisationTypeCounts: `${api}/admin/dashboard-organisation-type-counts`,
         serverHealth: `${api}/admin/server-health`,
         emailNotificationAnalytics: (id: string | number) =>

@@ -81,6 +81,7 @@ export type ParticipantApplicationSummary = {
     };
   } | null;
   createdAt: string;
+  districtEvaluationStatus: "Evaluated" | "On Evaluation" | null;
   participationMode: string;
   status: string;
   submittedAt: string | null;

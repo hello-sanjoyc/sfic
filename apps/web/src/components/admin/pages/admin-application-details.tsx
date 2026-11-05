@@ -8,14 +8,11 @@ import {
   GraduationCap,
   Lightbulb,
   MapPin,
-  Pencil,
   RotateCcw,
-  Trash2,
   User,
   Users,
 } from "lucide-react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { AdminShell } from "@/components/admin/common/admin-shell";
 import { AUTH_STORAGE_KEY } from "@/components/auth";
@@ -64,6 +61,7 @@ type ApplicationDetails = {
     languageCode?: string | null;
   }>;
   id?: number | string | null;
+  isLocked?: boolean | null;
   instituteType?: {
     name?: LocalizedText | null;
   } | null;
@@ -272,7 +270,6 @@ export function AdminApplicationDetailsPage({
 }: Readonly<{
   applicationId: string;
 }>) {
-  const router = useRouter();
   const [application, setApplication] = useState<ApplicationDetails | null>(null);
   const [documentDownloadingId, setDocumentDownloadingId] = useState<
     number | string | null
@@ -280,8 +277,6 @@ export function AdminApplicationDetailsPage({
   const [downloadError, setDownloadError] = useState("");
   const [errorMessage, setErrorMessage] = useState("");
   const [isSuperAdmin, setIsSuperAdmin] = useState(false);
-  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
-  const [isDeleting, setIsDeleting] = useState(false);
   const [isDownloading, setIsDownloading] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [isResetDialogOpen, setIsResetDialogOpen] = useState(false);
@@ -423,30 +418,6 @@ export function AdminApplicationDetailsPage({
     } finally {
       setDocumentDownloadingId(null);
     }
-  };
-
-  const deleteApplication = () => {
-    if (!application || isDeleting) return;
-
-    setIsDeleting(true);
-    setErrorMessage("");
-
-    void apiClient
-      .delete(endpoints.admin.application(applicationId))
-      .then(() => {
-        setIsDeleteDialogOpen(false);
-        router.push("/admin/applications");
-      })
-      .catch((error) => {
-        setErrorMessage(
-          error instanceof Error
-            ? error.message
-            : "Application could not be deleted.",
-        );
-      })
-      .finally(() => {
-        setIsDeleting(false);
-      });
   };
 
   const resetEvaluation = () => {
@@ -775,35 +746,17 @@ export function AdminApplicationDetailsPage({
             </div>
           </Section>
 
-          {isSuperAdmin && (
+          {isSuperAdmin && application?.evaluation && (
             <section className="flex w-full min-w-0 flex-wrap items-center justify-end gap-2 rounded-lg border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
-              <Link
-                className="inline-flex h-11 items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 text-sm font-bold text-[#0b1f3a] disabled:cursor-not-allowed disabled:opacity-50"
-                href={`/admin/applications/${applicationId}/edit`}
-              >
-                <Pencil size={17} />
-                Edit
-              </Link>
               <button
-                className="inline-flex h-11 items-center gap-2 rounded-lg border border-rose-200 bg-white px-4 text-sm font-bold text-rose-700 disabled:cursor-not-allowed disabled:opacity-50"
-                disabled={isDeleting}
-                onClick={() => setIsDeleteDialogOpen(true)}
+                className="inline-flex h-11 items-center gap-2 rounded-lg border border-amber-200 bg-white px-4 text-sm font-bold text-amber-700 disabled:cursor-not-allowed disabled:opacity-50"
+                disabled={isResetting}
+                onClick={() => setIsResetDialogOpen(true)}
                 type="button"
               >
-                <Trash2 size={17} />
-                {isDeleting ? "Deleting..." : "Delete"}
+                <RotateCcw size={17} />
+                {isResetting ? "Resetting..." : "Reset Evaluation"}
               </button>
-              {application?.evaluation && (
-                <button
-                  className="inline-flex h-11 items-center gap-2 rounded-lg border border-amber-200 bg-white px-4 text-sm font-bold text-amber-700 disabled:cursor-not-allowed disabled:opacity-50"
-                  disabled={isResetting}
-                  onClick={() => setIsResetDialogOpen(true)}
-                  type="button"
-                >
-                  <RotateCcw size={17} />
-                  {isResetting ? "Resetting..." : "Reset Evaluation"}
-                </button>
-              )}
             </section>
           )}
 
@@ -814,52 +767,6 @@ export function AdminApplicationDetailsPage({
           )}
 
         </>
-      )}
-
-      {isDeleteDialogOpen && application && (
-        <div className="fixed inset-0 z-50 grid place-items-center bg-slate-950/45 p-4">
-          <div className="w-full max-w-md rounded-lg bg-white shadow-xl">
-            <div className="border-b border-slate-200 p-4 sm:p-5">
-              <h2 className="text-lg font-black text-[#0b1f3a]">
-                Delete Application
-              </h2>
-              <p className="mt-2 text-sm font-medium text-slate-600">
-                Are you sure you want to delete application{" "}
-                <strong className="font-black text-[#0b1f3a]">
-                  {application.applicationNumber ?? `application ${applicationId}`}
-                </strong>
-                ?
-              </p>
-              <p className="mt-3 text-sm font-medium text-slate-600">
-                This action will permanently delete the application and all
-                associated data from the system, including related records and
-                uploaded document files.
-              </p>
-              <p className="mt-3 text-sm font-black text-[#0b1f3a]">
-                This action cannot be undone.
-              </p>
-            </div>
-            <div className="flex flex-col justify-end gap-2 p-4 sm:flex-row sm:flex-wrap sm:p-5">
-              <button
-                className="inline-flex h-10 w-full items-center justify-center rounded-lg border border-slate-200 bg-white px-4 text-sm font-bold text-[#0b1f3a] sm:w-auto"
-                disabled={isDeleting}
-                onClick={() => setIsDeleteDialogOpen(false)}
-                type="button"
-              >
-                Cancel
-              </button>
-              <button
-                className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-lg bg-rose-600 px-4 text-sm font-bold text-white disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto"
-                disabled={isDeleting}
-                onClick={deleteApplication}
-                type="button"
-              >
-                <Trash2 size={16} />
-                {isDeleting ? "Deleting..." : "Delete"}
-              </button>
-            </div>
-          </div>
-        </div>
       )}
 
       {isResetDialogOpen && application && (

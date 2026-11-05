@@ -72,14 +72,6 @@ async function getJuryApplications(
     await autoSubmitExpiredEvaluations(pg);
 
     const access = await getJuryAccess(pg, loaded);
-
-    if (!access.isOpen) {
-        return sendError(request, reply, {
-            message: access.message,
-            statusCode: 403,
-        });
-    }
-
     const juryId = Number((request as unknown as AuthenticatedJuryRequest).jury.sub);
 
     const page = Math.max(1, Math.floor(Number(request.query.page) || 1));
@@ -178,6 +170,8 @@ async function getJuryApplications(
             submission: {
                 deadline: access.deadline?.toISOString() ?? null,
                 isClosed: access.isSubmissionClosed,
+                isOpen: access.isOpen,
+                startDate: access.startDate?.toISOString() ?? null,
             },
             pagination: {
                 page,
@@ -374,11 +368,6 @@ async function resolveJuryApplication(
     const juryId = Number((request as unknown as AuthenticatedJuryRequest).jury.sub);
     const loaded = await loadJuryScope(pg, juryId);
     const access = loaded ? await getJuryAccess(pg, loaded) : null;
-
-    if (access && !access.isOpen) {
-        sendError(request, reply, { message: access.message, statusCode: 403 });
-        return null;
-    }
 
     const application = loaded
         ? await loadJuryApplication(pg, loaded.values, applicationId)

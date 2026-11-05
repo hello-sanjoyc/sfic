@@ -23,6 +23,7 @@ export const hiContent = {
         invalidParticipantCategory: "प्रतिभागी श्रेणी मान्य नहीं है।",
         invalidState: "राज्य मान्य नहीं है।",
         instituteTypesFetched: "संगठन के प्रकार सफलतापूर्वक प्राप्त हो गए हैं।",
+        instituteStatsFetched: "संस्थान सांख्यिकी सफलतापूर्वक प्राप्त हो गई है।",
         internalServerError: "कुछ गड़बड़ हुई है। कृपया फिर से प्रयास करें।",
         invalidToken: "सत्यापन कोड मान्य नहीं है या उसकी अवधि समाप्त हो चुकी है।",
         lookupsFetched: "आवश्यक सामान्य जानकारी सफलतापूर्वक प्राप्त हो गई है।",
@@ -61,6 +62,7 @@ export const hiContent = {
         unableFetchCommonLookups: "आवश्यक सामान्य जानकारी प्राप्त नहीं की जा सकी।",
         unableFetchDistricts: "जिलों की जानकारी प्राप्त नहीं की जा सकी।",
         unableFetchInstituteTypes: "संगठन के प्रकार प्राप्त नहीं किए जा सके।",
+        unableFetchInstituteStats: "संस्थान सांख्यिकी प्राप्त नहीं की जा सकी।",
         unableFetchParticipantCategories:
             "प्रतिभागी श्रेणियां प्राप्त नहीं की जा सकीं।",
         unableFetchParticipantCategoryInstituteTypes:

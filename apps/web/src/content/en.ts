@@ -78,6 +78,7 @@ export const enContent = {
         terms: "Terms & Conditions",
         ip: "IP Policy",
         accessibility: "Accessibility",
+        instituteStats: "Institute Statistics",
         disclaimer: "Disclaimer",
         department: "Department of Science & Technology and Biotechnology",
         address:
@@ -88,6 +89,25 @@ export const enContent = {
         rights: "Department of Science & Technology and Biotechnology, Government of West Bengal. All rights reserved.",
     },
     pages: {
+        instituteStats: {
+            title: "Institute-wise Application Statistics",
+            description: "View the count of submitted applications by state, district, and institute name.",
+            state: "State",
+            district: "District",
+            institute: "Institute Name",
+            all: "All",
+            selectState: "— Select State —",
+            submit: "Search",
+            loading: "Loading…",
+            noResults: "No submitted applications found for the selected criteria.",
+            slCol: "Sl.",
+            stateCol: "State Name",
+            districtCol: "District Name",
+            instituteCol: "Institute Name",
+            countCol: "Count",
+            total: "Total Applications",
+            error: "Failed to fetch data. Please try again.",
+        },
         register: {
             title: "Start Your Application",
             intro: "Prepare your basic details and take the first step towards submitting your innovation.",
