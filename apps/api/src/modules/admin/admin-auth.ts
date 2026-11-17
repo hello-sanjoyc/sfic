@@ -42,8 +42,12 @@ function routeModule(request: FastifyRequest): AdminAccessModule | null {
         return "analytics";
     }
 
+    // Jury administration is part of the application-review workflow, not
+    // generic user management. District admins have view-only user access but
+    // full application access, and the jury controller applies the required
+    // state/district boundary to every operation.
+    if (path.includes("/jury/admin/")) return "applications";
     if (path.includes("/users")) return "users";
-    if (path.includes("/jury/admin/")) return "users";
     if (path.includes("/email-notifications")) return "emailNotifications";
     if (path.includes("/settings/user-roles")) return "users";
     if (path.includes("/applications")) return "applications";
